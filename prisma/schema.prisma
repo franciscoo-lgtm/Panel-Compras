@@ -1,0 +1,148 @@
+// ─── Generator & Datasource ───────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── NextAuth ─────────────────────────────────────────────────────────────────
+
+model User {
+  id            String     @id @default(cuid())
+  name          String?
+  email         String?    @unique
+  emailVerified DateTime?
+  image         String?
+  role          String     @default("comercial") // "comercial" | "comex" | "admin"
+  createdAt     DateTime   @default(now())
+  accounts      Account[]
+  sessions      Session[]
+  ciplItems     CIPLItem[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Dominio principal ────────────────────────────────────────────────────────
+
+model CIPLItem {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ── Identidad ───────────────────────────────────────────────────────────────
+  userId       String?
+  user         User?   @relation(fields: [userId], references: [id])
+  categoryName String?  // nombre del operador (pre-auth)
+  tipoCarga    String   // "Repuesto" | "Mercaderia"
+
+  // ── Extraídos por ETL ───────────────────────────────────────────────────────
+  asn             String?
+  date            DateTime?
+  piNo            String?
+  caseNo          String?
+  qBultos         Int?
+  qty             Int?
+  codeEan         String?
+  description     String?
+  w               Float?    // cm — ancho caja
+  l               Float?    // cm — largo caja
+  h               Float?    // cm — alto caja
+  cbm             Float?    // m³ total del grupo de bultos
+  gwKg            Float?    // kg bruto
+  cbmXBulto       Float?    // m³ por bulto
+  uniXBulto       Float?    // unidades por bulto
+  isDangerousGood Boolean   @default(false)
+
+  // ── Asignados por el usuario ────────────────────────────────────────────────
+  soPrincipal  String?
+  soSecundario String?
+  linkMsds     String?
+
+  // ── Links Google Drive ──────────────────────────────────────────────────────
+  driveLinkExcel String?
+  driveLinkCi    String?
+  driveLinkPl    String?
+
+  // ── GSO V4 — guardados al asignar SO ────────────────────────────────────────
+  sku            String?
+  pa             String?
+  modelo         String?
+  qPi            Int?
+  diferenciaPiPl Int?
+  incoterm       String?
+  puertoSalida   String?
+  fobUnit        Float?
+  fobTotal       Float?
+
+  // ── Fotos inspección ────────────────────────────────────────────────────────
+  photos     CIPLPhoto[]
+
+  // ── Comex tracking ──────────────────────────────────────────────────────────
+  avisoAgente       String?   // fecha / estado aviso al agente
+  avisoConfirmacion String?   // confirmación del agente
+  arriboWh          DateTime? // arribo al WH de Airsea
+  fotosAgente       String?   // link fotos o fecha de envío
+  paletizado        String?   // estado paletizado
+  fechaInstruccion  DateTime? // fecha instrucción de despacho
+  confirmacionOk    String?   // OK Despachante + Her
+  etd               DateTime? // Estimated Time of Departure
+  eta               DateTime? // Estimated Time of Arrival
+  etaCaldas         DateTime? // ETA en Caldas 1535
+  awb               String?   // Airway Bill Number
+}
+
+// ─── Fotos de inspección ─────────────────────────────────────────────────────
+
+model CIPLPhoto {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  ciplItemId String
+  ciplItem   CIPLItem @relation(fields: [ciplItemId], references: [id], onDelete: Cascade)
+  dataUrl    String   // "data:image/jpeg;base64,..."
+  rowIndex   Int      // fila en el Excel (= caja física)
+  colIndex   Int      // posición dentro de la fila
+}
+
+// ─── Configuración del sistema ────────────────────────────────────────────────
+
+model AppConfig {
+  id    String @id @default(cuid())
+  key   String @unique // ej: "GSO_V4_URL", "NEXTAUTH_ALLOWED_EMAILS"
+  value String
+}
