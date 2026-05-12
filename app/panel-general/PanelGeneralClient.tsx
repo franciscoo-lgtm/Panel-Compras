@@ -161,6 +161,106 @@ function getLive(so: string | null | undefined, fieldKey: string, liveData: Live
   return liveData[soKey]?.[fieldKey] ?? null
 }
 
+// ─── Column selector popover ──────────────────────────────────────────────────
+
+function ColumnSelectorPopover({
+  visibleCols,
+  onChange,
+}: {
+  visibleCols: Set<ColKey>
+  onChange: (next: Set<ColKey>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  const hiddenCount = ALL_COLS.filter(c => !visibleCols.has(c)).length
+
+  const toggle = (col: ColKey) => {
+    const next = new Set(visibleCols)
+    next.has(col) ? next.delete(col) : next.add(col)
+    onChange(next)
+  }
+
+  const applyPreset = (cols: readonly ColKey[] | ColKey[]) =>
+    onChange(new Set(cols))
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(p => !p)}
+        className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+      >
+        ⊞ Columnas
+        {hiddenCount > 0 && (
+          <span className="bg-amber-400 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+            {hiddenCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-11 bg-white border border-zinc-200 rounded-xl shadow-2xl p-4 z-50 w-[480px]">
+          {/* Preset buttons */}
+          <div className="flex gap-2 mb-3">
+            {([
+              { label: 'Esenciales',  cols: PRESET_ESENCIALES },
+              { label: 'Todos',       cols: ALL_COLS },
+              { label: 'Dimensiones', cols: PRESET_DIMENSIONES },
+              { label: 'Comex',       cols: PRESET_COMEX },
+            ] as const).map(p => (
+              <button
+                key={p.label}
+                onClick={() => applyPreset(p.cols)}
+                className="px-3 py-1 rounded-lg text-[10px] font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Groups */}
+          <div className="grid grid-cols-2 gap-x-8 gap-y-0.5">
+            {GROUPS.map(group => (
+              <>
+                <div
+                  key={`label-${group.label}`}
+                  className={`col-span-2 text-[9px] font-bold uppercase tracking-wider mt-3 mb-1 ${group.textColor}`}
+                >
+                  {group.label}
+                </div>
+                {group.cols.map(col => (
+                  <label
+                    key={col}
+                    className="flex items-center gap-2 text-[11px] text-zinc-700 cursor-pointer select-none py-0.5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleCols.has(col)}
+                      onChange={() => toggle(col)}
+                      style={{ accentColor: group.accentColor }}
+                      className="w-3.5 h-3.5 shrink-0"
+                    />
+                    {COL_LABELS[col]}
+                  </label>
+                ))}
+              </>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Photo modal ─────────────────────────────────────────────────────────────
 
 type PhotoEntry = { id: string; dataUrl: string; rowIndex: number; colIndex: number }
