@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useTransition, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
 import { FileSpreadsheet, FileText, AlertTriangle, Pencil, Trash2, X, Save, Loader2, CheckCircle2, ExternalLink, Search, Download, CheckSquare, Camera } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { updateCIPLItem, deleteCIPLItem, getItemPhotos } from './actions'
@@ -230,7 +230,7 @@ function ColumnSelectorPopover({
           {/* Groups */}
           <div className="grid grid-cols-2 gap-x-8 gap-y-0.5">
             {GROUPS.map(group => (
-              <>
+              <Fragment key={group.label}>
                 <div
                   key={`label-${group.label}`}
                   className={`col-span-2 text-[9px] font-bold uppercase tracking-wider mt-3 mb-1 ${group.textColor}`}
@@ -252,7 +252,7 @@ function ColumnSelectorPopover({
                     {COL_LABELS[col]}
                   </label>
                 ))}
-              </>
+              </Fragment>
             ))}
           </div>
         </div>
