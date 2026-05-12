@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
-import { extraerCIPL, guardarCIPL } from '@/app/lib/etl'
-import type { ExtractedItem, DriveLinks } from '@/app/lib/etl'
+import { extraerCIPL, guardarCIPL, sugerirSOsCIPL } from '@/app/lib/etl'
+import type { ExtractedItem, DriveLinks, SOSuggestion, SOSuggestionResult } from '@/app/lib/etl'
 import { fetchSalesOrders } from '@/app/lib/sheets'
 import {
   Upload, FileSpreadsheet, FileText, Loader2, ChevronRight,
-  Save, CheckCircle2, AlertTriangle, RotateCcw, Zap,
+  Save, CheckCircle2, AlertTriangle, RotateCcw, Zap, Sparkles,
 } from 'lucide-react'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -161,17 +161,44 @@ function Step2Preview({
   onBack: () => void
   onSaved: (count: number) => void
 }) {
-  const [sos,    setSos]   = useState<string[]>(() => Array(items.length).fill(''))
-  const [sos2,   setSos2]  = useState<string[]>(() => Array(items.length).fill(''))
-  const [soList, setSoList] = useState<string[]>([])
-  const [error,  setError] = useState<string | null>(null)
-  const [pending, start]   = useTransition()
+  const [sos,         setSos]         = useState<string[]>(() => Array(items.length).fill(''))
+  const [sos2,        setSos2]        = useState<string[]>(() => Array(items.length).fill(''))
+  const [soList,      setSoList]      = useState<string[]>([])
+  const [suggestions,   setSuggestions]   = useState<SOSuggestion[]>([])
+  const [suggesting,    setSuggesting]    = useState(false)
+  const [suggestResult, setSuggestResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [error,         setError]         = useState<string | null>(null)
+  const [pending,       start]            = useTransition()
 
   useEffect(() => {
     fetchSalesOrders()
       .then(list => setSoList([...new Set(list)]))
       .catch(() => {})
   }, [])
+
+  async function handleSuggestSOs() {
+    setSuggesting(true)
+    setSuggestions([])
+    setSuggestResult(null)
+    try {
+      const res: SOSuggestionResult = await sugerirSOsCIPL(items)
+      setSuggestions(res.suggestions)
+      // Pre-fill SO fields with suggestions (only where field is currently empty)
+      setSos(prev => prev.map((v, i) => {
+        if (v.trim()) return v                     // keep manual entry
+        return res.suggestions[i]?.so ?? ''        // apply suggestion
+      }))
+      if (res.error) {
+        setSuggestResult({ ok: false, msg: res.error })
+      } else {
+        setSuggestResult({ ok: true, msg: `✨ ${res.soCount} SO${res.soCount !== 1 ? 's' : ''} sugerido${res.soCount !== 1 ? 's' : ''} y aplicado${res.soCount !== 1 ? 's' : ''}` })
+      }
+    } catch (err) {
+      setSuggestResult({ ok: false, msg: `Error inesperado: ${String(err).slice(0, 80)}` })
+    } finally {
+      setSuggesting(false)
+    }
+  }
 
   const setSo  = (i: number, v: string) => setSos(p  => { const n=[...p]; n[i]=v; return n })
   const setSo2 = (i: number, v: string) => setSos2(p => { const n=[...p]; n[i]=v; return n })
@@ -236,17 +263,36 @@ function Step2Preview({
             {driveCount > 0 && <span className="ml-2 text-emerald-600">· {driveCount} archivo{driveCount !== 1 ? 's' : ''} subido{driveCount !== 1 ? 's' : ''} a Drive</span>}
           </p>
         </div>
-        <button type="button" onClick={handleSave} disabled={pending}
-          className="h-10 px-5 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:bg-zinc-100 disabled:text-zinc-400 text-zinc-900 font-semibold text-sm flex items-center gap-2 transition-all shrink-0">
-          {pending
-            ? <><Loader2 className="w-4 h-4 animate-spin" />Guardando…</>
-            : <><Save className="w-4 h-4" />Guardar todo</>}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button type="button" onClick={handleSuggestSOs} disabled={suggesting || pending}
+            className="h-10 px-4 rounded-xl bg-violet-50 hover:bg-violet-100 disabled:opacity-50 text-violet-700 font-semibold text-sm flex items-center gap-2 transition-all border border-violet-200">
+            {suggesting
+              ? <><Loader2 className="w-4 h-4 animate-spin" />Analizando con IA…</>
+              : <><Sparkles className="w-4 h-4" />Sugerir SOs</>}
+          </button>
+          <button type="button" onClick={handleSave} disabled={pending}
+            className="h-10 px-5 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:bg-zinc-100 disabled:text-zinc-400 text-zinc-900 font-semibold text-sm flex items-center gap-2 transition-all">
+            {pending
+              ? <><Loader2 className="w-4 h-4 animate-spin" />Guardando…</>
+              : <><Save className="w-4 h-4" />Guardar todo</>}
+          </button>
+        </div>
       </div>
 
       {error && (
         <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />{error}
+        </div>
+      )}
+
+      {suggestResult && (
+        <div className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium ${
+          suggestResult.ok
+            ? 'bg-violet-50 border border-violet-100 text-violet-700'
+            : 'bg-red-50 border border-red-100 text-red-600'
+        }`}>
+          {suggestResult.ok ? <Sparkles className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+          {suggestResult.msg}
         </div>
       )}
 
@@ -326,6 +372,11 @@ function Step2Preview({
                     <input list="so-opts" value={sos[i]} onChange={e => setSo(i, e.target.value)}
                       placeholder="Buscar o escribir SO…"
                       className="w-full h-7 px-2 text-xs font-mono rounded-lg border border-zinc-200 focus:outline-none focus:ring-1 focus:ring-amber-400 placeholder:font-sans placeholder:text-zinc-300" />
+                    {suggestions[i] && (
+                      <p className="text-[9px] text-violet-500 mt-0.5 leading-tight">
+                        ✨ {suggestions[i]!.reason}
+                      </p>
+                    )}
                   </td>
                   <td className="px-2 py-1.5">
                     <input list="so-opts" value={sos2[i]} onChange={e => setSo2(i, e.target.value)}

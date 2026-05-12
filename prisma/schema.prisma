@@ -139,6 +139,19 @@ model CIPLPhoto {
   colIndex   Int      // posición dentro de la fila
 }
 
+// ─── Fotos temporales de inspección (se guardan en análisis, se mueven al guardar) ──
+
+model InspeccionTemp {
+  id        String   @id @default(cuid())
+  sessionId String
+  rowIndex  Int
+  colIndex  Int
+  dataUrl   String
+  createdAt DateTime @default(now())
+
+  @@index([sessionId, rowIndex])
+}
+
 // ─── Configuración del sistema ────────────────────────────────────────────────
 
 model AppConfig {

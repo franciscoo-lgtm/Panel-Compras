@@ -3,16 +3,18 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { unzipSync } from 'fflate'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type PhotoEntry = { colIndex: number; base64: string; mediaType: string }
+// PhotoEntry with base64 is only used internally during analysis; never sent to client
+type PhotoEntry = { colIndex: number; base64: string; mediaType: string }
 
 export type ExcelRow = {
-  rowIndex: number
-  photos: PhotoEntry[]
+  rowIndex:   number
+  photoCount: number          // how many photos were stored for this row
   // AI-read label data
   aiAsn:    string | null
   aiCarton: string | null
@@ -21,25 +23,25 @@ export type ExcelRow = {
   // Box-level match (asn + caseNo identifies the physical box)
   matchedAsn:    string | null
   matchedCaseNo: string | null
-  matchedDesc:   string | null  // first item description for display
+  matchedDesc:   string | null
 }
 
 export type AnalysisResult =
-  | { ok: true;  rows: ExcelRow[] }
+  | { ok: true;  rows: ExcelRow[]; sessionId: string }
   | { ok: false; error: string }
 
 export type BoxOption = {
   asn:       string
   caseNo:    string
-  desc:      string   // first item description
+  desc:      string
   itemCount: number
 }
 
-// Box-level assignment: photos → all CIPLItems with this asn+caseNo
+// Box-level assignment: references stored photos by sessionId + rowIndex
 export type SaveAssignment = {
-  asn:    string
-  caseNo: string
-  photos: Array<{ rowIndex: number; colIndex: number; base64: string; mediaType: string }>
+  asn:      string
+  caseNo:   string
+  rowIndex: number
 }
 
 export type SaveResult =
@@ -53,49 +55,39 @@ function detectMediaType(buf: Uint8Array): 'image/jpeg' | 'image/png' | 'image/w
   if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return 'image/png'
   if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return 'image/gif'
   if (buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) return 'image/webp'
-  return 'image/jpeg' // fallback
+  return 'image/jpeg'
 }
 
-function extractImagesFromXlsx(buf: Uint8Array): {
-  byRow: Map<number, PhotoEntry[]>
-} {
+function extractImagesFromXlsx(buf: Uint8Array): { byRow: Map<number, PhotoEntry[]> } {
   const files = unzipSync(buf)
 
-  // drawing XML → rId → (rowIndex, colIndex)
-  const drawingXml = new TextDecoder().decode(
-    files['xl/drawings/drawing1.xml']
-  )
-  const relsXml = new TextDecoder().decode(
-    files['xl/drawings/_rels/drawing1.xml.rels']
-  )
+  const drawingXml = new TextDecoder().decode(files['xl/drawings/drawing1.xml'])
+  const relsXml    = new TextDecoder().decode(files['xl/drawings/_rels/drawing1.xml.rels'])
 
-  // rId → image filename
   const ridToFile: Record<string, string> = {}
   const rRe = /Id="(rId\d+)"[^>]*Target="\.\.\/media\/(image\d+\.\w+)"/g
   let rm: RegExpExecArray | null
   while ((rm = rRe.exec(relsXml)) !== null) ridToFile[rm[1]] = rm[2]
 
-  // anchor → rId, fromRow, fromCol
   const byRow = new Map<number, PhotoEntry[]>()
   const anchorRe = /<xdr:twoCellAnchor[\s\S]*?<\/xdr:twoCellAnchor>/g
   let am: RegExpExecArray | null
   while ((am = anchorRe.exec(drawingXml)) !== null) {
-    const block = am[0]
+    const block   = am[0]
     const fromRow = parseInt((block.match(/<xdr:from>[\s\S]*?<xdr:row>(\d+)<\/xdr:row>/) || [])[1] ?? '0')
     const fromCol = parseInt((block.match(/<xdr:from>[\s\S]*?<xdr:col>(\d+)<\/xdr:col>/) || [])[1] ?? '0')
-    const rid = (block.match(/r:embed="(rId\d+)"/) || [])[1]
+    const rid     = (block.match(/r:embed="(rId\d+)"/) || [])[1]
     if (!rid) continue
     const imgFile = ridToFile[rid]
     if (!imgFile) continue
     const imgBuf = files[`xl/media/${imgFile}`]
     if (!imgBuf) continue
-    const base64 = Buffer.from(imgBuf).toString('base64')
+    const base64    = Buffer.from(imgBuf).toString('base64')
     const mediaType = detectMediaType(imgBuf)
     if (!byRow.has(fromRow)) byRow.set(fromRow, [])
     byRow.get(fromRow)!.push({ colIndex: fromCol, base64, mediaType })
   }
 
-  // sort each row's photos by column
   for (const [, photos] of byRow) photos.sort((a, b) => a.colIndex - b.colIndex)
   return { byRow }
 }
@@ -109,11 +101,7 @@ async function readLabelsFromPhotos(
 ): Promise<Map<number, LabelRead>> {
   const imageContent: Anthropic.ImageBlockParam[] = rows.map(r => ({
     type: 'image' as const,
-    source: {
-      type: 'base64' as const,
-      media_type: r.mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
-      data: r.firstPhoto,
-    },
+    source: { type: 'base64' as const, media_type: r.mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: r.firstPhoto },
   }))
 
   const promptText = `You will receive ${rows.length} photos of shipping box labels, in order.
@@ -130,15 +118,12 @@ Return ONLY a JSON array with exactly ${rows.length} elements, one per photo in 
 If a photo does not show a readable label (blurry, inside box, packaging), set all fields to null and set "error" to a short reason.`
 
   const msg = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 2048,
-    messages: [{
-      role: 'user',
-      content: [...imageContent, { type: 'text', text: promptText }],
-    }],
+    messages: [{ role: 'user', content: [...imageContent, { type: 'text', text: promptText }] }],
   })
 
-  const raw = msg.content[0].type === 'text' ? msg.content[0].text : '[]'
+  const raw   = msg.content[0].type === 'text' ? msg.content[0].text : '[]'
   const start = raw.indexOf('['), end = raw.lastIndexOf(']')
   const parsed: LabelRead[] = start >= 0 ? JSON.parse(raw.slice(start, end + 1)) : []
 
@@ -147,37 +132,41 @@ If a photo does not show a readable label (blurry, inside box, packaging), set a
   return result
 }
 
-// ─── Match label to box (asn + caseNo) ───────────────────────────────────────
+// ─── Match labels to boxes (batched single query) ────────────────────────────
 
-async function matchToBox(
-  asn: string | null,
-  cartonNo: string | null,
-): Promise<{ asn: string; caseNo: string; desc: string } | null> {
-  if (!asn) return null
+async function batchMatchToBox(
+  labels: Array<{ rowIndex: number; asn: string | null; cartonNo: string | null }>
+): Promise<Map<number, { asn: string; caseNo: string; desc: string }>> {
+  const asns = [...new Set(labels.map(l => l.asn).filter((a): a is string => !!a))]
+  if (!asns.length) return new Map()
 
   const items = await prisma.cIPLItem.findMany({
-    where: { asn },
+    where: { asn: { in: asns } },
     select: { asn: true, caseNo: true, description: true },
-    take: 200,
+    take: 2000,
   })
-  if (!items.length) return null
 
-  // Try to match by carton number suffix (DJI caseNo is last digits of the barcode)
-  if (cartonNo) {
-    const stripped = cartonNo.replace(/\D/g, '')
-    for (const item of items) {
-      if (!item.caseNo) continue
-      const itemDigits = item.caseNo.replace(/\D/g, '')
-      if (itemDigits && (stripped.endsWith(itemDigits) || itemDigits.endsWith(stripped) || itemDigits === stripped)) {
-        return { asn: item.asn!, caseNo: item.caseNo, desc: item.description ?? item.caseNo }
-      }
+  const result = new Map<number, { asn: string; caseNo: string; desc: string }>()
+  for (const label of labels) {
+    if (!label.asn) continue
+    const asnItems = items.filter(i => i.asn === label.asn)
+    if (!asnItems.length) continue
+
+    let matched: typeof asnItems[0] | undefined
+    if (label.cartonNo) {
+      const stripped = label.cartonNo.replace(/\D/g, '')
+      matched = asnItems.find(item => {
+        if (!item.caseNo) return false
+        const itemDigits = item.caseNo.replace(/\D/g, '')
+        return itemDigits && (stripped.endsWith(itemDigits) || itemDigits.endsWith(stripped) || itemDigits === stripped)
+      })
+    }
+    if (!matched) matched = asnItems.find(i => i.caseNo)
+    if (matched?.caseNo) {
+      result.set(label.rowIndex, { asn: matched.asn!, caseNo: matched.caseNo, desc: matched.description ?? matched.caseNo })
     }
   }
-
-  // Fallback: first caseNo for this ASN
-  const first = items.find(i => i.caseNo)
-  if (!first?.caseNo) return null
-  return { asn: first.asn!, caseNo: first.caseNo, desc: first.description ?? first.caseNo }
+  return result
 }
 
 // ─── Main server action ───────────────────────────────────────────────────────
@@ -187,26 +176,48 @@ export async function analizarFotosExcel(formData: FormData): Promise<AnalysisRe
     const file = formData.get('file') as File | null
     if (!file) return { ok: false, error: 'Archivo requerido.' }
 
-    const buf = new Uint8Array(await file.arrayBuffer())
+    const buf       = new Uint8Array(await file.arrayBuffer())
     const { byRow } = extractImagesFromXlsx(buf)
 
-    const rowIndices = [...byRow.keys()].sort((a, b) => a - b)
+    const rowIndices   = [...byRow.keys()].sort((a, b) => a - b)
     const rowsForClaude = rowIndices.map(ri => ({
-      rowIndex: ri,
+      rowIndex:   ri,
       firstPhoto: byRow.get(ri)![0]!.base64,
       mediaType:  byRow.get(ri)![0]!.mediaType,
     }))
 
-    const labelMap = await readLabelsFromPhotos(rowsForClaude)
+    // Run Claude and DB photo save in parallel
+    const sessionId = randomUUID()
+    const allPhotoRecords = rowIndices.flatMap(ri =>
+      (byRow.get(ri) ?? []).map(p => ({
+        sessionId,
+        rowIndex: ri,
+        colIndex: p.colIndex,
+        dataUrl:  `data:${p.mediaType};base64,${p.base64}`,
+      }))
+    )
 
-    const rows: ExcelRow[] = []
-    for (const rowIndex of rowIndices) {
+    const [labelMap] = await Promise.all([
+      readLabelsFromPhotos(rowsForClaude),
+      allPhotoRecords.length
+        ? prisma.inspeccionTemp.createMany({ data: allPhotoRecords })
+        : Promise.resolve(),
+    ])
+
+    // Batch box matching — single DB query for all ASNs
+    const labelsForMatch = rowIndices.map(ri => {
+      const label = labelMap.get(ri) ?? { asn: null, cartonNo: null, soNo: null, error: 'No data' }
+      return { rowIndex: ri, asn: label.asn, cartonNo: label.cartonNo }
+    })
+    const matchMap = await batchMatchToBox(labelsForMatch)
+
+    const rows: ExcelRow[] = rowIndices.map(rowIndex => {
       const photos = byRow.get(rowIndex)!
-      const label = labelMap.get(rowIndex) ?? { asn: null, cartonNo: null, soNo: null, error: 'No data' }
-      const match = await matchToBox(label.asn, label.cartonNo)
-      rows.push({
+      const label  = labelMap.get(rowIndex) ?? { asn: null, cartonNo: null, soNo: null, error: 'No data' }
+      const match  = matchMap.get(rowIndex) ?? null
+      return {
         rowIndex,
-        photos,
+        photoCount:    photos.length,
         aiAsn:         label.asn,
         aiCarton:      label.cartonNo,
         aiSo:          label.soNo,
@@ -214,22 +225,42 @@ export async function analizarFotosExcel(formData: FormData): Promise<AnalysisRe
         matchedAsn:    match?.asn    ?? null,
         matchedCaseNo: match?.caseNo ?? null,
         matchedDesc:   match?.desc   ?? null,
-      })
-    }
+      }
+    })
 
-    return { ok: true, rows }
+    return { ok: true, rows, sessionId }
   } catch (err) {
     console.error('[inspeccion] error:', err)
     return { ok: false, error: String(err) }
   }
 }
 
-export async function guardarAsignaciones(assignments: SaveAssignment[]): Promise<SaveResult> {
+// Returns photos for a specific row (called lazily when user expands a row)
+export async function getPhotosForRow(
+  sessionId: string,
+  rowIndex: number,
+): Promise<Array<{ colIndex: number; dataUrl: string }>> {
+  const records = await prisma.inspeccionTemp.findMany({
+    where: { sessionId, rowIndex },
+    orderBy: { colIndex: 'asc' },
+    select: { colIndex: true, dataUrl: true },
+  })
+  return records
+}
+
+export async function guardarAsignaciones(
+  sessionId: string,
+  assignments: SaveAssignment[],
+): Promise<SaveResult> {
   try {
     let count = 0
-    for (const { asn, caseNo, photos } of assignments) {
+    for (const { asn, caseNo, rowIndex } of assignments) {
+      const photos = await prisma.inspeccionTemp.findMany({
+        where: { sessionId, rowIndex },
+        orderBy: { colIndex: 'asc' },
+      })
       if (!photos.length) continue
-      // Find ALL items that share this physical box
+
       const items = await prisma.cIPLItem.findMany({
         where: { asn, caseNo },
         select: { id: true },
@@ -238,7 +269,7 @@ export async function guardarAsignaciones(assignments: SaveAssignment[]): Promis
         await prisma.cIPLPhoto.createMany({
           data: photos.map(p => ({
             ciplItemId: item.id,
-            dataUrl:    `data:${p.mediaType};base64,${p.base64}`,
+            dataUrl:    p.dataUrl,
             rowIndex:   p.rowIndex,
             colIndex:   p.colIndex,
           })),
@@ -246,6 +277,10 @@ export async function guardarAsignaciones(assignments: SaveAssignment[]): Promis
         count += photos.length
       }
     }
+
+    // Clean up temp records for this session
+    await prisma.inspeccionTemp.deleteMany({ where: { sessionId } })
+
     return { ok: true, count }
   } catch (err) {
     return { ok: false, error: String(err) }

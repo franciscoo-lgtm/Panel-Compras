@@ -228,6 +228,134 @@ export async function extraerCIPL(formData: FormData): Promise<ExtractionResult>
   }
 }
 
+export type SOSuggestion = { so: string; reason: string } | null
+export type SOSuggestionResult = { suggestions: SOSuggestion[]; error?: string; soCount: number }
+
+// Robust extraction: tries full JSON parse, then per-object regex fallback.
+function extractSOArray(text: string): Array<{ so: string; reason: string }> | null {
+  // Strategy 1: find the outermost [...] and parse it
+  const start = text.indexOf('[')
+  const end   = text.lastIndexOf(']')
+  if (start !== -1 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)) } catch { /* fall through */ }
+  }
+  // Strategy 2: extract individual {"so":...,"reason":...} objects via regex
+  const hits: Array<{ so: string; reason: string }> = []
+  const re = /\{\s*"so"\s*:\s*"([^"]+)"\s*,\s*"reason"\s*:\s*"([^"]+)"\s*\}/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) hits.push({ so: m[1], reason: m[2] })
+  return hits.length > 0 ? hits : null
+}
+
+// Look up product names for EAN barcodes via public barcode DB (for Mercadería matching).
+// Best-effort: ignores failures, 4s timeout per request.
+async function lookupEANProducts(eans: string[]): Promise<Map<string, string>> {
+  const results = new Map<string, string>()
+  await Promise.allSettled(
+    eans.filter(e => e.length >= 8).map(async ean => {
+      try {
+        const res = await fetch(
+          `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(ean)}`,
+          { signal: AbortSignal.timeout(4000), headers: { Accept: 'application/json' } }
+        )
+        if (!res.ok) return
+        const data = await res.json() as { items?: Array<{ title?: string; brand?: string; description?: string }> }
+        const item = data.items?.[0]
+        if (item?.title) {
+          results.set(ean, `${item.brand ?? ''} ${item.title}`.trim().slice(0, 120))
+        }
+      } catch { /* timeout or network error — silently ignore */ }
+    })
+  )
+  return results
+}
+
+export async function sugerirSOsCIPL(
+  items: ExtractedItem[]
+): Promise<SOSuggestionResult> {
+  const empty = (error: string): SOSuggestionResult =>
+    ({ suggestions: items.map(() => null), soCount: 0, error })
+
+  try {
+    const gsoMap = await buildGSOMap()
+    if (gsoMap.size === 0) {
+      return empty('No se encontraron SOs en GSO V4. Verificá la conexión con Google Sheets.')
+    }
+
+    // Send ALL SOs in compact format: soId + modelo + sku (~50 chars/line).
+    // Hard cap at 400k chars (~100k tokens) so total prompt stays within Haiku's 200k limit.
+    // No pre-filtering — Claude sees the full GSO to reason like a human.
+    const MAX_GSO_CHARS = 400_000
+    let gsoList = ''
+    for (const [soId, row] of gsoMap.entries()) {
+      const detail = [row.modelo, row.sku].filter(Boolean).join(' | ')
+      const line = `${soId}: ${detail || '?'}\n`
+      if (gsoList.length + line.length > MAX_GSO_CHARS) break
+      gsoList += line
+    }
+    gsoList = gsoList.trimEnd()
+    console.log(`[ETL] sugerirSOsCIPL: ${gsoList.split('\n').length} SOs in prompt (${Math.round(gsoList.length/1000)}k chars) of ${gsoMap.size} total`)
+
+    // For Mercadería: look up EAN barcodes in public product DB to get product names.
+    // This lets Claude match EAN → product name → GSO modelo even when EAN isn't in GSO.
+    const uniqueEANs = [...new Set(items.map(i => i.codeEan).filter(Boolean))] as string[]
+    const eanProducts = await lookupEANProducts(uniqueEANs)
+    console.log(`[ETL] EAN lookups resolved: ${eanProducts.size}/${uniqueEANs.length}`)
+
+    const itemsText = items
+      .map((item, i) => {
+        const eanInfo = item.codeEan ? eanProducts.get(item.codeEan) : null
+        return `[${i}] CasNo/PI=${item.piNo ?? '?'} CódigoParte=${item.codeEan ?? '?'}${eanInfo ? ` (Producto: ${eanInfo})` : ''} Desc="${item.description ?? '?'}" Qty=${item.qty ?? '?'}`
+      })
+      .join('\n')
+
+    const msg = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      messages: [{
+        role: 'user',
+        content: `Sos un experto en importaciones DJI. Tu tarea es encontrar el Sales Order (SO) correcto del GSO V4 para cada ítem de este Packing List. Razoná como lo haría un humano con experiencia: usá TODA la información disponible.
+
+INFORMACIÓN DEL PACKING LIST:
+- ASN: ${items[0]?.asn ?? 'N/A'}
+- CAS No. / PI: ${items[0]?.piNo ?? 'N/A'}
+
+ÍTEMS:
+${itemsText}
+
+TODOS LOS SALES ORDERS EN GSO V4 (formato: SO_ID: Modelo | CódigoParte):
+${gsoList}
+
+CÓMO RAZONAR:
+1. El CAS No./PI del PL identifica el shipment — buscá SOs cuyo ID contenga los mismos números.
+2. Para Repuestos: el CódigoParte del ítem debe coincidir exactamente con el CódigoParte del SO.
+3. Para Mercadería: si tenés el nombre del producto (campo "Producto:" en los ítems), buscá el SO cuyo Modelo coincida.
+4. Usá tu conocimiento de productos DJI para relacionar descripción, EAN o código con el modelo del SO.
+5. En general todos los ítems del mismo PL corresponden al mismo SO o grupo de SOs.
+6. Si no encontrás coincidencia exacta, elegí el SO más probable y explicá por qué.
+
+Respondé ÚNICAMENTE con un array JSON con exactamente ${items.length} elementos, sin markdown ni código fence:
+[{"so":"SO-XXXX","reason":"<por qué en español, máx 12 palabras>"},...]`,
+      }],
+    })
+
+    const text = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : ''
+    console.log('[ETL] sugerirSOsCIPL raw response:', text.slice(0, 800))
+
+    const parsed = extractSOArray(text)
+    if (!parsed) {
+      return empty(`La IA no devolvió JSON válido. Respuesta: "${text.slice(0, 120)}"`)
+    }
+
+    const suggestions = items.map((_, i) => parsed[i] ?? null)
+    const soCount = suggestions.filter(Boolean).length
+    return { suggestions, soCount }
+  } catch (err) {
+    console.error('[ETL] sugerirSOsCIPL error:', err)
+    return empty(`Error: ${String(err).slice(0, 120)}`)
+  }
+}
+
 export async function guardarCIPL(formData: FormData): Promise<SaveResult> {
   try {
     const items         = JSON.parse(formData.get('items')         as string) as ExtractedItem[]

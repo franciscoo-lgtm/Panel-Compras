@@ -1,6 +1,8 @@
 import { Camera } from 'lucide-react'
 import InspeccionClient from './InspeccionClient'
 
+export const maxDuration = 60
+
 export default function InspeccionPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto">

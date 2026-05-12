@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useTransition, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
-import { FileSpreadsheet, FileText, AlertTriangle, Pencil, Trash2, X, Save, Loader2, CheckCircle2, ExternalLink, Search, Download, CheckSquare, Camera } from 'lucide-react'
+import { FileSpreadsheet, FileText, AlertTriangle, Pencil, Trash2, X, Save, Loader2, CheckCircle2, ExternalLink, Search, Download, CheckSquare, Camera, Sparkles, Plus, Trash } from 'lucide-react'
 import * as XLSX from 'xlsx'
-import { updateCIPLItem, deleteCIPLItem, getItemPhotos } from './actions'
+import { updateCIPLItem, deleteCIPLItem, getItemPhotos, suggestSOForItem, addPhotosToBox, deletePhoto } from './actions'
 import { fetchSalesOrders } from '@/app/lib/sheets'
 import type { LiveDataMap, ExtraColumn } from '@/app/lib/comex-sources'
 
@@ -114,29 +114,44 @@ type DisplayRow = Item & {
 }
 
 // Builds rowspan data for dim cells (W×L×H, GW, CBM, CBM/Bulto).
-// spanMap: first rowKey of a group → rowspan count
-// skipSet: rowKeys that must NOT render dim cells (they're covered by the span above)
-function buildDimGroups(rows: DisplayRow[]): { spanMap: Map<string, number>; skipSet: Set<string> } {
-  const spanMap = new Map<string, number>()
-  const skipSet = new Set<string>()
+// Groups contiguous rows by PHYSICAL BOX identity:
+//   - When caseNo is set (Repuestos): group by asn + caseNo (each physical carton)
+//   - When caseNo is null (Mercadería): each item is its own group (no rowspan across items)
+// dimsForKey: first rowKey of a group → the row with the best (non-null) dims in that group
+function buildDimGroups(rows: DisplayRow[]): {
+  spanMap:    Map<string, number>
+  skipSet:    Set<string>
+  dimsForKey: Map<string, DisplayRow>
+} {
+  const spanMap    = new Map<string, number>()
+  const skipSet    = new Set<string>()
+  const dimsForKey = new Map<string, DisplayRow>()
   let i = 0
   while (i < rows.length) {
-    const row = rows[i]
-    const dimKey = `${row.asn ?? ''}|${row.piNo ?? ''}|${row.w ?? ''}|${row.l ?? ''}|${row.h ?? ''}|${row.gwKg ?? ''}|${row.cbm ?? ''}`
+    const row      = rows[i]
+    // caseNo present → group items in the same physical carton
+    // caseNo absent  → use unique id so each item is its own group (no cross-item span)
+    const boxKey   = row.caseNo?.trim()
+      ? `${row.asn ?? ''}|${row.caseNo}`
+      : row.id
     const firstKey = `${row.id}-${row._isPrimary ? 'p' : 's'}`
     let span = 1
-    // count contiguous rows with the same dimKey
+    let bestDimRow: DisplayRow = row
     while (i + span < rows.length) {
       const next = rows[i + span]
-      const nk = `${next.asn ?? ''}|${next.piNo ?? ''}|${next.w ?? ''}|${next.l ?? ''}|${next.h ?? ''}|${next.gwKg ?? ''}|${next.cbm ?? ''}`
-      if (nk !== dimKey) break
+      const nk   = next.caseNo?.trim()
+        ? `${next.asn ?? ''}|${next.caseNo}`
+        : next.id
+      if (nk !== boxKey) break
       skipSet.add(`${next.id}-${next._isPrimary ? 'p' : 's'}`)
+      if (bestDimRow.w == null && next.w != null) bestDimRow = next
       span++
     }
     spanMap.set(firstKey, span)
+    dimsForKey.set(firstKey, bestDimRow)
     i += span
   }
-  return { spanMap, skipSet }
+  return { spanMap, skipSet, dimsForKey }
 }
 
 function expandToDisplayRows(items: Item[]): DisplayRow[] {
@@ -265,13 +280,59 @@ function ColumnSelectorPopover({
 
 type PhotoEntry = { id: string; dataUrl: string; rowIndex: number; colIndex: number }
 
-function PhotoModal({ itemId, onClose }: { itemId: string; onClose: () => void }) {
-  const [photos, setPhotos] = useState<PhotoEntry[] | null>(null)
+function PhotoModal({
+  item,
+  onClose,
+  onCountChange,
+}: {
+  item: Item
+  onClose: () => void
+  onCountChange: (id: string, delta: number) => void
+}) {
+  const [photos, setPhotos]   = useState<PhotoEntry[] | null>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    getItemPhotos(itemId).then(p => setPhotos(p as PhotoEntry[]))
-  }, [itemId])
+    getItemPhotos(item.id).then(p => setPhotos(p as PhotoEntry[]))
+  }, [item.id])
+
+  async function handleFiles(files: FileList) {
+    if (!files.length) return
+    setUploading(true)
+    try {
+      const dataUrls = await Promise.all(
+        Array.from(files).map(
+          f => new Promise<string>((resolve, reject) => {
+            const r = new FileReader()
+            r.onload = () => resolve(r.result as string)
+            r.onerror = reject
+            r.readAsDataURL(f)
+          })
+        )
+      )
+      const res = await addPhotosToBox(item.asn, item.caseNo, item.id, dataUrls)
+      if (res.ok) {
+        // Reload photos for this item
+        const updated = await getItemPhotos(item.id)
+        setPhotos(updated as PhotoEntry[])
+        onCountChange(item.id, dataUrls.length)
+      }
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleDelete(photoId: string) {
+    const res = await deletePhoto(photoId)
+    if (res.ok) {
+      setPhotos(prev => prev?.filter(p => p.id !== photoId) ?? null)
+      onCountChange(item.id, -1)
+    }
+  }
+
+  const label = item.caseNo ? `Caja ${item.caseNo}` : item.description?.slice(0, 30) ?? item.id
 
   return (
     <>
@@ -281,16 +342,37 @@ function PhotoModal({ itemId, onClose }: { itemId: string; onClose: () => void }
         </div>
       )}
       <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
             <div className="flex items-center gap-2">
               <Camera className="w-4 h-4 text-amber-500" />
-              <span className="font-semibold text-sm text-zinc-800">Fotos de inspección</span>
-              {photos && <span className="text-xs text-zinc-400">{photos.length} foto{photos.length !== 1 ? 's' : ''}</span>}
+              <div>
+                <span className="font-semibold text-sm text-zinc-800">Fotos de inspección</span>
+                <span className="ml-2 text-xs text-zinc-400">{label}</span>
+              </div>
+              {photos && <span className="text-xs text-zinc-400 ml-1">· {photos.length} foto{photos.length !== 1 ? 's' : ''}</span>}
             </div>
-            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-400">
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={e => { if (e.target.files) handleFiles(e.target.files); e.target.value = '' }}
+              />
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-amber-400 hover:bg-amber-500 disabled:opacity-50 text-zinc-900 text-xs font-semibold transition-colors"
+              >
+                {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                Agregar fotos
+              </button>
+              <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto p-5">
             {!photos ? (
@@ -298,17 +380,34 @@ function PhotoModal({ itemId, onClose }: { itemId: string; onClose: () => void }
                 <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
               </div>
             ) : photos.length === 0 ? (
-              <p className="text-center text-zinc-400 text-sm py-12">Sin fotos asignadas</p>
+              <div className="flex flex-col items-center gap-3 py-16 text-center">
+                <Camera className="w-8 h-8 text-zinc-200" />
+                <p className="text-zinc-400 text-sm">Sin fotos asignadas</p>
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold transition-colors"
+                >
+                  <Plus className="w-3 h-3" /> Agregar fotos
+                </button>
+              </div>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {photos.map(p => (
-                  <img
-                    key={p.id}
-                    src={p.dataUrl}
-                    onClick={() => setLightbox(p.dataUrl)}
-                    className="w-full aspect-square object-cover rounded-xl border border-zinc-100 cursor-zoom-in hover:opacity-80 transition-opacity"
-                    alt={`Caja ${p.rowIndex + 1} foto ${p.colIndex + 1}`}
-                  />
+                  <div key={p.id} className="relative group">
+                    <img
+                      src={p.dataUrl}
+                      onClick={() => setLightbox(p.dataUrl)}
+                      className="w-full aspect-square object-cover rounded-xl border border-zinc-100 cursor-zoom-in hover:opacity-80 transition-opacity"
+                      alt={`foto ${p.colIndex + 1}`}
+                    />
+                    <button
+                      onClick={() => handleDelete(p.id)}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white hidden group-hover:flex items-center justify-center shadow-md transition-all"
+                      title="Eliminar foto"
+                    >
+                      <Trash className="w-3 h-3" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -345,6 +444,9 @@ function EditDrawer({
   })
   const [pending, start] = useTransition()
   const [saved, setSaved] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestion, setSuggestion] = useState<{ so: string; reason: string } | null>(null)
+  const [suggestFailed, setSuggestFailed] = useState(false)
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setFields(p => ({ ...p, [k]: e.target.value }))
@@ -355,6 +457,24 @@ function EditDrawer({
       const res = await updateCIPLItem(item.id, fields)
       if (res.ok) { setSaved(true); onSaved(item.id, fields) }
     })
+  }
+
+  async function handleSuggestSO() {
+    setSuggesting(true)
+    setSuggestion(null)
+    setSuggestFailed(false)
+    try {
+      const result = await suggestSOForItem(item.id)
+      if (result) {
+        setSuggestion(result)
+      } else {
+        setSuggestFailed(true)
+      }
+    } catch {
+      setSuggestFailed(true)
+    } finally {
+      setSuggesting(false)
+    }
   }
 
   const datalist = soList.map((s, i) => <option key={i} value={s} />)
@@ -398,7 +518,40 @@ function EditDrawer({
 
           {/* Comercial */}
           <section>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-3">Comercial</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500">Comercial</p>
+              <button
+                onClick={handleSuggestSO}
+                disabled={suggesting}
+                className="flex items-center gap-1.5 h-7 px-3 rounded-lg bg-violet-50 hover:bg-violet-100 disabled:opacity-50 text-violet-700 text-[10px] font-bold transition-colors"
+              >
+                {suggesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                Sugerir SO
+              </button>
+            </div>
+
+            {suggestion && (
+              <div className="mb-3 p-3 rounded-xl border border-violet-200 bg-violet-50">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <p className="text-[10px] text-violet-400 uppercase tracking-wide font-bold mb-1">Sugerencia IA</p>
+                    <p className="font-mono text-sm font-bold text-violet-800">{suggestion.so}</p>
+                    <p className="text-[11px] text-violet-600 mt-1">{suggestion.reason}</p>
+                  </div>
+                  <button
+                    onClick={() => { setFields(p => ({ ...p, soPrincipal: suggestion.so })); setSuggestion(null) }}
+                    className="shrink-0 h-7 px-3 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-bold transition-colors"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {suggestFailed && (
+              <p className="text-[10px] text-red-400 mb-3">No se pudo obtener sugerencia. Intentá de nuevo.</p>
+            )}
+
             <datalist id="so-drawer">{datalist}</datalist>
             <div className="space-y-3">
               <Field label="Cargado por">
@@ -543,7 +696,7 @@ export default function PanelGeneralClient({
   const [editing, setEditing]   = useState<Item | null>(null)
   const [soList, setSoList]     = useState<string[]>([])
   const [selected, setSelected]           = useState<Set<string>>(new Set())
-  const [viewingPhotosFor, setViewingPhotosFor] = useState<string | null>(null)
+  const [viewingPhotosFor, setViewingPhotosFor] = useState<Item | null>(null)
   const [deleting, startDelete]           = useTransition()
 
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() => {
@@ -574,7 +727,7 @@ export default function PanelGeneralClient({
   const allFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selected.has(id))
 
   const gl = (item: DisplayRow, key: string) => getLive(item._displaySO, key, liveData)
-  const { spanMap, skipSet } = buildDimGroups(filtered)
+  const { spanMap, skipSet, dimsForKey } = buildDimGroups(filtered)
 
   // Sum of all qty for each SO (used for PL vs GSO comparison)
   const soQtyMap = useMemo(() => {
@@ -627,6 +780,12 @@ export default function PanelGeneralClient({
       return next as Item
     }))
     setEditing(prev => prev?.id === id ? ({ ...prev, ...fields } as Item) : prev)
+  }, [])
+
+  const handlePhotoCountChange = useCallback((id: string, delta: number) => {
+    setItems(prev => prev.map(item =>
+      item.id === id ? { ...item, photoCount: Math.max(0, item.photoCount + delta) } : item
+    ))
   }, [])
 
   // rows to export: selected items (deduped) or all filtered
@@ -800,8 +959,9 @@ export default function PanelGeneralClient({
             <tbody>
               {filtered.map(item => {
                 const isRep = item.tipoCarga === 'Repuesto'
-                const dims = (item.w && item.l && item.h) ? `${item.w}×${item.l}×${item.h}` : '—'
                 const rowKey = `${item.id}-${item._isPrimary ? 'p' : 's'}`
+                const dimSource = dimsForKey.get(rowKey) ?? item
+                const dims = (dimSource.w && dimSource.l && dimSource.h) ? `${dimSource.w}×${dimSource.l}×${dimSource.h}` : '—'
                 const isSelected = selected.has(item.id)
                 return (
                   <tr key={rowKey} className={`border-b border-zinc-50 transition-colors ${isSelected ? 'bg-amber-50/60' : 'hover:bg-zinc-50/60'} ${
@@ -880,17 +1040,17 @@ export default function PanelGeneralClient({
                     )}
                     {vis.has('gwKg') && !skipSet.has(rowKey) && (
                       <td className={`px-2 py-2.5 text-right font-mono text-zinc-600 align-middle ${firstVisibleBorder(GROUPS[3],'gwKg',vis)}`} rowSpan={spanMap.get(rowKey) ?? 1}>
-                        {fmtNum(item.gwKg, 2)}
+                        {fmtNum(dimSource.gwKg, 2)}
                       </td>
                     )}
                     {vis.has('cbm') && !skipSet.has(rowKey) && (
                       <td className={`px-2 py-2.5 text-right font-mono text-zinc-600 align-middle ${firstVisibleBorder(GROUPS[3],'cbm',vis)}`} rowSpan={spanMap.get(rowKey) ?? 1}>
-                        {fmtNum(item.cbm, 5)}
+                        {fmtNum(dimSource.cbm, 5)}
                       </td>
                     )}
                     {vis.has('cbmBulto') && !skipSet.has(rowKey) && (
                       <td className={`px-2 py-2.5 text-right font-mono text-zinc-500 align-middle ${firstVisibleBorder(GROUPS[3],'cbmBulto',vis)}`} rowSpan={spanMap.get(rowKey) ?? 1}>
-                        {fmtNum(item.cbmXBulto, 5)}
+                        {fmtNum(dimSource.cbmXBulto, 5)}
                       </td>
                     )}
                     {vis.has('uniBulto') && (
@@ -962,13 +1122,17 @@ export default function PanelGeneralClient({
                     )}
                     {vis.has('fotos') && (
                       <td className={`px-2 py-2.5 text-center ${firstVisibleBorder(GROUPS[4],'fotos',vis)}`}>
-                        {item._isPrimary && item.photoCount > 0 && (
+                        {item._isPrimary && (
                           <button
-                            onClick={() => setViewingPhotosFor(item.id)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-[10px] font-bold"
+                            onClick={() => setViewingPhotosFor(item)}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors text-[10px] font-bold ${
+                              item.photoCount > 0
+                                ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                : 'bg-zinc-50 text-zinc-300 hover:bg-zinc-100 hover:text-zinc-500'
+                            }`}
                           >
                             <Camera className="w-3 h-3" />
-                            {item.photoCount}
+                            {item.photoCount > 0 ? item.photoCount : '+'}
                           </button>
                         )}
                       </td>
@@ -1021,7 +1185,11 @@ export default function PanelGeneralClient({
       </div>
 
       {viewingPhotosFor && (
-        <PhotoModal itemId={viewingPhotosFor} onClose={() => setViewingPhotosFor(null)} />
+        <PhotoModal
+          item={viewingPhotosFor}
+          onClose={() => setViewingPhotosFor(null)}
+          onCountChange={handlePhotoCountChange}
+        />
       )}
 
       {editing && (

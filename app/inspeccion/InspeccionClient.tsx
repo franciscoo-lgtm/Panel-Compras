@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Loader2, CheckCircle2, AlertTriangle, Camera, RotateCcw, Save, ChevronDown, ChevronRight, Eye } from 'lucide-react'
-import { analizarFotosExcel, guardarAsignaciones, getBoxesForAsn } from './actions'
+import { Loader2, CheckCircle2, AlertTriangle, Camera, RotateCcw, Save, ChevronDown, ChevronRight } from 'lucide-react'
+import { analizarFotosExcel, guardarAsignaciones, getBoxesForAsn, getPhotosForRow } from './actions'
 import type { ExcelRow, BoxOption } from './actions'
 
 // ─── Lightbox ─────────────────────────────────────────────────────────────────
@@ -17,26 +17,45 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
 
 // ─── Single row review card ───────────────────────────────────────────────────
 
-// Box-level assignment: identifies the physical box by asn+caseNo
 type Assignment = { asn: string; caseNo: string }
 
 function boxKey(a: Assignment) { return `${a.asn}|${a.caseNo}` }
 
+type StoredPhoto = { colIndex: number; dataUrl: string }
+
 function RowCard({
   row,
+  sessionId,
   assignment,
   onAssign,
   boxes,
 }: {
   row: ExcelRow
+  sessionId: string
   assignment: Assignment | null
   onAssign: (asn: string, caseNo: string) => void
   boxes: BoxOption[]
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const [lightbox, setLightbox] = useState<string | null>(null)
+  const [expanded, setExpanded]       = useState(false)
+  const [photos, setPhotos]           = useState<StoredPhoto[] | null>(null)
+  const [loadingPhotos, setLoading]   = useState(false)
+  const [lightbox, setLightbox]       = useState<string | null>(null)
 
-  const hasIssue = !!row.aiError
+  async function handleExpand() {
+    const next = !expanded
+    setExpanded(next)
+    if (next && photos === null) {
+      setLoading(true)
+      try {
+        const fetched = await getPhotosForRow(sessionId, row.rowIndex)
+        setPhotos(fetched)
+      } finally {
+        setLoading(false)
+      }
+    }
+  }
+
+  const hasIssue    = !!row.aiError
   const statusColor = assignment
     ? 'border-emerald-200 bg-emerald-50'
     : hasIssue
@@ -44,7 +63,6 @@ function RowCard({
       : 'border-zinc-200 bg-white'
 
   const selectedBox = assignment ? boxes.find(b => b.asn === assignment.asn && b.caseNo === assignment.caseNo) : null
-  const dataUrl = (p: { base64: string; mediaType: string }) => `data:${p.mediaType};base64,${p.base64}`
 
   return (
     <>
@@ -52,31 +70,21 @@ function RowCard({
 
       <div className={`rounded-xl border ${statusColor} overflow-hidden`}>
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none" onClick={() => setExpanded(e => !e)}>
+        <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none" onClick={handleExpand}>
           {expanded ? <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />}
 
           <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest w-12 shrink-0">
             Fila {row.rowIndex + 1}
           </span>
 
-          {/* Photo strip */}
-          <div className="flex gap-1 flex-1 overflow-hidden">
-            {row.photos.slice(0, 6).map((p, i) => (
-              <img key={i} src={dataUrl(p)}
-                className="w-10 h-10 object-cover rounded border border-zinc-200 shrink-0"
-                alt=""
-                onClick={e => { e.stopPropagation(); setLightbox(dataUrl(p)) }}
-              />
-            ))}
-            {row.photos.length > 6 && (
-              <div className="w-10 h-10 rounded border border-zinc-200 bg-zinc-100 flex items-center justify-center text-[10px] font-semibold text-zinc-500 shrink-0">
-                +{row.photos.length - 6}
-              </div>
-            )}
+          {/* Photo count badge */}
+          <div className="flex items-center gap-1.5 min-w-[80px]">
+            <Camera className="w-3.5 h-3.5 text-zinc-300" />
+            <span className="text-xs text-zinc-500 font-medium">{row.photoCount} foto{row.photoCount !== 1 ? 's' : ''}</span>
           </div>
 
           {/* AI read */}
-          <div className="hidden md:flex flex-col gap-0.5 min-w-[180px] shrink-0">
+          <div className="hidden md:flex flex-col gap-0.5 min-w-[180px] shrink-0 flex-1">
             {row.aiAsn ? (
               <>
                 <span className="text-[10px] font-mono text-zinc-600">{row.aiAsn}</span>
@@ -108,20 +116,27 @@ function RowCard({
         {/* Expanded detail */}
         {expanded && (
           <div className="border-t border-zinc-100 px-4 py-4 space-y-4 bg-white">
-            {/* All photos */}
+            {/* Photos */}
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">
-                Fotos del bulto ({row.photos.length})
+                Fotos del bulto ({row.photoCount})
               </p>
-              <div className="flex flex-wrap gap-2">
-                {row.photos.map((p, i) => (
-                  <img key={i} src={dataUrl(p)}
-                    onClick={() => setLightbox(dataUrl(p))}
-                    className="w-20 h-20 object-cover rounded-lg border border-zinc-200 cursor-zoom-in hover:opacity-80 transition-opacity"
-                    alt={`foto ${i + 1}`}
-                  />
-                ))}
-              </div>
+              {loadingPhotos ? (
+                <div className="flex items-center gap-2 py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                  <span className="text-xs text-zinc-400">Cargando fotos…</span>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {(photos ?? []).map((p, i) => (
+                    <img key={i} src={p.dataUrl}
+                      onClick={() => setLightbox(p.dataUrl)}
+                      className="w-20 h-20 object-cover rounded-lg border border-zinc-200 cursor-zoom-in hover:opacity-80 transition-opacity"
+                      alt={`foto ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* AI read */}
@@ -177,6 +192,7 @@ function RowCard({
 export default function InspeccionClient() {
   const [file, setFile]               = useState<File | null>(null)
   const [rows, setRows]               = useState<ExcelRow[] | null>(null)
+  const [sessionId, setSessionId]     = useState<string>('')
   const [boxes, setBoxes]             = useState<BoxOption[]>([])
   const [assignments, setAssignments] = useState<Map<number, Assignment>>(new Map())
   const [error, setError]             = useState<string | null>(null)
@@ -191,34 +207,42 @@ export default function InspeccionClient() {
     setAssignments(new Map())
     setError(null)
     setSavedCount(null)
+    setSessionId('')
   }
 
   function handleAnalyze() {
     if (!file) return
     setError(null)
     setSavedCount(null)
+    if (file.size > 19 * 1024 * 1024) {
+      setError('El archivo es demasiado grande (máx. 19MB). Dividí el Excel en partes más pequeñas.')
+      return
+    }
     startAnalyze(async () => {
-      const fd = new FormData()
-      fd.set('file', file)
-      const res = await analizarFotosExcel(fd)
-      if (!res.ok) { setError(res.error); return }
+      try {
+        const fd = new FormData()
+        fd.set('file', file)
+        const res = await analizarFotosExcel(fd)
+        if (!res.ok) { setError(res.error); return }
 
-      setRows(res.rows)
+        setRows(res.rows)
+        setSessionId(res.sessionId)
 
-      // pre-fill auto-matched assignments
-      const map = new Map<number, Assignment>()
-      for (const row of res.rows) {
-        if (row.matchedAsn && row.matchedCaseNo) {
-          map.set(row.rowIndex, { asn: row.matchedAsn, caseNo: row.matchedCaseNo })
+        const map = new Map<number, Assignment>()
+        for (const row of res.rows) {
+          if (row.matchedAsn && row.matchedCaseNo) {
+            map.set(row.rowIndex, { asn: row.matchedAsn, caseNo: row.matchedCaseNo })
+          }
         }
-      }
-      setAssignments(map)
+        setAssignments(map)
 
-      // load all boxes for any ASN found
-      const asns = [...new Set(res.rows.map(r => r.aiAsn).filter(Boolean))] as string[]
-      if (asns.length) {
-        const fetched = await getBoxesForAsn(asns[0])
-        setBoxes(fetched)
+        const asns = [...new Set(res.rows.map(r => r.aiAsn).filter(Boolean))] as string[]
+        if (asns.length) {
+          const fetched = await getBoxesForAsn(asns[0])
+          setBoxes(fetched)
+        }
+      } catch (err) {
+        setError(`Error al analizar: ${err instanceof Error ? err.message : String(err)}`)
       }
     })
   }
@@ -233,21 +257,20 @@ export default function InspeccionClient() {
   }
 
   function handleSave() {
-    if (!rows) return
+    if (!rows || !sessionId) return
     startSave(async () => {
-      const payload = [...assignments.entries()].map(([rowIndex, a]) => ({
-        asn: a.asn,
-        caseNo: a.caseNo,
-        photos: (rows.find(r => r.rowIndex === rowIndex)?.photos ?? []).map(p => ({
+      try {
+        const payload = [...assignments.entries()].map(([rowIndex, a]) => ({
+          asn:      a.asn,
+          caseNo:   a.caseNo,
           rowIndex,
-          colIndex: p.colIndex,
-          base64: p.base64,
-          mediaType: p.mediaType,
-        })),
-      }))
-      const res = await guardarAsignaciones(payload)
-      if (!res.ok) { setError(res.error); return }
-      setSavedCount(res.count)
+        }))
+        const res = await guardarAsignaciones(sessionId, payload)
+        if (!res.ok) { setError(res.error); return }
+        setSavedCount(res.count)
+      } catch (err) {
+        setError(`Error al guardar: ${err instanceof Error ? err.message : String(err)}`)
+      }
     })
   }
 
@@ -257,120 +280,121 @@ export default function InspeccionClient() {
 
   return (
     <div className="space-y-6">
-        {/* Upload zone */}
-        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-6">
-          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">Archivo Excel con fotos</p>
+      {/* Upload zone */}
+      <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-6">
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">Archivo Excel con fotos</p>
 
-          <div
-            className={`flex flex-col items-center gap-3 rounded-xl border-2 border-dashed py-8 cursor-pointer transition-colors ${
-              file ? 'border-zinc-300 bg-zinc-50' : 'border-zinc-200 hover:border-amber-300 hover:bg-amber-50/30'
-            }`}
-            onClick={() => document.getElementById('photo-excel-input')?.click()}
-          >
-            <Camera className="w-8 h-8 text-zinc-300" />
-            {file ? (
-              <div className="text-center">
-                <p className="text-sm font-semibold text-zinc-700">{file.name}</p>
-                <p className="text-xs text-zinc-400 mt-0.5">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
-              </div>
-            ) : (
-              <div className="text-center">
-                <p className="text-sm font-semibold text-zinc-600">Seleccioná el Excel con fotos de cajas</p>
-                <p className="text-xs text-zinc-400 mt-1">Formato: JDS260425M0NX-JDS260429M2NV.xlsx</p>
-              </div>
-            )}
-            <input
-              id="photo-excel-input"
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }}
-            />
-          </div>
-
-          {file && !analyzing && (
-            <button
-              onClick={handleAnalyze}
-              className="mt-4 w-full h-11 rounded-xl bg-amber-400 hover:bg-amber-500 text-zinc-900 font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-sm"
-            >
-              <Eye className="w-4 h-4" />
-              Analizar fotos con IA
-            </button>
-          )}
-
-          {analyzing && (
-            <div className="mt-4 flex flex-col items-center gap-2 py-4">
-              <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
-              <p className="text-sm text-zinc-500">Extrayendo imágenes y leyendo etiquetas…</p>
-              <p className="text-xs text-zinc-400">Puede tardar 15–30 segundos</p>
+        <div
+          className={`flex flex-col items-center gap-3 rounded-xl border-2 border-dashed py-8 cursor-pointer transition-colors ${
+            file ? 'border-zinc-300 bg-zinc-50' : 'border-zinc-200 hover:border-amber-300 hover:bg-amber-50/30'
+          }`}
+          onClick={() => document.getElementById('photo-excel-input')?.click()}
+        >
+          <Camera className="w-8 h-8 text-zinc-300" />
+          {file ? (
+            <div className="text-center">
+              <p className="text-sm font-semibold text-zinc-700">{file.name}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+            </div>
+          ) : (
+            <div className="text-center">
+              <p className="text-sm font-semibold text-zinc-600">Seleccioná el Excel con fotos de cajas</p>
+              <p className="text-xs text-zinc-400 mt-1">Formato: JDS260425M0NX-JDS260429M2NV.xlsx</p>
             </div>
           )}
-
-          {error && (
-            <div className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />{error}
-            </div>
-          )}
+          <input
+            id="photo-excel-input"
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }}
+          />
         </div>
 
-        {/* Results */}
-        {rows && (
-          <>
-            {/* Summary bar */}
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-zinc-700">{rows.length} cajas detectadas</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {autoMatchCount} asignadas automáticamente
-              </div>
-              {unassignedCount > 0 && (
-                <div className="flex items-center gap-1.5 text-xs text-orange-500">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  {unassignedCount} sin asignar — revisar manualmente
-                </div>
-              )}
-              <div className="ml-auto flex gap-2">
-                <button
-                  onClick={() => { setRows(null); setFile(null) }}
-                  className="h-9 px-4 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-500 hover:bg-zinc-50 flex items-center gap-1.5"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  Nuevo
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving || assignedCount === 0}
-                  className="h-9 px-4 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:bg-zinc-100 disabled:text-zinc-400 text-zinc-900 font-semibold text-xs flex items-center gap-1.5 transition-all"
-                >
-                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  Guardar {assignedCount} asignaciones
-                </button>
-              </div>
-            </div>
+        {file && !analyzing && !rows && (
+          <button
+            onClick={handleAnalyze}
+            className="mt-4 w-full h-11 rounded-xl bg-amber-400 hover:bg-amber-500 text-zinc-900 font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-sm"
+          >
+            <Camera className="w-4 h-4" />
+            Analizar fotos con IA
+          </button>
+        )}
 
-            {savedCount !== null && (
-              <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700">
-                <CheckCircle2 className="w-4 h-4" />
-                {savedCount} fotos guardadas correctamente en la base de datos.
+        {analyzing && (
+          <div className="mt-4 flex flex-col items-center gap-2 py-4">
+            <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+            <p className="text-sm text-zinc-500">Extrayendo imágenes y leyendo etiquetas…</p>
+            <p className="text-xs text-zinc-400">Puede tardar 30–60 segundos</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />{error}
+          </div>
+        )}
+      </div>
+
+      {/* Results */}
+      {rows && (
+        <>
+          {/* Summary bar */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-zinc-700">{rows.length} cajas detectadas</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {autoMatchCount} asignadas automáticamente
+            </div>
+            {unassignedCount > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-orange-500">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {unassignedCount} sin asignar — revisar manualmente
               </div>
             )}
-
-            {/* Row cards */}
-            <div className="space-y-3">
-              {rows.map(row => (
-                <RowCard
-                  key={row.rowIndex}
-                  row={row}
-                  assignment={assignments.get(row.rowIndex) ?? null}
-                  onAssign={(asn, caseNo) => assign(row.rowIndex, asn, caseNo)}
-                  boxes={boxes}
-                />
-              ))}
+            <div className="ml-auto flex gap-2">
+              <button
+                onClick={() => { setRows(null); setFile(null); setSessionId('') }}
+                className="h-9 px-4 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-500 hover:bg-zinc-50 flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Nuevo
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || assignedCount === 0}
+                className="h-9 px-4 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:bg-zinc-100 disabled:text-zinc-400 text-zinc-900 font-semibold text-xs flex items-center gap-1.5 transition-all"
+              >
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Guardar {assignedCount} asignaciones
+              </button>
             </div>
-          </>
-        )}
+          </div>
+
+          {savedCount !== null && (
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700">
+              <CheckCircle2 className="w-4 h-4" />
+              {savedCount} fotos guardadas correctamente en la base de datos.
+            </div>
+          )}
+
+          {/* Row cards */}
+          <div className="space-y-3">
+            {rows.map(row => (
+              <RowCard
+                key={row.rowIndex}
+                row={row}
+                sessionId={sessionId}
+                assignment={assignments.get(row.rowIndex) ?? null}
+                onAssign={(asn, caseNo) => assign(row.rowIndex, asn, caseNo)}
+                boxes={boxes}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
