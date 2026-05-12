@@ -1,9 +1,6 @@
 'use server'
 
-import Anthropic from '@anthropic-ai/sdk'
 import { prisma } from '@/lib/prisma'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,10 +31,16 @@ export type SaveResult =
   | { ok: true;  count: number }
   | { ok: false; error: string }
 
-// ─── Claude label reader ──────────────────────────────────────────────────────
+// ─── Input type from edge route ──────────────────────────────────────────────
 
-type FirstPhotoInput = { rowIndex: number; base64: string; mediaType: string; photoCount: number }
-type LabelRead = { asn: string | null; cartonNo: string | null; soNo: string | null; error: string | null }
+type LabelInput = {
+  rowIndex:   number
+  photoCount: number
+  asn:        string | null
+  cartonNo:   string | null
+  soNo:       string | null
+  error:      string | null
+}
 
 // ─── Batch box matching (single DB query) ────────────────────────────────────
 
@@ -76,69 +79,26 @@ async function batchMatchToBox(
   return result
 }
 
-// ─── Main analysis action (receives only first photos, extracted client-side) ─
+// ─── Match Claude labels to DB boxes ─────────────────────────────────────────
+// Called after the edge route returns Claude's label readings.
 
-export async function analizarLabels(
-  firstPhotos: FirstPhotoInput[]
-): Promise<AnalysisResult> {
+export async function matchLabelsToDB(labels: LabelInput[]): Promise<AnalysisResult> {
   try {
-    if (!firstPhotos.length) return { ok: true, rows: [] }
+    if (!labels.length) return { ok: true, rows: [] }
 
-    // Call Claude with just the first photo of each row
-    const imageContent: Anthropic.ImageBlockParam[] = firstPhotos.map(r => ({
-      type: 'image' as const,
-      source: {
-        type: 'base64' as const,
-        media_type: r.mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
-        data: r.base64,
-      },
-    }))
-
-    const promptText = `You will receive ${firstPhotos.length} photos of shipping box labels, in order.
-For each photo, extract from the shipping label:
-- ASN / Shipment No (出货单号): e.g. "JDS260425M0NX"
-- CartonNo (箱号): the long barcode number (digits only)
-- SO: the sales order number e.g. "SO09797165"
-
-Return ONLY a JSON array with exactly ${firstPhotos.length} elements, one per photo in order:
-[
-  { "asn": "...", "cartonNo": "...", "soNo": "...", "error": null },
-  ...
-]
-If a photo does not show a readable label, set all fields to null and set "error" to a short reason.`
-
-    const msg = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: [...imageContent, { type: 'text', text: promptText }] }],
-    })
-
-    const raw    = msg.content[0].type === 'text' ? msg.content[0].text : '[]'
-    const start  = raw.indexOf('['), end = raw.lastIndexOf(']')
-    const parsed: LabelRead[] = start >= 0 ? JSON.parse(raw.slice(start, end + 1)) : []
-
-    const labelMap = new Map<number, LabelRead>()
-    firstPhotos.forEach((r, i) =>
-      labelMap.set(r.rowIndex, parsed[i] ?? { asn: null, cartonNo: null, soNo: null, error: 'No response' })
+    const matchMap = await batchMatchToBox(
+      labels.map(l => ({ rowIndex: l.rowIndex, asn: l.asn, cartonNo: l.cartonNo }))
     )
 
-    // Batch box matching — single DB query
-    const labelsForMatch = firstPhotos.map(r => {
-      const l = labelMap.get(r.rowIndex)!
-      return { rowIndex: r.rowIndex, asn: l.asn, cartonNo: l.cartonNo }
-    })
-    const matchMap = await batchMatchToBox(labelsForMatch)
-
-    const rows: ExcelRow[] = firstPhotos.map(r => {
-      const label = labelMap.get(r.rowIndex)!
-      const match = matchMap.get(r.rowIndex) ?? null
+    const rows: ExcelRow[] = labels.map(l => {
+      const match = matchMap.get(l.rowIndex) ?? null
       return {
-        rowIndex:      r.rowIndex,
-        photoCount:    r.photoCount,
-        aiAsn:         label.asn,
-        aiCarton:      label.cartonNo,
-        aiSo:          label.soNo,
-        aiError:       label.error,
+        rowIndex:      l.rowIndex,
+        photoCount:    l.photoCount,
+        aiAsn:         l.asn,
+        aiCarton:      l.cartonNo,
+        aiSo:          l.soNo,
+        aiError:       l.error,
         matchedAsn:    match?.asn    ?? null,
         matchedCaseNo: match?.caseNo ?? null,
         matchedDesc:   match?.desc   ?? null,
@@ -147,7 +107,7 @@ If a photo does not show a readable label, set all fields to null and set "error
 
     return { ok: true, rows }
   } catch (err) {
-    console.error('[inspeccion] analizarLabels error:', err)
+    console.error('[inspeccion] matchLabelsToDB error:', err)
     return { ok: false, error: String(err) }
   }
 }
@@ -185,7 +145,8 @@ export async function guardarUnaAsignacion(
   }
 }
 
-// Returns unique physical boxes (asn+caseNo combos) for an ASN
+// ─── Returns unique physical boxes (asn+caseNo combos) for an ASN ─────────────
+
 export async function getBoxesForAsn(asn: string): Promise<BoxOption[]> {
   const items = await prisma.cIPLItem.findMany({
     where: { asn: { contains: asn } },

@@ -3,12 +3,30 @@
 import { useState, useTransition, useCallback } from 'react'
 import { unzipSync } from 'fflate'
 import { Loader2, CheckCircle2, AlertTriangle, Camera, RotateCcw, Save, ChevronDown, ChevronRight } from 'lucide-react'
-import { analizarLabels, guardarUnaAsignacion, getBoxesForAsn } from './actions'
+import { matchLabelsToDB, guardarUnaAsignacion, getBoxesForAsn } from './actions'
 import type { ExcelRow, BoxOption } from './actions'
 
 // ─── Client-side xlsx image extraction ───────────────────────────────────────
 
 type PhotoEntry = { colIndex: number; base64: string; mediaType: string }
+
+type LabelResult = {
+  rowIndex:   number
+  photoCount: number
+  asn:        string | null
+  cartonNo:   string | null
+  soNo:       string | null
+  error:      string | null
+}
+
+function uint8ToBase64(buf: Uint8Array): string {
+  const CHUNK = 0x8000
+  let str = ''
+  for (let i = 0; i < buf.length; i += CHUNK) {
+    str += String.fromCharCode(...buf.subarray(i, i + CHUNK))
+  }
+  return btoa(str)
+}
 
 function detectMediaType(buf: Uint8Array): string {
   if (buf[0] === 0xFF && buf[1] === 0xD8) return 'image/jpeg'
@@ -40,9 +58,7 @@ function extractImagesFromXlsx(buf: Uint8Array): Map<number, PhotoEntry[]> {
     if (!imgFile) continue
     const imgBuf = files[`xl/media/${imgFile}`]
     if (!imgBuf) continue
-    const arr: number[] = []
-    imgBuf.forEach(b => arr.push(b))
-    const base64    = btoa(arr.map(b => String.fromCharCode(b)).join(''))
+    const base64    = uint8ToBase64(imgBuf)
     const mediaType = detectMediaType(imgBuf)
     if (!byRow.has(fromRow)) byRow.set(fromRow, [])
     byRow.get(fromRow)!.push({ colIndex: fromCol, base64, mediaType })
@@ -278,7 +294,6 @@ export default function InspeccionClient() {
     startAnalyze(async () => {
       try {
         const rowIndices = [...photosByRow.keys()].sort((a, b) => a - b)
-        // Send only the FIRST photo of each row to the server (keeps payload small)
         const firstPhotos = rowIndices.map(ri => {
           const photos = photosByRow.get(ri)!
           return {
@@ -289,20 +304,34 @@ export default function InspeccionClient() {
           }
         })
 
-        const res = await analizarLabels(firstPhotos)
-        if (!res.ok) { setError(res.error); return }
+        // Step 1: Claude label reading via Edge Route (25s timeout on Hobby)
+        const labelRes = await fetch('/api/inspeccion/analizar', {
+          method:  'POST',
+          headers: { 'content-type': 'application/json' },
+          body:    JSON.stringify({ firstPhotos }),
+        })
+        if (!labelRes.ok) {
+          setError(`Error ${labelRes.status} al llamar a Claude`)
+          return
+        }
+        const labelData: { ok: boolean; labels?: LabelResult[]; error?: string } = await labelRes.json()
+        if (!labelData.ok || !labelData.labels) { setError(labelData.error ?? 'Error desconocido'); return }
 
-        setRows(res.rows)
+        // Step 2: DB matching via Server Action (fast, ~1s, no timeout risk)
+        const matchRes = await matchLabelsToDB(labelData.labels)
+        if (!matchRes.ok) { setError(matchRes.error); return }
+
+        setRows(matchRes.rows)
 
         const map = new Map<number, Assignment>()
-        for (const row of res.rows) {
+        for (const row of matchRes.rows) {
           if (row.matchedAsn && row.matchedCaseNo) {
             map.set(row.rowIndex, { asn: row.matchedAsn, caseNo: row.matchedCaseNo })
           }
         }
         setAssignments(map)
 
-        const asns = [...new Set(res.rows.map(r => r.aiAsn).filter(Boolean))] as string[]
+        const asns = [...new Set(matchRes.rows.map(r => r.aiAsn).filter(Boolean))] as string[]
         if (asns.length) {
           const fetched = await getBoxesForAsn(asns[0])
           setBoxes(fetched)
