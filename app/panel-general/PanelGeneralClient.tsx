@@ -819,141 +819,178 @@ export default function PanelGeneralClient({
                       )}
                     </td>
 
-                    <td className="pl-5 pr-2 py-2.5">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        isRep ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
-                      }`}>
-                        {isRep ? <FileSpreadsheet className="w-2.5 h-2.5" /> : <FileText className="w-2.5 h-2.5" />}
-                        {item.tipoCarga}
-                      </span>
-                    </td>
-
-                    <td className="px-2 py-2.5 text-zinc-400 whitespace-nowrap">{fmtDate(item.createdAt)}</td>
-                    <td className="px-2 py-2.5 text-zinc-500">{item.categoryName ?? '—'}</td>
-                    <td className="px-2 py-2.5 font-mono text-zinc-600">{item.asn ?? '—'}</td>
-                    <td className="px-2 py-2.5 text-zinc-500 whitespace-nowrap">{fmtDate(item.date)}</td>
-                    <td className="px-2 py-2.5 font-mono text-zinc-600">{item.piNo ?? '—'}</td>
-                    <td className="px-2 py-2.5 font-mono text-zinc-600">
-                      {isRep ? (item.caseNo ?? '—') : (item.qBultos != null ? `${item.qBultos} bultos` : '—')}
-                    </td>
-                    <td className="px-2 py-2.5 font-mono text-zinc-600">{item.codeEan ?? '—'}</td>
-                    <td className="px-2 py-2.5 max-w-[180px]">
-                      <span className="line-clamp-2 text-zinc-700" title={item.description ?? ''}>{item.description ?? '—'}</span>
-                    </td>
-                    <td className="px-2 py-2.5 text-right font-mono text-zinc-600">{item.qty ?? '—'}</td>
-                    {(() => {
+                    {vis.has('tipo') && (
+                      <td className="pl-5 pr-2 py-2.5">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          isRep ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+                        }`}>
+                          {isRep ? <FileSpreadsheet className="w-2.5 h-2.5" /> : <FileText className="w-2.5 h-2.5" />}
+                          {item.tipoCarga}
+                        </span>
+                      </td>
+                    )}
+                    {vis.has('cargado')  && <td className="px-2 py-2.5 text-zinc-400 whitespace-nowrap">{fmtDate(item.createdAt)}</td>}
+                    {vis.has('category') && <td className="px-2 py-2.5 text-zinc-500">{item.categoryName ?? '—'}</td>}
+                    {vis.has('asn')      && <td className="px-2 py-2.5 font-mono text-zinc-600">{item.asn ?? '—'}</td>}
+                    {vis.has('date')     && <td className="px-2 py-2.5 text-zinc-500 whitespace-nowrap">{fmtDate(item.date)}</td>}
+                    {vis.has('piNo')       && <td className="px-2 py-2.5 font-mono text-zinc-600">{item.piNo ?? '—'}</td>}
+                    {vis.has('cajaBultos') && (
+                      <td className="px-2 py-2.5 font-mono text-zinc-600">
+                        {isRep ? (item.caseNo ?? '—') : (item.qBultos != null ? `${item.qBultos} bultos` : '—')}
+                      </td>
+                    )}
+                    {vis.has('ean')        && <td className="px-2 py-2.5 font-mono text-zinc-600">{item.codeEan ?? '—'}</td>}
+                    {vis.has('descripcion')&& (
+                      <td className="px-2 py-2.5 max-w-[180px]">
+                        <span className="line-clamp-2 text-zinc-700" title={item.description ?? ''}>{item.description ?? '—'}</span>
+                      </td>
+                    )}
+                    {vis.has('qty')        && <td className="px-2 py-2.5 text-right font-mono text-zinc-600">{item.qty ?? '—'}</td>}
+                    {vis.has('plSO') || vis.has('qGso') || vis.has('dif') ? (() => {
                       const soTotal = item._displaySO ? (soQtyMap.get(item._displaySO) ?? null) : null
-                      const qGso = item.qPi ?? null
-                      const diff = soTotal != null && qGso != null ? soTotal - qGso : null
+                      const rawQGso = gl(item, 'qPi')
+                      const qGso   = rawQGso != null ? Number(rawQGso) : (item._isPrimary ? item.qPi : null)
+                      const diff   = soTotal != null && qGso != null ? soTotal - qGso : null
                       const diffColor = diff == null ? 'text-zinc-300'
                         : diff === 0 ? 'text-emerald-600 font-bold'
                         : diff > 0   ? 'text-amber-600 font-bold'
                         :              'text-red-600 font-bold'
                       return <>
-                        <td className="px-2 py-2.5 text-right font-mono text-blue-700 border-l border-zinc-100">
-                          {soTotal != null ? soTotal.toLocaleString('es-AR') : '—'}
-                        </td>
-                        <td className="px-2 py-2.5 text-right font-mono text-blue-500">
-                          {qGso != null ? qGso.toLocaleString('es-AR') : '—'}
-                        </td>
-                        <td className={`px-2 py-2.5 text-right font-mono ${diffColor}`}>
-                          {diff == null ? '—' : diff > 0 ? `+${diff.toLocaleString('es-AR')}` : diff.toLocaleString('es-AR')}
-                        </td>
+                        {vis.has('plSO') && (
+                          <td className={`px-2 py-2.5 text-right font-mono text-blue-700 ${firstVisibleBorder(GROUPS[2],'plSO',vis)}`}>
+                            {soTotal != null ? soTotal.toLocaleString('es-AR') : '—'}
+                          </td>
+                        )}
+                        {vis.has('qGso') && (
+                          <td className={`px-2 py-2.5 text-right font-mono text-blue-500 ${firstVisibleBorder(GROUPS[2],'qGso',vis)}`}>
+                            {qGso != null ? qGso.toLocaleString('es-AR') : '—'}
+                          </td>
+                        )}
+                        {vis.has('dif') && (
+                          <td className={`px-2 py-2.5 text-right font-mono ${diffColor} ${firstVisibleBorder(GROUPS[2],'dif',vis)}`}>
+                            {diff == null ? '—' : diff > 0 ? `+${diff.toLocaleString('es-AR')}` : diff.toLocaleString('es-AR')}
+                          </td>
+                        )}
                       </>
-                    })()}
-                    {!skipSet.has(rowKey) && (
-                      <td className="px-2 py-2.5 text-right font-mono text-zinc-500 align-middle" rowSpan={spanMap.get(rowKey) ?? 1}>
+                    })() : null}
+                    {vis.has('wxlxh') && !skipSet.has(rowKey) && (
+                      <td className={`px-2 py-2.5 text-right font-mono text-zinc-500 align-middle ${firstVisibleBorder(GROUPS[3],'wxlxh',vis)}`} rowSpan={spanMap.get(rowKey) ?? 1}>
                         {dims}
                       </td>
                     )}
-                    {!skipSet.has(rowKey) && (
-                      <td className="px-2 py-2.5 text-right font-mono text-zinc-600 align-middle" rowSpan={spanMap.get(rowKey) ?? 1}>
+                    {vis.has('gwKg') && !skipSet.has(rowKey) && (
+                      <td className={`px-2 py-2.5 text-right font-mono text-zinc-600 align-middle ${firstVisibleBorder(GROUPS[3],'gwKg',vis)}`} rowSpan={spanMap.get(rowKey) ?? 1}>
                         {fmtNum(item.gwKg, 2)}
                       </td>
                     )}
-                    {!skipSet.has(rowKey) && (
-                      <td className="px-2 py-2.5 text-right font-mono text-zinc-600 align-middle" rowSpan={spanMap.get(rowKey) ?? 1}>
+                    {vis.has('cbm') && !skipSet.has(rowKey) && (
+                      <td className={`px-2 py-2.5 text-right font-mono text-zinc-600 align-middle ${firstVisibleBorder(GROUPS[3],'cbm',vis)}`} rowSpan={spanMap.get(rowKey) ?? 1}>
                         {fmtNum(item.cbm, 5)}
                       </td>
                     )}
-                    {!skipSet.has(rowKey) && (
-                      <td className="px-2 py-2.5 text-right font-mono text-zinc-500 align-middle" rowSpan={spanMap.get(rowKey) ?? 1}>
+                    {vis.has('cbmBulto') && !skipSet.has(rowKey) && (
+                      <td className={`px-2 py-2.5 text-right font-mono text-zinc-500 align-middle ${firstVisibleBorder(GROUPS[3],'cbmBulto',vis)}`} rowSpan={spanMap.get(rowKey) ?? 1}>
                         {fmtNum(item.cbmXBulto, 5)}
                       </td>
                     )}
-                    <td className="px-2 py-2.5 text-right font-mono text-zinc-500">
-                      {fmtNum(item.uniXBulto, 4)}
-                    </td>
-                    <td className="px-2 py-2.5 text-center">
-                      {item.isDangerousGood
-                        ? <AlertTriangle className="w-3.5 h-3.5 text-orange-500 mx-auto" />
-                        : <span className="text-zinc-200">—</span>}
-                    </td>
-                    {/* Active SO for this display row */}
-                    <td className="px-2 py-2.5">
-                      {item._displaySO ? (
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="font-mono text-[11px] bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded">
-                            {item._displaySO}
-                          </span>
-                          {item._isSplit && (
-                            <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${
-                              item._isPrimary ? 'bg-amber-100 text-amber-600' : 'bg-sky-50 text-sky-500'
-                            }`}>
-                              {item._isPrimary ? '1°' : '2°'}
+                    {vis.has('uniBulto') && (
+                      <td className={`px-2 py-2.5 text-right font-mono text-zinc-500 ${firstVisibleBorder(GROUPS[3],'uniBulto',vis)}`}>
+                        {fmtNum(item.uniXBulto, 4)}
+                      </td>
+                    )}
+                    {vis.has('dg') && (
+                      <td className={`px-2 py-2.5 text-center ${firstVisibleBorder(GROUPS[3],'dg',vis)}`}>
+                        {item.isDangerousGood
+                          ? <AlertTriangle className="w-3.5 h-3.5 text-orange-500 mx-auto" />
+                          : <span className="text-zinc-200">—</span>}
+                      </td>
+                    )}
+                    {/* Comercial group */}
+                    {vis.has('soPrincipal') && (
+                      <td className={`px-2 py-2.5 ${firstVisibleBorder(GROUPS[4],'soPrincipal',vis)}`}>
+                        {item._displaySO ? (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="font-mono text-[11px] bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded">
+                              {item._displaySO}
                             </span>
-                          )}
+                            {item._isSplit && (
+                              <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${
+                                item._isPrimary ? 'bg-amber-100 text-amber-600' : 'bg-sky-50 text-sky-500'
+                              }`}>
+                                {item._isPrimary ? '1°' : '2°'}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-zinc-300 italic text-[10px]">sin SO</span>
+                        )}
+                      </td>
+                    )}
+                    {vis.has('soSecundario') && (
+                      <td className={`px-2 py-2.5 ${firstVisibleBorder(GROUPS[4],'soSecundario',vis)}`}>
+                        {item._isSplit ? (
+                          <span className="font-mono text-[10px] text-zinc-300">
+                            {item._isPrimary ? (item.soSecundario ?? '—') : (item.soPrincipal ?? '—')}
+                          </span>
+                        ) : (
+                          item.soSecundario
+                            ? <span className="font-mono text-[11px] bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded">{item.soSecundario}</span>
+                            : <span className="text-zinc-200">—</span>
+                        )}
+                      </td>
+                    )}
+                    {vis.has('drive') && (
+                      <td className={`px-2 py-2.5 ${firstVisibleBorder(GROUPS[4],'drive',vis)}`}>
+                        <div className="flex items-center gap-0.5">
+                          {item.driveLinkExcel
+                            ? <a href={item.driveLinkExcel} target="_blank" rel="noopener noreferrer"
+                                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                title="Excel CIPL">XLS</a>
+                            : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">XLS</span>}
+                          {item.driveLinkCi
+                            ? <a href={item.driveLinkCi} target="_blank" rel="noopener noreferrer"
+                                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                                title="Commercial Invoice">CI</a>
+                            : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">CI</span>}
+                          {item.driveLinkPl
+                            ? <a href={item.driveLinkPl} target="_blank" rel="noopener noreferrer"
+                                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors"
+                                title="Packing List">PL</a>
+                            : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">PL</span>}
                         </div>
-                      ) : (
-                        <span className="text-zinc-300 italic text-[10px]">sin SO</span>
-                      )}
-                    </td>
-                    {/* Other SO (context, dimmed) */}
-                    <td className="px-2 py-2.5">
-                      {item._isSplit ? (
-                        <span className="font-mono text-[10px] text-zinc-300">
-                          {item._isPrimary ? (item.soSecundario ?? '—') : (item.soPrincipal ?? '—')}
-                        </span>
-                      ) : (
-                        item.soSecundario
-                          ? <span className="font-mono text-[11px] bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded">{item.soSecundario}</span>
-                          : <span className="text-zinc-200">—</span>
-                      )}
-                    </td>
+                      </td>
+                    )}
+                    {vis.has('fotos') && (
+                      <td className={`px-2 py-2.5 text-center ${firstVisibleBorder(GROUPS[4],'fotos',vis)}`}>
+                        {item._isPrimary && item.photoCount > 0 && (
+                          <button
+                            onClick={() => setViewingPhotosFor(item.id)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-[10px] font-bold"
+                          >
+                            <Camera className="w-3 h-3" />
+                            {item.photoCount}
+                          </button>
+                        )}
+                      </td>
+                    )}
+                    {vis.has('incoterm') && (
+                      <td className={`px-2 py-2.5 text-zinc-600 text-[11px] ${firstVisibleBorder(GROUPS[4],'incoterm',vis)}`}>
+                        {item.incoterm ?? <span className="text-zinc-200">—</span>}
+                      </td>
+                    )}
+                    {vis.has('puertoSalida') && (
+                      <td className={`px-2 py-2.5 text-zinc-600 text-[11px] ${firstVisibleBorder(GROUPS[4],'puertoSalida',vis)}`}>
+                        {item.puertoSalida ?? <span className="text-zinc-200">—</span>}
+                      </td>
+                    )}
 
-                    {/* Drive links */}
-                    <td className="px-2 py-2.5">
-                      <div className="flex items-center gap-0.5">
-                        {item.driveLinkExcel
-                          ? <a href={item.driveLinkExcel} target="_blank" rel="noopener noreferrer"
-                              className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                              title="Excel CIPL">XLS</a>
-                          : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">XLS</span>}
-                        {item.driveLinkCi
-                          ? <a href={item.driveLinkCi} target="_blank" rel="noopener noreferrer"
-                              className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                              title="Commercial Invoice">CI</a>
-                          : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">CI</span>}
-                        {item.driveLinkPl
-                          ? <a href={item.driveLinkPl} target="_blank" rel="noopener noreferrer"
-                              className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors"
-                              title="Packing List">PL</a>
-                          : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">PL</span>}
-                      </div>
-                    </td>
-
-                    {/* Fotos */}
-                    <td className="px-2 py-2.5 text-center">
-                      {item._isPrimary && item.photoCount > 0 && (
-                        <button
-                          onClick={() => setViewingPhotosFor(item.id)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-[10px] font-bold"
-                        >
-                          <Camera className="w-3 h-3" />
-                          {item.photoCount}
-                        </button>
-                      )}
-                    </td>
+                    {/* Comex / Tracking */}
+                    {vis.has('etd')       && <td className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${firstVisibleBorder(GROUPS[5],'etd',vis)}`}>{fmtDate(item.etd)}</td>}
+                    {vis.has('eta')       && <td className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${firstVisibleBorder(GROUPS[5],'eta',vis)}`}>{fmtDate(item.eta)}</td>}
+                    {vis.has('etaCaldas') && <td className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${firstVisibleBorder(GROUPS[5],'etaCaldas',vis)}`}>{fmtDate(item.etaCaldas)}</td>}
+                    {vis.has('awb')       && <td className={`px-2 py-2.5 font-mono text-zinc-600 text-[11px] ${firstVisibleBorder(GROUPS[5],'awb',vis)}`}>{item.awb ?? <span className="text-zinc-200">—</span>}</td>}
+                    {vis.has('arriboWh')  && <td className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${firstVisibleBorder(GROUPS[5],'arriboWh',vis)}`}>{fmtDate(item.arriboWh)}</td>}
+                    {vis.has('paletizado')&& <td className={`px-2 py-2.5 text-zinc-600 text-[11px] ${firstVisibleBorder(GROUPS[5],'paletizado',vis)}`}>{item.paletizado ?? <span className="text-zinc-200">—</span>}</td>}
 
                     {/* Extra columns from live sources */}
                     {extraColumns.map(c => (
