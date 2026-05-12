@@ -1,11 +1,72 @@
 'use client'
 
-import { useState, useTransition, useEffect, useCallback, useMemo } from 'react'
+import { useState, useTransition, useEffect, useCallback, useMemo, useRef } from 'react'
 import { FileSpreadsheet, FileText, AlertTriangle, Pencil, Trash2, X, Save, Loader2, CheckCircle2, ExternalLink, Search, Download, CheckSquare, Camera } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { updateCIPLItem, deleteCIPLItem, getItemPhotos } from './actions'
 import { fetchSalesOrders } from '@/app/lib/sheets'
 import type { LiveDataMap, ExtraColumn } from '@/app/lib/comex-sources'
+
+// ─── Column visibility constants ──────────────────────────────────────────────
+
+const ALL_COLS = [
+  'tipo','cargado','category','asn','date',
+  'piNo','cajaBultos','ean','descripcion','qty',
+  'plSO','qGso','dif',
+  'wxlxh','gwKg','cbm','cbmBulto','uniBulto','dg',
+  'soPrincipal','soSecundario','drive','fotos','incoterm','puertoSalida',
+  'etd','eta','etaCaldas','awb','arriboWh','paletizado',
+] as const
+
+type ColKey = typeof ALL_COLS[number]
+
+const COL_LABELS: Record<ColKey, string> = {
+  tipo: 'Tipo', cargado: 'Cargado', category: 'Category', asn: 'ASN', date: 'Date',
+  piNo: 'PI No', cajaBultos: 'Caja / Bultos', ean: 'EAN / Code', descripcion: 'Descripción', qty: 'Qty',
+  plSO: '∑ PL/SO', qGso: 'Q GSO', dif: 'Dif',
+  wxlxh: 'W×L×H (cm)', gwKg: 'GW kg', cbm: 'CBM', cbmBulto: 'CBM/Bulto', uniBulto: 'Uni/Bulto', dg: 'DG',
+  soPrincipal: 'SO Principal', soSecundario: 'SO Secund.', drive: 'Drive', fotos: 'Fotos',
+  incoterm: 'Incoterm', puertoSalida: 'Puerto Salida',
+  etd: 'ETD', eta: 'ETA', etaCaldas: 'ETA Caldas', awb: 'AWB', arriboWh: 'Arribo WH', paletizado: 'Paletizado',
+}
+
+type ColGroup = {
+  label: string
+  textColor: string      // Tailwind text color class
+  accentColor: string    // hex for checkbox accent-color
+  borderClass: string    // border-l class for first cell of group in body
+  cols: ColKey[]
+}
+
+const GROUPS: ColGroup[] = [
+  { label: 'Identificación', textColor: 'text-amber-500', accentColor: '#f59e0b', borderClass: '', cols: ['tipo','cargado','category','asn','date'] },
+  { label: 'Producto',       textColor: 'text-amber-500', accentColor: '#f59e0b', borderClass: 'border-l-2 border-l-amber-100', cols: ['piNo','cajaBultos','ean','descripcion','qty'] },
+  { label: 'PL vs GSO',     textColor: 'text-blue-500',  accentColor: '#3b82f6', borderClass: 'border-l-2 border-l-blue-100', cols: ['plSO','qGso','dif'] },
+  { label: 'Dimensiones',   textColor: 'text-zinc-500',  accentColor: '#71717a', borderClass: 'border-l-2 border-l-zinc-200', cols: ['wxlxh','gwKg','cbm','cbmBulto','uniBulto','dg'] },
+  { label: 'Comercial',     textColor: 'text-violet-500',accentColor: '#8b5cf6', borderClass: 'border-l-2 border-l-violet-100', cols: ['soPrincipal','soSecundario','drive','fotos','incoterm','puertoSalida'] },
+  { label: 'Comex / Tracking', textColor: 'text-cyan-500', accentColor: '#06b6d4', borderClass: 'border-l-2 border-l-cyan-100', cols: ['etd','eta','etaCaldas','awb','arriboWh','paletizado'] },
+]
+
+const PRESET_ESENCIALES: ColKey[] = [
+  'tipo','cargado','category','asn','date',
+  'piNo','cajaBultos','ean','descripcion','qty',
+  'plSO','qGso','dif',
+  'wxlxh','gwKg','cbm',
+  'soPrincipal','soSecundario','drive','fotos',
+]
+const PRESET_DIMENSIONES: ColKey[] = [...PRESET_ESENCIALES, 'cbmBulto','uniBulto']
+const PRESET_COMEX: ColKey[]       = [...PRESET_ESENCIALES, 'etd','eta','etaCaldas','awb','arriboWh','paletizado']
+
+/** Count visible columns in a group */
+function groupSpan(group: ColGroup, vis: Set<ColKey>): number {
+  return group.cols.filter(c => vis.has(c)).length
+}
+
+/** Returns the border class for the first currently-visible column of a group, or '' for others */
+function firstVisibleBorder(group: ColGroup, col: ColKey, vis: Set<ColKey>): string {
+  const first = group.cols.find(c => vis.has(c))
+  return first === col ? group.borderClass : ''
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
