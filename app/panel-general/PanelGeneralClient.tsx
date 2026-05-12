@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect, useCallback } from 'react'
+import { useState, useTransition, useEffect, useCallback, useMemo } from 'react'
 import { FileSpreadsheet, FileText, AlertTriangle, Pencil, Trash2, X, Save, Loader2, CheckCircle2, ExternalLink, Search, Download, CheckSquare, Camera } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { updateCIPLItem, deleteCIPLItem, getItemPhotos } from './actions'
@@ -400,6 +400,18 @@ export default function PanelGeneralClient({
   const gl = (item: DisplayRow, key: string) => getLive(item._displaySO, key, liveData)
   const { spanMap, skipSet } = buildDimGroups(filtered)
 
+  // Sum of all qty for each SO (used for PL vs GSO comparison)
+  const soQtyMap = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const item of items) {
+      if (item.soPrincipal && item.qty != null)
+        m.set(item.soPrincipal, (m.get(item.soPrincipal) ?? 0) + item.qty)
+      if (item.soSecundario && item.soSecundario !== item.soPrincipal && item.qty != null)
+        m.set(item.soSecundario, (m.get(item.soSecundario) ?? 0) + item.qty)
+    }
+    return m
+  }, [items])
+
   const toggleSelect = (id: string) =>
     setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
 
@@ -521,7 +533,7 @@ export default function PanelGeneralClient({
             <thead className="sticky top-0 z-10 bg-zinc-50">
               <tr className="border-b border-zinc-100/60">
                 <th className="w-8 pl-3" />
-                <th colSpan={20 + extraColumns.length} className="px-2 pt-2 pb-0.5 text-left">
+                <th colSpan={23 + extraColumns.length} className="px-2 pt-2 pb-0.5 text-left">
                   <span className="text-[9px] font-bold uppercase tracking-widest text-amber-500 px-1">Packing List</span>
                 </th>
                 <th />
@@ -542,6 +554,9 @@ export default function PanelGeneralClient({
                   ['EAN / Code',    'w-28',           ''],
                   ['Descripción',   'min-w-[180px]',  ''],
                   ['Qty',           'w-12 text-right',''],
+                  ['∑ PL / SO',     'w-20 text-right','border-l border-zinc-100 text-blue-500'],
+                  ['Q GSO',         'w-16 text-right','text-blue-500'],
+                  ['Dif',           'w-16 text-right','text-blue-500'],
                   ['W×L×H (cm)',    'w-28 text-right',''],
                   ['GW kg',         'w-16 text-right',''],
                   ['CBM',           'w-16 text-right',''],
@@ -606,6 +621,26 @@ export default function PanelGeneralClient({
                       <span className="line-clamp-2 text-zinc-700" title={item.description ?? ''}>{item.description ?? '—'}</span>
                     </td>
                     <td className="px-2 py-2.5 text-right font-mono text-zinc-600">{item.qty ?? '—'}</td>
+                    {(() => {
+                      const soTotal = item._displaySO ? (soQtyMap.get(item._displaySO) ?? null) : null
+                      const qGso = item.qPi ?? null
+                      const diff = soTotal != null && qGso != null ? soTotal - qGso : null
+                      const diffColor = diff == null ? 'text-zinc-300'
+                        : diff === 0 ? 'text-emerald-600 font-bold'
+                        : diff > 0   ? 'text-amber-600 font-bold'
+                        :              'text-red-600 font-bold'
+                      return <>
+                        <td className="px-2 py-2.5 text-right font-mono text-blue-700 border-l border-zinc-100">
+                          {soTotal != null ? soTotal.toLocaleString('es-AR') : '—'}
+                        </td>
+                        <td className="px-2 py-2.5 text-right font-mono text-blue-500">
+                          {qGso != null ? qGso.toLocaleString('es-AR') : '—'}
+                        </td>
+                        <td className={`px-2 py-2.5 text-right font-mono ${diffColor}`}>
+                          {diff == null ? '—' : diff > 0 ? `+${diff.toLocaleString('es-AR')}` : diff.toLocaleString('es-AR')}
+                        </td>
+                      </>
+                    })()}
                     {!skipSet.has(rowKey) && (
                       <td className="px-2 py-2.5 text-right font-mono text-zinc-500 align-middle" rowSpan={spanMap.get(rowKey) ?? 1}>
                         {dims}
