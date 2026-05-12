@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { prisma } from '@/lib/prisma'
 import { LayoutDashboard } from 'lucide-react'
 import PanelGeneralClient from './PanelGeneralClient'

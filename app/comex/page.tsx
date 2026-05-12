@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { prisma } from '@/lib/prisma'
 import { Anchor } from 'lucide-react'
 import ComexClient from './ComexClient'
