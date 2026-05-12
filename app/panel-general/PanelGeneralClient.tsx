@@ -849,7 +849,7 @@ export default function PanelGeneralClient({
                     {vis.has('plSO') || vis.has('qGso') || vis.has('dif') ? (() => {
                       const soTotal = item._displaySO ? (soQtyMap.get(item._displaySO) ?? null) : null
                       const rawQGso = gl(item, 'qPi')
-                      const qGso   = rawQGso != null ? Number(rawQGso) : (item._isPrimary ? item.qPi : null)
+                      const qGso   = rawQGso != null ? (Number.isFinite(Number(rawQGso)) ? Number(rawQGso) : null) : (item._isPrimary ? item.qPi : null)
                       const diff   = soTotal != null && qGso != null ? soTotal - qGso : null
                       const diffColor = diff == null ? 'text-zinc-300'
                         : diff === 0 ? 'text-emerald-600 font-bold'
