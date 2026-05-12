@@ -710,50 +710,91 @@ export default function PanelGeneralClient({
         <div className="overflow-auto max-h-[640px]">
           <table className="w-full text-xs border-collapse" style={{ minWidth: `${1600 + extraColumns.length * 120}px` }}>
             <thead className="sticky top-0 z-10 bg-zinc-50">
+              {/* Row 1 — group labels */}
               <tr className="border-b border-zinc-100/60">
                 <th className="w-8 pl-3" />
-                <th colSpan={23 + extraColumns.length} className="px-2 pt-2 pb-0.5 text-left">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-amber-500 px-1">Packing List</span>
-                </th>
+                {GROUPS.map(group => {
+                  const span = groupSpan(group, vis)
+                  if (span === 0) return null
+                  return (
+                    <th
+                      key={group.label}
+                      colSpan={span}
+                      className={`px-2 pt-2 pb-0.5 text-left ${group.borderClass}`}
+                    >
+                      <span className={`text-[9px] font-bold uppercase tracking-widest px-0.5 ${group.textColor}`}>
+                        {group.label}
+                      </span>
+                    </th>
+                  )
+                })}
+                {extraColumns.length > 0 && (
+                  <th colSpan={extraColumns.length} className="px-2 pt-2 pb-0.5 text-left border-l-2 border-l-violet-100">
+                    <span className="text-[9px] font-bold uppercase tracking-widest px-0.5 text-violet-500">Fuentes</span>
+                  </th>
+                )}
                 <th />
               </tr>
+
+              {/* Row 2 — column names */}
               <tr className="border-b border-zinc-100">
                 <th className="w-8 pl-3 py-2">
                   <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll}
                     className="w-3.5 h-3.5 rounded accent-amber-400 cursor-pointer" />
                 </th>
-                {[
-                  ['Tipo',          'w-24',           ''],
-                  ['Cargado',       'w-20',           ''],
-                  ['Category',      'w-24',           ''],
-                  ['ASN',           'w-28',           ''],
-                  ['Date',          'w-20',           ''],
-                  ['PI No',         'w-28',           ''],
-                  ['Caja / Bultos', 'w-28',           ''],
-                  ['EAN / Code',    'w-28',           ''],
-                  ['Descripción',   'min-w-[180px]',  ''],
-                  ['Qty',           'w-12 text-right',''],
-                  ['∑ PL / SO',     'w-20 text-right','border-l border-zinc-100 text-blue-500'],
-                  ['Q GSO',         'w-16 text-right','text-blue-500'],
-                  ['Dif',           'w-16 text-right','text-blue-500'],
-                  ['W×L×H (cm)',    'w-28 text-right',''],
-                  ['GW kg',         'w-16 text-right',''],
-                  ['CBM',           'w-16 text-right',''],
-                  ['CBM/Bulto',     'w-20 text-right',''],
-                  ['Uni/Bulto',     'w-16 text-right',''],
-                  ['DG',            'w-8 text-center',''],
-                  ['SO Principal',  'w-32',           ''],
-                  ['SO Secund.',    'w-28',           ''],
-                  ['Drive',         'w-20',           ''],
-                  ['Fotos',         'w-16 text-center',''],
-                  ...extraColumns.map((c, ci) => [c.label, 'w-28', ci === 0 ? 'border-l border-zinc-100 text-violet-500' : 'text-violet-500'] as [string, string, string]),
-                  ['',              'w-10',           ''],
-                ].map(([lbl, cls, extra], thIdx) => (
-                  <th key={`${lbl}-${thIdx}`}
-                    className={`px-2 py-2 first:pl-5 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 ${cls} ${extra}`}>
-                    {lbl}
+
+                {/* Identificación */}
+                {vis.has('tipo')     && <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-24">Tipo</th>}
+                {vis.has('cargado')  && <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-20">Cargado</th>}
+                {vis.has('category') && <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-24">Category</th>}
+                {vis.has('asn')      && <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-28">ASN</th>}
+                {vis.has('date')     && <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-20">Date</th>}
+
+                {/* Producto */}
+                {vis.has('piNo')      && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-28 ${firstVisibleBorder(GROUPS[1],'piNo',vis)}`}>PI No</th>}
+                {vis.has('cajaBultos')&& <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-28 ${firstVisibleBorder(GROUPS[1],'cajaBultos',vis)}`}>Caja / Bultos</th>}
+                {vis.has('ean')       && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-28 ${firstVisibleBorder(GROUPS[1],'ean',vis)}`}>EAN / Code</th>}
+                {vis.has('descripcion')&&<th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 min-w-[180px] ${firstVisibleBorder(GROUPS[1],'descripcion',vis)}`}>Descripción</th>}
+                {vis.has('qty')       && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-12 ${firstVisibleBorder(GROUPS[1],'qty',vis)}`}>Qty</th>}
+
+                {/* PL vs GSO */}
+                {vis.has('plSO') && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-blue-500 w-20 ${firstVisibleBorder(GROUPS[2],'plSO',vis)}`}>∑ PL/SO</th>}
+                {vis.has('qGso') && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-blue-500 w-16 ${firstVisibleBorder(GROUPS[2],'qGso',vis)}`}>Q GSO</th>}
+                {vis.has('dif')  && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-blue-500 w-16 ${firstVisibleBorder(GROUPS[2],'dif',vis)}`}>Dif</th>}
+
+                {/* Dimensiones */}
+                {vis.has('wxlxh')   && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-28 ${firstVisibleBorder(GROUPS[3],'wxlxh',vis)}`}>W×L×H (cm)</th>}
+                {vis.has('gwKg')    && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-16 ${firstVisibleBorder(GROUPS[3],'gwKg',vis)}`}>GW kg</th>}
+                {vis.has('cbm')     && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-16 ${firstVisibleBorder(GROUPS[3],'cbm',vis)}`}>CBM</th>}
+                {vis.has('cbmBulto')&& <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-20 ${firstVisibleBorder(GROUPS[3],'cbmBulto',vis)}`}>CBM/Bulto</th>}
+                {vis.has('uniBulto')&& <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-16 ${firstVisibleBorder(GROUPS[3],'uniBulto',vis)}`}>Uni/Bulto</th>}
+                {vis.has('dg')      && <th className={`px-2 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-8 ${firstVisibleBorder(GROUPS[3],'dg',vis)}`}>DG</th>}
+
+                {/* Comercial */}
+                {vis.has('soPrincipal') && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-32 ${firstVisibleBorder(GROUPS[4],'soPrincipal',vis)}`}>SO Principal</th>}
+                {vis.has('soSecundario')&& <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-28 ${firstVisibleBorder(GROUPS[4],'soSecundario',vis)}`}>SO Secund.</th>}
+                {vis.has('drive')       && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-20 ${firstVisibleBorder(GROUPS[4],'drive',vis)}`}>Drive</th>}
+                {vis.has('fotos')       && <th className={`px-2 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-violet-400 w-16 ${firstVisibleBorder(GROUPS[4],'fotos',vis)}`}>Fotos</th>}
+                {vis.has('incoterm')    && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-24 ${firstVisibleBorder(GROUPS[4],'incoterm',vis)}`}>Incoterm</th>}
+                {vis.has('puertoSalida')&& <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-28 ${firstVisibleBorder(GROUPS[4],'puertoSalida',vis)}`}>Puerto Salida</th>}
+
+                {/* Comex / Tracking */}
+                {vis.has('etd')      && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-24 ${firstVisibleBorder(GROUPS[5],'etd',vis)}`}>ETD</th>}
+                {vis.has('eta')      && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-24 ${firstVisibleBorder(GROUPS[5],'eta',vis)}`}>ETA</th>}
+                {vis.has('etaCaldas')&& <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-24 ${firstVisibleBorder(GROUPS[5],'etaCaldas',vis)}`}>ETA Caldas</th>}
+                {vis.has('awb')      && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-28 ${firstVisibleBorder(GROUPS[5],'awb',vis)}`}>AWB</th>}
+                {vis.has('arriboWh') && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-24 ${firstVisibleBorder(GROUPS[5],'arriboWh',vis)}`}>Arribo WH</th>}
+                {vis.has('paletizado')&&<th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-24 ${firstVisibleBorder(GROUPS[5],'paletizado',vis)}`}>Paletizado</th>}
+
+                {/* Extra live-data columns */}
+                {extraColumns.map((c, ci) => (
+                  <th key={c.fieldKey}
+                    className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-500 w-28 ${ci === 0 ? 'border-l-2 border-l-violet-100' : ''}`}>
+                    {c.label}
                   </th>
                 ))}
+
+                <th className="w-10" />
               </tr>
             </thead>
             <tbody>
