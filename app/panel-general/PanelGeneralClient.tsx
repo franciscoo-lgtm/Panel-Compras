@@ -546,6 +546,21 @@ export default function PanelGeneralClient({
   const [viewingPhotosFor, setViewingPhotosFor] = useState<string | null>(null)
   const [deleting, startDelete]           = useTransition()
 
+  const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() => {
+    try {
+      const saved = localStorage.getItem('panel-visible-cols')
+      if (saved) return new Set(JSON.parse(saved) as ColKey[])
+    } catch {}
+    return new Set(PRESET_ESENCIALES)
+  })
+
+  const applyVisibleCols = useCallback((next: Set<ColKey>) => {
+    setVisibleCols(next)
+    try { localStorage.setItem('panel-visible-cols', JSON.stringify([...next])) } catch {}
+  }, [])
+
+  const vis = visibleCols  // short alias used throughout JSX
+
   useEffect(() => {
     fetchSalesOrders().then(list => setSoList([...new Set(list)])).catch(() => {})
   }, [])
@@ -678,13 +693,16 @@ export default function PanelGeneralClient({
           </div>
         )}
 
-        <button
-          onClick={() => exportXLSX(exportRows, extraColumns, liveData)}
-          className={`${selected.size > 0 ? '' : 'ml-auto'} flex items-center gap-1.5 h-9 px-4 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors`}
-        >
-          <Download className="w-3.5 h-3.5" />
-          {selected.size > 0 ? `Exportar ${selected.size} sel.` : 'Exportar Excel'}
-        </button>
+        <div className={`${selected.size > 0 ? '' : 'ml-auto'} flex items-center gap-2`}>
+          <ColumnSelectorPopover visibleCols={visibleCols} onChange={applyVisibleCols} />
+          <button
+            onClick={() => exportXLSX(exportRows, extraColumns, liveData)}
+            className="flex items-center gap-1.5 h-9 px-4 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {selected.size > 0 ? `Exportar ${selected.size} sel.` : 'Exportar Excel'}
+          </button>
+        </div>
       </div>
 
       {/* Table */}
