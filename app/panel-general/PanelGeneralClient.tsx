@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useTransition, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
-import { FileSpreadsheet, FileText, AlertTriangle, Pencil, Trash2, X, Save, Loader2, CheckCircle2, ExternalLink, Search, Download, CheckSquare, Camera, Sparkles, Plus, Trash } from 'lucide-react'
+import { FileSpreadsheet, FileText, AlertTriangle, Pencil, Trash2, X, Save, Loader2, CheckCircle2, ExternalLink, Search, Download, CheckSquare, Camera, Sparkles, Plus, Trash, FileDown } from 'lucide-react'
 import * as XLSX from 'xlsx'
-import { updateCIPLItem, deleteCIPLItem, getItemPhotos, suggestSOForItem, addPhotosToBox, deletePhoto } from './actions'
+import { updateCIPLItem, deleteCIPLItem, getItemPhotos, suggestSOForItem, addPhotosToBox, deletePhoto, exportCiplAction } from './actions'
 import { fetchSalesOrders } from '@/app/lib/sheets'
 import type { LiveDataMap, ExtraColumn } from '@/app/lib/comex-sources'
 
@@ -698,6 +698,7 @@ export default function PanelGeneralClient({
   const [selected, setSelected]           = useState<Set<string>>(new Set())
   const [viewingPhotosFor, setViewingPhotosFor] = useState<Item | null>(null)
   const [deleting, startDelete]           = useTransition()
+  const [exportingCipl, setExportingCipl] = useState(false)
 
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() => {
     try {
@@ -770,6 +771,22 @@ export default function PanelGeneralClient({
     })
   }
 
+  const handleExportCipl = async () => {
+    const ids = [...selected]
+    if (!ids.length) return
+    setExportingCipl(true)
+    try {
+      const res = await exportCiplAction(ids)
+      if (!res.ok) { alert(`Error exportando CIPL: ${res.error}`); return }
+      const a = document.createElement('a')
+      a.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${res.base64}`
+      a.download = res.filename
+      a.click()
+    } finally {
+      setExportingCipl(false)
+    }
+  }
+
   const handleSaved = useCallback((id: string, fields: Record<string, string>) => {
     setItems(prev => prev.map(item => {
       if (item.id !== id) return item
@@ -838,6 +855,13 @@ export default function PanelGeneralClient({
               className="flex items-center gap-1 h-7 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-semibold transition-colors">
               <Download className="w-3 h-3" />
               Excel
+            </button>
+            <button
+              onClick={handleExportCipl}
+              disabled={exportingCipl}
+              className="flex items-center gap-1 h-7 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-xs font-semibold transition-colors">
+              {exportingCipl ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileDown className="w-3 h-3" />}
+              CIPL ({selected.size})
             </button>
             <button
               onClick={handleBulkDelete}
