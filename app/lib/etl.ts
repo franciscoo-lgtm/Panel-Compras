@@ -77,7 +77,8 @@ Rules:
 - uniXBulto = qty / qBultos (round to 4 decimals)
 - isDangerousGood: true if description includes lithium batteries, flammable liquids, aerosols, explosives, or any IATA/IMDG class dangerous goods
 - Apply fill-down for caseNo: if a sub-row has no case number, inherit the last known case number
-- Apply fill-down for gwKg, w, l, h: if multiple items share the same physical carton (caseNo), they all inherit the carton-level dimensions and gross weight — copy the value to every sub-row, do not leave them null
+- gwKg, w, l, h: set ONLY on the first sub-row of each physical carton (the "primary" row). Leave them NULL on subsequent rows within the same carton — do NOT fill down these values
+- CRITICAL: output items in EXACTLY the same top-to-bottom order as they appear in the Packing List document. Do not reorder items.
 - piNo = CAS No. from Commercial Invoice (applies to ALL rows)`
 
 async function callClaude(content: string): Promise<ExtractedItem[]> {
@@ -148,7 +149,9 @@ INSTRUCTIONS:
 - codeEan = the DJI official part/item number (column labeled "No.", "Item No.", "P/N", "Product Code", or "Item" — NOT the EAN barcode, NOT a distributor SKU). This is typically a short numeric or alphanumeric code like "15522" or "CP.MA.00000266.01".
 - description = the text description only (e.g. "Motor", "Battery", "Arm") — do NOT include the item number in this field
 - caseNo: apply fill-down if rows share the same physical carton; multiple items in the same carton share the same caseNo
-- qBultos = 1 per physical case number (each unique Case No = 1 bulto)`)
+- qBultos = 1 only on the FIRST item of each carton (primary row); set null on all subsequent items in the same carton
+- gwKg / w / l / h: set ONLY on the primary row of each carton; null on sub-rows
+- Output rows in EXACTLY the same order as the Packing List (top to bottom, by carton number)`)
 }
 
 // ─── Mercadería extractor ─────────────────────────────────────────────────────
@@ -171,7 +174,9 @@ INSTRUCTIONS:
 - codeEan = 13-digit EAN from Packing List
 - qBultos: calculate from carton range (e.g. "7~41" = 35, "1~6" = 6)
 - caseNo = the full carton code (e.g. "STS2605060W34-7~41")
-- Dimensions appear as "W*L*H" in cm — split into w, l, h`)
+- Dimensions appear as "W*L*H" in cm — split into w, l, h
+- qBultos, gwKg, w, l, h, cbm: set ONLY on the primary row of each carton; null on sub-rows within the same carton
+- Output rows in EXACTLY the same order as the Packing List (top to bottom, by carton number)`)
 }
 
 // ─── Server Actions ───────────────────────────────────────────────────────────

@@ -742,10 +742,18 @@ export default function PanelGeneralClient({
     return [...map.entries()].map(([asn, grp]) => {
       const sos = [...new Set(grp.flatMap(i => [i.soPrincipal, i.soSecundario]).filter(Boolean) as string[])]
       const piNos = [...new Set(grp.map(i => i.piNo).filter(Boolean) as string[])]
-      const totalQty  = grp.reduce((s, i) => s + (i.qty  ?? 0), 0)
-      const totalCbm  = grp.reduce((s, i) => s + (i.cbm  ?? 0), 0)
-      const totalGw   = grp.reduce((s, i) => s + (i.gwKg ?? 0), 0)
-      const totalBultos = grp.reduce((s, i) => s + (i.qBultos ?? 0), 0)
+      // GW / CBM / qBultos belong to the carton, not each sub-item — deduplicate by caseNo
+      const seen = new Set<string>()
+      const primaryItems = grp.filter(i => {
+        const k = i.caseNo ?? i.id
+        if (seen.has(k)) return false
+        seen.add(k)
+        return true
+      })
+      const totalQty    = grp.reduce((s, i) => s + (i.qty  ?? 0), 0)
+      const totalCbm    = primaryItems.reduce((s, i) => s + (i.cbm  ?? 0), 0)
+      const totalGw     = primaryItems.reduce((s, i) => s + (i.gwKg ?? 0), 0)
+      const totalBultos = primaryItems.reduce((s, i) => s + (i.qBultos ?? 0), 0)
       const tipo = grp[0]?.tipoCarga ?? ''
       const categories = [...new Set(grp.map(i => i.categoryName).filter(Boolean) as string[])]
       return { asn, items: grp, sos, piNos, totalQty, totalCbm, totalGw, totalBultos, tipo, categories }
