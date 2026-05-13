@@ -65,13 +65,31 @@ async function batchMatchToBox(
     let matched: typeof asnItems[0] | undefined
     if (label.cartonNo) {
       const stripped = label.cartonNo.replace(/\D/g, '')
+      // 1. Exact numeric match (most precise)
       matched = asnItems.find(item => {
         if (!item.caseNo) return false
-        const d = item.caseNo.replace(/\D/g, '')
-        return d && (stripped.endsWith(d) || d.endsWith(stripped) || d === stripped)
+        return item.caseNo.replace(/\D/g, '') === stripped
       })
+      // 2. The caseNo may have a "-N" suffix (e.g. "7312...166-1") — strip suffix digit and retry
+      if (!matched) {
+        matched = asnItems.find(item => {
+          if (!item.caseNo) return false
+          const d = item.caseNo.replace(/\D/g, '')
+          // d ends with the suffix number, stripped is the barcode without it
+          return d.startsWith(stripped) || stripped.startsWith(d.slice(0, -1))
+        })
+      }
+      // 3. Ends-with match as last resort (only if unique — avoids wrong fallback)
+      if (!matched) {
+        const candidates = asnItems.filter(item => {
+          if (!item.caseNo) return false
+          const d = item.caseNo.replace(/\D/g, '')
+          return d && (d.endsWith(stripped) || stripped.endsWith(d))
+        })
+        if (candidates.length === 1) matched = candidates[0]
+      }
     }
-    if (!matched) matched = asnItems.find(i => i.caseNo)
+    // NO fallback — if no match, leave unassigned so user picks manually
     if (matched?.caseNo) {
       result.set(label.rowIndex, { asn: matched.asn!, caseNo: matched.caseNo, desc: matched.description ?? matched.caseNo })
     }
