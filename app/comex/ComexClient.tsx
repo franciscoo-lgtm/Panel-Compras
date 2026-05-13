@@ -171,14 +171,16 @@ function TimelineStep({
 // ─── ASN Timeline Card ────────────────────────────────────────────────────────
 
 function AsnCard({
-  group, onEdit, liveData, extraColumns,
+  group, onEdit, liveData, extraColumns, forceExpanded,
 }: {
   group: AsnGroup
   onEdit: (item: Item) => void
   liveData: LiveDataMap
   extraColumns: ExtraColumn[]
+  forceExpanded?: boolean
 }) {
-  const [expanded, setExpanded] = useState(false)
+  const [localExpanded, setLocalExpanded] = useState(false)
+  const expanded = forceExpanded ?? localExpanded
 
   const etdDone   = !!group.etd
   const etaDone   = !!group.arriboWh // ETA segment complete when arrived
@@ -230,7 +232,7 @@ function AsnCard({
 
         {/* Expand toggle */}
         <button
-          onClick={() => setExpanded(v => !v)}
+          onClick={() => setLocalExpanded(v => !v)}
           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-400 shrink-0 mt-0.5"
         >
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -566,11 +568,13 @@ export default function ComexClient({
   extraColumns: ExtraColumn[]
   kpis: ComexKpis
 }) {
-  const [items,   setItems]   = useState<Item[]>(initialItems)
-  const [filter,  setFilter]  = useState<FilterStatus>('all')
-  const [search,  setSearch]  = useState('')
-  const [editing, setEditing] = useState<Item | null>(null)
-  const [view,    setView]    = useState<'timeline' | 'list'>('timeline')
+  const [items,      setItems]      = useState<Item[]>(initialItems)
+  const [filter,     setFilter]     = useState<FilterStatus>('all')
+  const [tipoFilter, setTipoFilter] = useState<'all' | 'Repuesto' | 'Mercaderia'>('all')
+  const [search,     setSearch]     = useState('')
+  const [editing,    setEditing]    = useState<Item | null>(null)
+  const [view,       setView]       = useState<'timeline' | 'list'>('timeline')
+  const [allExpanded, setAllExpanded] = useState(false)
 
   const hasLive = Object.keys(liveData).length > 0
 
@@ -595,7 +599,8 @@ export default function ComexClient({
     { key: 'entregado',   label: `Entregado (${items.filter(i => getStatus(i) === 'entregado').length})` },
   ]
 
-  const byStatus = filter === 'all' ? items : items.filter(i => getStatus(i) === filter)
+  const byTipo   = tipoFilter === 'all' ? items : items.filter(i => i.tipoCarga === tipoFilter)
+  const byStatus = filter === 'all' ? byTipo : byTipo.filter(i => getStatus(i) === filter)
   const bySearch = byStatus.filter(i => matchesSearch(i, search))
 
   const asnGroups = useMemo(() => buildAsnGroups(bySearch), [bySearch])
@@ -612,6 +617,23 @@ export default function ComexClient({
 
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
+        {/* Tipo filter */}
+        <div className="flex gap-1 bg-zinc-100 rounded-xl p-1">
+          {([
+            ['all', 'Todos'],
+            ['Repuesto', 'Repuestos'],
+            ['Mercaderia', 'Mercadería'],
+          ] as const).map(([key, label]) => (
+            <button key={key} onClick={() => setTipoFilter(key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                tipoFilter === key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Status filter */}
         <div className="flex gap-1 flex-wrap bg-zinc-100 rounded-xl p-1">
           {filterTabs.map(t => (
             <button key={t.key} onClick={() => setFilter(t.key)}
@@ -641,6 +663,17 @@ export default function ComexClient({
           <span className="flex items-center gap-1.5 text-[11px] text-green-600 font-medium">
             <Zap className="w-3 h-3" />En vivo
           </span>
+        )}
+
+        {/* Expand all (timeline mode only) */}
+        {view === 'timeline' && asnGroups.length > 0 && (
+          <button
+            onClick={() => setAllExpanded(v => !v)}
+            className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+          >
+            {allExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            {allExpanded ? 'Colapsar todo' : 'Expandir todo'}
+          </button>
         )}
 
         {/* View toggle */}
@@ -681,6 +714,7 @@ export default function ComexClient({
               onEdit={setEditing}
               liveData={liveData}
               extraColumns={extraColumns}
+              forceExpanded={allExpanded || undefined}
             />
           ))}
         </div>

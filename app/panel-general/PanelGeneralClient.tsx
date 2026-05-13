@@ -943,6 +943,18 @@ export default function PanelGeneralClient({
                         {sos.map(so => (
                           <span key={so} className="font-mono text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">{so}</span>
                         ))}
+                        {/* Drive links from first item that has them */}
+                        {(() => {
+                          const d = grpItems.find(i => i.driveLinkExcel || i.driveLinkCi || i.driveLinkPl)
+                          if (!d) return null
+                          return (
+                            <>
+                              {d.driveLinkExcel && <a href={d.driveLinkExcel} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100">XLS</a>}
+                              {d.driveLinkCi    && <a href={d.driveLinkCi}    target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100">CI</a>}
+                              {d.driveLinkPl    && <a href={d.driveLinkPl}    target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-100">PL</a>}
+                            </>
+                          )
+                        })()}
                       </div>
                     )}
                   </div>
@@ -967,11 +979,22 @@ export default function PanelGeneralClient({
                           </div>
                           {item.description && <p className="text-[11px] text-zinc-500 truncate mt-0.5">{item.description}</p>}
                         </div>
-                        <div className="flex items-center gap-4 shrink-0 text-xs text-zinc-500">
+                        <div className="flex items-center gap-3 shrink-0 text-xs text-zinc-500">
                           {item.qty     != null && <span>Qty {item.qty}</span>}
                           {item.qBultos != null && <span>{item.qBultos} bultos</span>}
                           {item.cbm     != null && <span>{item.cbm.toFixed(3)} CBM</span>}
                           {item.gwKg    != null && <span>{item.gwKg.toFixed(1)} kg</span>}
+                          <div className="flex items-center gap-0.5">
+                            {item.driveLinkExcel
+                              ? <a href={item.driveLinkExcel} target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100">XLS</a>
+                              : null}
+                            {item.driveLinkCi
+                              ? <a href={item.driveLinkCi} target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100">CI</a>
+                              : null}
+                            {item.driveLinkPl
+                              ? <a href={item.driveLinkPl} target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 hover:bg-violet-100">PL</a>
+                              : null}
+                          </div>
                         </div>
                         <button onClick={() => setEditing(item)}
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 text-zinc-300 hover:text-amber-500 transition-colors shrink-0">

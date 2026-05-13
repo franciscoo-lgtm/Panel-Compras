@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useTransition, useRef, useEffect } from 'react'
+import React, { useState, useTransition, useRef, useEffect } from 'react'
 import { extraerCIPL, guardarCIPL, sugerirSOsCIPL } from '@/app/lib/etl'
 import type { ExtractedItem, DriveLinks, SOSuggestion, SOSuggestionResult } from '@/app/lib/etl'
 import { fetchSalesOrders } from '@/app/lib/sheets'
 import {
   Upload, FileSpreadsheet, FileText, Loader2, ChevronRight,
-  Save, CheckCircle2, AlertTriangle, RotateCcw, Zap, Sparkles,
+  Save, CheckCircle2, AlertTriangle, RotateCcw, Zap, Sparkles, ExternalLink, FolderOpen,
 } from 'lucide-react'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -259,9 +259,32 @@ function Step2Preview({
           <p className="text-xs text-zinc-400 mt-0.5">
             {categoryName} · {tipoCarga}
             {soList.length > 0 && <span className="ml-2">· {soList.length} SOs cargados</span>}
-            {dgCount > 0 && <span className="ml-2 text-red-500">· ⚠ {dgCount} DG</span>}
-            {driveCount > 0 && <span className="ml-2 text-emerald-600">· {driveCount} archivo{driveCount !== 1 ? 's' : ''} subido{driveCount !== 1 ? 's' : ''} a Drive</span>}
-          </p>
+            {dgCount > 0 && <span className="ml-2 text-red-500">· ⚠ {dgCount} DG</span>}</p>
+          {/* Drive links */}
+          {driveCount > 0 && (
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <FolderOpen className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              <span className="text-xs text-emerald-700 font-medium">Guardado en Drive:</span>
+              {driveLinks.excel && (
+                <a href={driveLinks.excel} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors">
+                  <FileSpreadsheet className="w-3 h-3" />Excel CIPL<ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
+              {driveLinks.ci && (
+                <a href={driveLinks.ci} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors">
+                  <FileText className="w-3 h-3" />CI<ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
+              {driveLinks.pl && (
+                <a href={driveLinks.pl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 transition-colors">
+                  <FileText className="w-3 h-3" />PL<ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button type="button" onClick={handleSuggestSOs} disabled={suggesting || pending}
@@ -395,9 +418,15 @@ function Step2Preview({
 
 // ─── Step 3 — Done ────────────────────────────────────────────────────────────
 
-function Step3Done({ count, onNew }: { count: number; onNew: () => void }) {
+function Step3Done({ count, driveLinks, onNew }: { count: number; driveLinks: DriveLinks; onNew: () => void }) {
+  const links = [
+    driveLinks.excel && { label: 'Excel CIPL', href: driveLinks.excel, color: 'bg-emerald-50 border-emerald-200 text-emerald-700', icon: <FileSpreadsheet className="w-4 h-4" /> },
+    driveLinks.ci    && { label: 'Commercial Invoice', href: driveLinks.ci, color: 'bg-blue-50 border-blue-200 text-blue-700', icon: <FileText className="w-4 h-4" /> },
+    driveLinks.pl    && { label: 'Packing List', href: driveLinks.pl, color: 'bg-violet-50 border-violet-200 text-violet-700', icon: <FileText className="w-4 h-4" /> },
+  ].filter(Boolean) as { label: string; href: string; color: string; icon: React.ReactNode }[]
+
   return (
-    <div className="flex flex-col items-center gap-6 py-20 text-center">
+    <div className="flex flex-col items-center gap-6 py-16 text-center max-w-md mx-auto">
       <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center">
         <CheckCircle2 className="w-8 h-8 text-emerald-500" />
       </div>
@@ -407,6 +436,24 @@ function Step3Done({ count, onNew }: { count: number; onNew: () => void }) {
         </p>
         <p className="text-sm text-zinc-400 mt-1">Ya están disponibles en el Panel General.</p>
       </div>
+
+      {links.length > 0 && (
+        <div className="w-full bg-zinc-50 rounded-xl border border-zinc-100 p-4 text-left space-y-2">
+          <p className="text-xs font-semibold text-zinc-500 flex items-center gap-1.5">
+            <FolderOpen className="w-3.5 h-3.5 text-emerald-500" />
+            Archivos guardados en Google Drive
+          </p>
+          {links.map(({ label, href, color, icon }) => (
+            <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+              className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg border text-sm font-medium hover:opacity-80 transition-opacity ${color}`}>
+              {icon}
+              {label}
+              <ExternalLink className="w-3.5 h-3.5 ml-auto" />
+            </a>
+          ))}
+        </div>
+      )}
+
       <button
         type="button"
         onClick={onNew}
@@ -489,7 +536,7 @@ export default function ComercialPage() {
           onSaved={handleSaved}
         />
       )}
-      {step === 3 && <Step3Done count={saved} onNew={handleReset} />}
+      {step === 3 && <Step3Done count={saved} driveLinks={driveLinks} onNew={handleReset} />}
     </div>
   )
 }
