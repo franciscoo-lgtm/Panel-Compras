@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
-import { FileSpreadsheet, FileText, AlertTriangle, Pencil, Trash2, X, Save, Loader2, CheckCircle2, ExternalLink, Search, Download, CheckSquare, Camera, Sparkles, Plus, Trash, FileDown } from 'lucide-react'
+import { FileSpreadsheet, FileText, AlertTriangle, Pencil, Trash2, X, Save, Loader2, CheckCircle2, ExternalLink, Search, Download, CheckSquare, Camera, Sparkles, Plus, Trash, FileDown, Layers, ChevronDown, ChevronUp } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { updateCIPLItem, deleteCIPLItem, getItemPhotos, suggestSOForItem, addPhotosToBox, deletePhoto, exportCiplAction } from './actions'
 import { fetchSalesOrders } from '@/app/lib/sheets'
@@ -699,6 +699,8 @@ export default function PanelGeneralClient({
   const [viewingPhotosFor, setViewingPhotosFor] = useState<Item | null>(null)
   const [deleting, startDelete]           = useTransition()
   const [exportingCipl, setExportingCipl] = useState(false)
+  const [groupByAsn, setGroupByAsn]       = useState(false)
+  const [expandedAsns, setExpandedAsns]   = useState<Set<string>>(new Set())
 
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() => {
     try {
@@ -729,6 +731,25 @@ export default function PanelGeneralClient({
 
   const gl = (item: DisplayRow, key: string) => getLive(item._displaySO, key, liveData)
   const { spanMap, skipSet, dimsForKey } = buildDimGroups(filtered)
+
+  const asnGroups = useMemo(() => {
+    const map = new Map<string, Item[]>()
+    for (const item of filteredItems) {
+      const key = item.asn ?? '(sin ASN)'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(item)
+    }
+    return [...map.entries()].map(([asn, grp]) => {
+      const sos = [...new Set(grp.flatMap(i => [i.soPrincipal, i.soSecundario]).filter(Boolean) as string[])]
+      const totalQty  = grp.reduce((s, i) => s + (i.qty  ?? 0), 0)
+      const totalCbm  = grp.reduce((s, i) => s + (i.cbm  ?? 0), 0)
+      const totalGw   = grp.reduce((s, i) => s + (i.gwKg ?? 0), 0)
+      const totalBultos = grp.reduce((s, i) => s + (i.qBultos ?? 0), 0)
+      const tipo = grp[0]?.tipoCarga ?? ''
+      const categories = [...new Set(grp.map(i => i.categoryName).filter(Boolean) as string[])]
+      return { asn, items: grp, sos, totalQty, totalCbm, totalGw, totalBultos, tipo, categories }
+    })
+  }, [filteredItems])
 
   // Sum of all qty for each SO (used for PL vs GSO comparison)
   const soQtyMap = useMemo(() => {
@@ -877,6 +898,18 @@ export default function PanelGeneralClient({
         )}
 
         <div className={`${selected.size > 0 ? '' : 'ml-auto'} flex items-center gap-2`}>
+          <button
+            onClick={() => setGroupByAsn(v => !v)}
+            title={groupByAsn ? 'Vista normal' : 'Agrupar por ASN'}
+            className={`flex items-center gap-1.5 h-9 px-3 rounded-xl border text-xs font-medium transition-colors ${
+              groupByAsn
+                ? 'border-amber-400 bg-amber-50 text-amber-700'
+                : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            {groupByAsn ? 'Por ASN' : 'Agrupar ASN'}
+          </button>
           <ColumnSelectorPopover visibleCols={visibleCols} onChange={applyVisibleCols} />
           <button
             onClick={() => exportXLSX(exportRows, extraColumns, liveData)}
@@ -888,8 +921,77 @@ export default function PanelGeneralClient({
         </div>
       </div>
 
+      {/* ASN Grouped View */}
+      {groupByAsn && (
+        <div className="space-y-2">
+          {asnGroups.map(({ asn, items: grpItems, sos, totalQty, totalCbm, totalGw, totalBultos, tipo, categories }) => {
+            const exp = expandedAsns.has(asn)
+            const isRep = tipo === 'Repuesto'
+            return (
+              <div key={asn} className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
+                <div className="flex items-center gap-4 px-5 py-3 cursor-pointer hover:bg-zinc-50/60 transition-colors"
+                  onClick={() => setExpandedAsns(prev => { const s = new Set(prev); s.has(asn) ? s.delete(asn) : s.add(asn); return s })}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-sm font-bold text-zinc-800">{asn}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isRep ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{tipo}</span>
+                      <span className="text-[11px] text-zinc-400">{grpItems.length} ítem{grpItems.length !== 1 ? 's' : ''}</span>
+                      {categories.length > 0 && <span className="text-[11px] text-zinc-400">{categories.join(', ')}</span>}
+                    </div>
+                    {sos.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {sos.map(so => (
+                          <span key={so} className="font-mono text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">{so}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-6 shrink-0 text-xs text-zinc-600">
+                    {totalQty   > 0 && <div className="text-right"><div className="text-[9px] text-zinc-400 uppercase tracking-widest">Qty</div><div className="font-semibold">{totalQty.toLocaleString('es-AR')}</div></div>}
+                    {totalBultos > 0 && <div className="text-right"><div className="text-[9px] text-zinc-400 uppercase tracking-widest">Bultos</div><div className="font-semibold">{totalBultos.toLocaleString('es-AR')}</div></div>}
+                    {totalCbm   > 0 && <div className="text-right"><div className="text-[9px] text-zinc-400 uppercase tracking-widest">CBM</div><div className="font-semibold">{totalCbm.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</div></div>}
+                    {totalGw    > 0 && <div className="text-right"><div className="text-[9px] text-zinc-400 uppercase tracking-widest">GW kg</div><div className="font-semibold">{totalGw.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div></div>}
+                  </div>
+                  <div className="text-zinc-400 shrink-0">
+                    {exp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </div>
+                </div>
+                {exp && (
+                  <div className="border-t border-zinc-50 divide-y divide-zinc-50">
+                    {grpItems.map(item => (
+                      <div key={item.id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-zinc-50/60 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs text-zinc-600">{item.piNo ?? item.caseNo ?? item.id.slice(0, 8)}</span>
+                            {item.soPrincipal && <span className="font-mono text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">{item.soPrincipal}</span>}
+                          </div>
+                          {item.description && <p className="text-[11px] text-zinc-500 truncate mt-0.5">{item.description}</p>}
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0 text-xs text-zinc-500">
+                          {item.qty     != null && <span>Qty {item.qty}</span>}
+                          {item.qBultos != null && <span>{item.qBultos} bultos</span>}
+                          {item.cbm     != null && <span>{item.cbm.toFixed(3)} CBM</span>}
+                          {item.gwKg    != null && <span>{item.gwKg.toFixed(1)} kg</span>}
+                        </div>
+                        <button onClick={() => setEditing(item)}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 text-zinc-300 hover:text-amber-500 transition-colors shrink-0">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {asnGroups.length === 0 && (
+            <div className="flex items-center justify-center py-16 text-zinc-300 text-sm">Sin resultados</div>
+          )}
+        </div>
+      )}
+
       {/* Table */}
-      <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
+      {!groupByAsn && <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
         <div className="overflow-auto max-h-[640px]">
           <table className="w-full text-xs border-collapse" style={{ minWidth: `${1600 + extraColumns.length * 120}px` }}>
             <thead className="sticky top-0 z-10 bg-zinc-50">
@@ -1206,7 +1308,7 @@ export default function PanelGeneralClient({
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
 
       {viewingPhotosFor && (
         <PhotoModal

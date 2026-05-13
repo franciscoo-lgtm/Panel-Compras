@@ -3,7 +3,18 @@ export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/prisma'
 import { Anchor } from 'lucide-react'
 import ComexClient from './ComexClient'
+import type { ComexKpis } from './ComexClient'
 import { getComexSources, fetchAllSourcesData } from '@/app/lib/comex-sources'
+
+function diffDays(a: Date | null, b: Date | null): number | null {
+  if (!a || !b) return null
+  return Math.round((b.getTime() - a.getTime()) / 86400000)
+}
+
+function avg(nums: number[]): number | null {
+  if (!nums.length) return null
+  return Math.round(nums.reduce((s, n) => s + n, 0) / nums.length)
+}
 
 export default async function ComexPage() {
   const [items, sources] = await Promise.all([
@@ -13,11 +24,29 @@ export default async function ComexPage() {
   const cxSources = sources.filter(s => !s.panels || s.panels.includes('comex'))
   const { liveData, extraColumns } = await fetchAllSourcesData(cxSources)
 
-  const total      = items.length
-  const sinInicio  = items.filter(i => !i.avisoAgente && !i.etd && !i.arriboWh).length
-  const enTransito = items.filter(i => i.etd && !i.arriboWh).length
-  const llegados   = items.filter(i => i.arriboWh && !i.etaCaldas).length
-  const entregados = items.filter(i => i.etaCaldas).length
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+
+  // KPI calculations
+  const leadDays = items
+    .map(i => diffDays(i.etd, i.etaCaldas))
+    .filter((d): d is number => d != null && d > 0)
+
+  const transitDays = items
+    .map(i => diffDays(i.etd, i.arriboWh))
+    .filter((d): d is number => d != null && d > 0)
+
+  const pendingConfirmations = items.filter(i => !!i.avisoAgente && !i.avisoConfirmacion).length
+
+  const delayed = items.filter(i =>
+    !i.arriboWh && !i.etaCaldas && i.eta && new Date(i.eta) < today
+  ).length
+
+  const kpis: ComexKpis = {
+    avgLeadDays:          avg(leadDays),
+    avgTransitDays:       avg(transitDays),
+    pendingConfirmations,
+    delayed,
+  }
 
   return (
     <div className="p-6">
@@ -27,30 +56,16 @@ export default async function ComexPage() {
           <Anchor className="w-6 h-6 text-indigo-500" />
           Comex Tracking
         </h1>
-        <p className="text-sm text-zinc-400 mt-1">Seguimiento de despachos — clic en ✏️ para actualizar etapas</p>
+        <p className="text-sm text-zinc-400 mt-1">Seguimiento de despachos — timeline por ASN con alertas de desvío</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Sin iniciar',  value: sinInicio,  color: 'text-zinc-500' },
-          { label: 'En tránsito',  value: enTransito, color: 'text-sky-600'  },
-          { label: 'Llegados WH',  value: llegados,   color: 'text-amber-600'},
-          { label: 'Entregados',   value: entregados, color: 'text-emerald-600' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white rounded-xl border border-zinc-100 shadow-sm px-5 py-4">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">{label}</p>
-            <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
-          </div>
-        ))}
-      </div>
-
-      {total === 0 ? (
+      {items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-24 text-center">
           <Anchor className="w-10 h-10 text-zinc-200" />
           <p className="text-sm text-zinc-400">Sin datos. Cargá CIPLs desde Comercial primero.</p>
         </div>
       ) : (
-        <ComexClient initialItems={items} liveData={liveData} extraColumns={extraColumns} />
+        <ComexClient initialItems={items} liveData={liveData} extraColumns={extraColumns} kpis={kpis} />
       )}
     </div>
   )
