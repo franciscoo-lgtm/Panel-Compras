@@ -1,0 +1,171 @@
+<h2>Panel General v2 — Diseño de tabla</h2>
+<p class="subtitle">Columnas agrupadas por categoría, selector para mostrar/ocultar, dual-SO con Q GSO propio por SO.</p>
+
+<div style="margin-top:20px;">
+
+  <!-- COLUMN SELECTOR MOCKUP -->
+  <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:16px;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div style="background:#f4f4f5;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;color:#3f3f46;cursor:pointer;">Todos</div>
+        <div style="background:#f4f4f5;border-radius:8px;padding:6px 14px;font-size:11px;color:#71717a;cursor:pointer;">Repuesto</div>
+        <div style="background:#f4f4f5;border-radius:8px;padding:6px 14px;font-size:11px;color:#71717a;cursor:pointer;">Mercadería</div>
+        <div style="width:1px;height:20px;background:#e4e4e7;margin:0 4px;"></div>
+        <input style="height:32px;padding:0 12px;border:1px solid #e4e4e7;border-radius:8px;font-size:11px;width:200px;" placeholder="🔍 Buscar por ASN, SO, descripción…">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <!-- COLUMN SELECTOR BUTTON -->
+        <div style="position:relative;display:inline-block;">
+          <div style="background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:600;color:#3f3f46;cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <span>⊞</span> Columnas <span style="background:#f59e0b;color:#000;border-radius:10px;padding:1px 6px;font-size:9px;">7 ocultas</span>
+          </div>
+          <!-- DROPDOWN POPOVER -->
+          <div style="position:absolute;right:0;top:36px;background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:14px;width:480px;box-shadow:0 8px 30px rgba(0,0,0,0.10);z-index:10;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div style="grid-column:1/-1;display:flex;gap:6px;margin-bottom:4px;">
+              <div style="background:#18181b;color:#fff;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;">Esenciales</div>
+              <div style="background:#f4f4f5;border-radius:6px;padding:4px 10px;font-size:10px;color:#71717a;cursor:pointer;">Todos</div>
+              <div style="background:#f4f4f5;border-radius:6px;padding:4px 10px;font-size:10px;color:#71717a;cursor:pointer;">Dimensiones</div>
+              <div style="background:#f4f4f5;border-radius:6px;padding:4px 10px;font-size:10px;color:#71717a;cursor:pointer;">Comex</div>
+            </div>
+            <!-- Group: Identificación -->
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#f59e0b;grid-column:1/-1;margin-top:4px;">Identificación</div>
+            ${['Tipo','Category','ASN','Date'].map(c=>`<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#3f3f46;cursor:pointer;"><input type="checkbox" checked style="accent-color:#f59e0b;">${c}</label>`).join('')}
+            <!-- Group: Producto -->
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#f59e0b;grid-column:1/-1;margin-top:6px;">Producto</div>
+            ${['PI No','Caja / Bultos','EAN','Descripción','Qty'].map(c=>`<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#3f3f46;cursor:pointer;"><input type="checkbox" checked style="accent-color:#f59e0b;">${c}</label>`).join('')}
+            <!-- Group: PL vs GSO -->
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3b82f6;grid-column:1/-1;margin-top:6px;">Comparativa PL / GSO</div>
+            ${['∑ PL/SO','Q GSO','Diferencia'].map(c=>`<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#3f3f46;cursor:pointer;"><input type="checkbox" checked style="accent-color:#3b82f6;">${c}</label>`).join('')}
+            <!-- Group: Dimensiones -->
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#71717a;grid-column:1/-1;margin-top:6px;">Dimensiones</div>
+            ${[['W×L×H',true],['GW kg',true],['CBM',true],['CBM/Bulto',false],['Uni/Bulto',false],['DG',false]].map(([c,on])=>`<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#3f3f46;cursor:pointer;"><input type="checkbox" ${on?'checked':''} style="accent-color:#f59e0b;">${c}</label>`).join('')}
+            <!-- Group: Comercial -->
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#8b5cf6;grid-column:1/-1;margin-top:6px;">Comercial</div>
+            ${[['SO Principal',true],['SO Secundario',true],['Drive',true],['Fotos',true],['Incoterm',false],['Puerto Salida',false]].map(([c,on])=>`<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#3f3f46;cursor:pointer;"><input type="checkbox" ${on?'checked':''} style="accent-color:#8b5cf6;">${c}</label>`).join('')}
+            <!-- Group: Comex -->
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#06b6d4;grid-column:1/-1;margin-top:6px;">Comex / Tracking</div>
+            ${[['ETD',false],['ETA',false],['ETA Caldas',false],['AWB',false],['Arribo WH',false],['Paletizado',false]].map(([c,on])=>`<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#3f3f46;cursor:pointer;"><input type="checkbox" ${on?'checked':''} style="accent-color:#06b6d4;">${c}</label>`).join('')}
+          </div>
+        </div>
+        <div style="background:#f59e0b;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;color:#000;cursor:pointer;">⬇ Excel</div>
+        <div style="background:#fee2e2;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;color:#ef4444;cursor:pointer;">🗑 Borrar selección</div>
+      </div>
+    </div>
+
+    <!-- TABLE MOCKUP -->
+    <div style="overflow-x:auto;border-radius:8px;border:1px solid #f4f4f5;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:900px;">
+        <thead>
+          <!-- GROUP ROW -->
+          <tr style="background:#fafafa;border-bottom:1px solid #f0f0f0;">
+            <th style="width:32px;"></th>
+            <th colspan="4" style="padding:4px 8px;text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#f59e0b;">Identificación</th>
+            <th colspan="3" style="padding:4px 8px;text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#f59e0b;border-left:2px solid #fef3c7;">Producto</th>
+            <th colspan="3" style="padding:4px 8px;text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3b82f6;border-left:2px solid #dbeafe;">PL vs GSO</th>
+            <th colspan="3" style="padding:4px 8px;text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#71717a;border-left:2px solid #f4f4f5;">Dimensiones</th>
+            <th colspan="3" style="padding:4px 8px;text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#8b5cf6;border-left:2px solid #ede9fe;">Comercial</th>
+            <th style="width:40px;"></th>
+          </tr>
+          <!-- COLUMN NAMES -->
+          <tr style="background:#fafafa;border-bottom:2px solid #e4e4e7;">
+            <th style="padding:6px 8px;"></th>
+            <th style="padding:6px 8px;text-align:left;color:#a1a1aa;font-size:9px;font-weight:700;text-transform:uppercase;">Tipo</th>
+            <th style="padding:6px 8px;text-align:left;color:#a1a1aa;font-size:9px;font-weight:700;text-transform:uppercase;">Category</th>
+            <th style="padding:6px 8px;text-align:left;color:#a1a1aa;font-size:9px;font-weight:700;text-transform:uppercase;">ASN</th>
+            <th style="padding:6px 8px;text-align:left;color:#a1a1aa;font-size:9px;font-weight:700;text-transform:uppercase;">Date</th>
+            <th style="padding:6px 8px;text-align:left;color:#a1a1aa;font-size:9px;font-weight:700;text-transform:uppercase;border-left:2px solid #fef3c7;">Descripción</th>
+            <th style="padding:6px 8px;text-align:right;color:#a1a1aa;font-size:9px;font-weight:700;text-transform:uppercase;">Qty</th>
+            <th style="padding:6px 8px;text-align:left;color:#a1a1aa;font-size:9px;font-weight:700;text-transform:uppercase;">EAN</th>
+            <th style="padding:6px 8px;text-align:right;color:#3b82f6;font-size:9px;font-weight:700;text-transform:uppercase;border-left:2px solid #dbeafe;">∑ PL/SO</th>
+            <th style="padding:6px 8px;text-align:right;color:#3b82f6;font-size:9px;font-weight:700;text-transform:uppercase;">Q GSO</th>
+            <th style="padding:6px 8px;text-align:right;color:#3b82f6;font-size:9px;font-weight:700;text-transform:uppercase;">Dif</th>
+            <th style="padding:6px 8px;text-align:right;color:#a1a1aa;font-size:9px;font-weight:700;text-transform:uppercase;border-left:2px solid #f4f4f5;">W×L×H</th>
+            <th style="padding:6px 8px;text-align:right;color:#a1a1aa;font-size:9px;font-weight:700;text-transform:uppercase;">GW kg</th>
+            <th style="padding:6px 8px;text-align:right;color:#a1a1aa;font-size:9px;font-weight:700;text-transform:uppercase;">CBM</th>
+            <th style="padding:6px 8px;text-align:left;color:#8b5cf6;font-size:9px;font-weight:700;text-transform:uppercase;border-left:2px solid #ede9fe;">SO Principal</th>
+            <th style="padding:6px 8px;text-align:left;color:#8b5cf6;font-size:9px;font-weight:700;text-transform:uppercase;">SO Secund.</th>
+            <th style="padding:6px 8px;text-align:center;color:#8b5cf6;font-size:9px;font-weight:700;text-transform:uppercase;">Drive</th>
+            <th style="width:40px;padding:6px 4px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- ROW 1 — single SO, match perfecto -->
+          <tr style="border-bottom:1px solid #f4f4f5;background:#fff;">
+            <td style="padding:6px 8px;"><input type="checkbox" style="accent-color:#f59e0b;"></td>
+            <td style="padding:6px 8px;"><span style="background:#ecfdf5;color:#059669;font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;">REP</span></td>
+            <td style="padding:6px 8px;color:#52525b;font-size:11px;">LGTM</td>
+            <td style="padding:6px 8px;font-family:monospace;font-size:10px;color:#3f3f46;">JDS2604M0NX</td>
+            <td style="padding:6px 8px;color:#71717a;font-size:10px;">15/04/26</td>
+            <td style="padding:6px 8px;color:#18181b;font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid #fef3c7;">DJI Agras T50 Spray System</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;color:#18181b;">24</td>
+            <td style="padding:6px 8px;font-family:monospace;font-size:9px;color:#71717a;">6958265...</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;font-weight:700;color:#1d4ed8;border-left:2px solid #dbeafe;">48</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;color:#3b82f6;">48</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;font-weight:800;color:#059669;">0</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;font-size:10px;color:#71717a;border-left:2px solid #f4f4f5;">40×30×25</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;color:#52525b;">12.40</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;color:#52525b;">0.03000</td>
+            <td style="padding:6px 8px;border-left:2px solid #ede9fe;"><span style="background:#fef3c7;color:#92400e;font-family:monospace;font-size:10px;padding:2px 6px;border-radius:4px;">SO09797165</span></td>
+            <td style="padding:6px 8px;color:#d4d4d8;font-size:10px;">—</td>
+            <td style="padding:6px 8px;text-align:center;"><span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:#ecfdf5;color:#059669;">XLS</span></td>
+            <td style="padding:6px 4px;text-align:center;">✏️</td>
+          </tr>
+          <!-- ROW 2a — DUAL SO, fila 1 (SO Principal con su Q GSO) -->
+          <tr style="border-bottom:0;background:#fff;border-left:3px solid #f59e0b;">
+            <td style="padding:6px 8px;" rowspan="2"><input type="checkbox" style="accent-color:#f59e0b;"></td>
+            <td style="padding:6px 8px;" rowspan="2"><span style="background:#fef2f2;color:#dc2626;font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;">MRC</span></td>
+            <td style="padding:6px 8px;" rowspan="2"><span style="color:#52525b;font-size:11px;">LGTM</span></td>
+            <td style="padding:6px 8px;font-family:monospace;font-size:10px;color:#3f3f46;" rowspan="2">JDS2604M2NV</td>
+            <td style="padding:6px 8px;color:#71717a;font-size:10px;" rowspan="2">18/04/26</td>
+            <td style="padding:6px 8px;color:#18181b;font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid #fef3c7;" rowspan="2">Phantom 4 RTK Combo</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;color:#18181b;" rowspan="2">10</td>
+            <td style="padding:6px 8px;font-family:monospace;font-size:9px;color:#71717a;" rowspan="2">6958265...</td>
+            <!-- SO1 comparison -->
+            <td style="padding:4px 8px;text-align:right;font-family:monospace;font-weight:700;color:#1d4ed8;border-left:2px solid #dbeafe;font-size:10px;">10</td>
+            <td style="padding:4px 8px;text-align:right;font-family:monospace;color:#3b82f6;font-size:10px;">12</td>
+            <td style="padding:4px 8px;text-align:right;font-family:monospace;font-weight:800;color:#dc2626;font-size:10px;">-2</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;font-size:10px;color:#71717a;border-left:2px solid #f4f4f5;" rowspan="2">60×50×40</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;color:#52525b;" rowspan="2">25.00</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;color:#52525b;" rowspan="2">0.12000</td>
+            <td style="padding:4px 8px;border-left:2px solid #ede9fe;"><span style="background:#fef3c7;color:#92400e;font-family:monospace;font-size:10px;padding:2px 6px;border-radius:4px;">SO09797200</span> <span style="font-size:9px;font-weight:700;color:#d97706;">1°</span></td>
+            <td style="padding:4px 8px;color:#d4d4d8;font-size:10px;" rowspan="2">SO09797300</td>
+            <td style="padding:6px 8px;text-align:center;" rowspan="2"><span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:#ecfdf5;color:#059669;">XLS</span></td>
+            <td style="padding:6px 4px;text-align:center;" rowspan="2">✏️</td>
+          </tr>
+          <!-- ROW 2b — DUAL SO, fila 2 (SO Secundario con su propio Q GSO) -->
+          <tr style="border-bottom:1px solid #f4f4f5;background:#f8f9ff;border-left:3px solid #93c5fd;">
+            <!-- SO2 comparison — sus propios datos de GSO -->
+            <td style="padding:4px 8px;text-align:right;font-family:monospace;font-weight:700;color:#1d4ed8;border-left:2px solid #dbeafe;font-size:10px;">10</td>
+            <td style="padding:4px 8px;text-align:right;font-family:monospace;color:#3b82f6;font-size:10px;">10</td>
+            <td style="padding:4px 8px;text-align:right;font-family:monospace;font-weight:800;color:#059669;font-size:10px;">0</td>
+            <td style="padding:4px 8px;border-left:2px solid #ede9fe;"><span style="background:#eff6ff;color:#1d4ed8;font-family:monospace;font-size:10px;padding:2px 6px;border-radius:4px;">SO09797300</span> <span style="font-size:9px;font-weight:700;color:#60a5fa;">2°</span></td>
+          </tr>
+          <!-- ROW 3 — falta GSO -->
+          <tr style="border-bottom:1px solid #f4f4f5;background:#fff;">
+            <td style="padding:6px 8px;"><input type="checkbox" style="accent-color:#f59e0b;"></td>
+            <td style="padding:6px 8px;"><span style="background:#ecfdf5;color:#059669;font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;">REP</span></td>
+            <td style="padding:6px 8px;color:#52525b;font-size:11px;">LGTM</td>
+            <td style="padding:6px 8px;font-family:monospace;font-size:10px;color:#3f3f46;">JDS2604M0NX</td>
+            <td style="padding:6px 8px;color:#71717a;font-size:10px;">15/04/26</td>
+            <td style="padding:6px 8px;color:#18181b;font-size:11px;border-left:2px solid #fef3c7;">Battery Pack LiPo 6S</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;color:#18181b;">6</td>
+            <td style="padding:6px 8px;font-family:monospace;font-size:9px;color:#71717a;">—</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;font-weight:700;color:#1d4ed8;border-left:2px solid #dbeafe;">6</td>
+            <td style="padding:6px 8px;text-align:right;color:#d4d4d8;">—</td>
+            <td style="padding:6px 8px;text-align:right;color:#d4d4d8;">—</td>
+            <td style="padding:6px 8px;text-align:right;font-family:monospace;font-size:10px;color:#71717a;border-left:2px solid #f4f4f5;" colspan="3"><em style="color:#fbbf24;font-size:10px;">sin SO asignado</em></td>
+            <td style="padding:6px 8px;color:#d4d4d8;font-size:10px;border-left:2px solid #ede9fe;" colspan="3">—</td>
+            <td style="padding:6px 4px;">✏️</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:16px;font-size:10px;color:#71717a;">
+      <span>📌 <strong>Dual SO</strong>: cada SO tiene su propia fila con su Q GSO y diferencia independiente</span>
+      <span>🟢 Dif=0 match exacto · 🔴 Dif negativa faltan unidades · 🟠 Dif positiva hay exceso</span>
+    </div>
+  </div>
+
+</div>
+
+<p style="font-size:12px;color:#888;text-align:center;margin-top:16px;">¿Este diseño de tabla te parece bien? ¿Algo que cambiar antes de implementar?</p>

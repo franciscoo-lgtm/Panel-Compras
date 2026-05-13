@@ -741,13 +741,14 @@ export default function PanelGeneralClient({
     }
     return [...map.entries()].map(([asn, grp]) => {
       const sos = [...new Set(grp.flatMap(i => [i.soPrincipal, i.soSecundario]).filter(Boolean) as string[])]
+      const piNos = [...new Set(grp.map(i => i.piNo).filter(Boolean) as string[])]
       const totalQty  = grp.reduce((s, i) => s + (i.qty  ?? 0), 0)
       const totalCbm  = grp.reduce((s, i) => s + (i.cbm  ?? 0), 0)
       const totalGw   = grp.reduce((s, i) => s + (i.gwKg ?? 0), 0)
       const totalBultos = grp.reduce((s, i) => s + (i.qBultos ?? 0), 0)
       const tipo = grp[0]?.tipoCarga ?? ''
       const categories = [...new Set(grp.map(i => i.categoryName).filter(Boolean) as string[])]
-      return { asn, items: grp, sos, totalQty, totalCbm, totalGw, totalBultos, tipo, categories }
+      return { asn, items: grp, sos, piNos, totalQty, totalCbm, totalGw, totalBultos, tipo, categories }
     })
   }, [filteredItems])
 
@@ -924,7 +925,7 @@ export default function PanelGeneralClient({
       {/* ASN Grouped View */}
       {groupByAsn && (
         <div className="space-y-2">
-          {asnGroups.map(({ asn, items: grpItems, sos, totalQty, totalCbm, totalGw, totalBultos, tipo, categories }) => {
+          {asnGroups.map(({ asn, items: grpItems, sos, piNos, totalQty, totalCbm, totalGw, totalBultos, tipo, categories }) => {
             const exp = expandedAsns.has(asn)
             const isRep = tipo === 'Repuesto'
             return (
@@ -936,12 +937,13 @@ export default function PanelGeneralClient({
                       <span className="font-mono text-sm font-bold text-zinc-800">{asn}</span>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isRep ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{tipo}</span>
                       <span className="text-[11px] text-zinc-400">{grpItems.length} ítem{grpItems.length !== 1 ? 's' : ''}</span>
+                      {sos.length > 0 && <span className="text-[11px] text-zinc-400">{sos.length} SO{sos.length !== 1 ? 's' : ''}</span>}
                       {categories.length > 0 && <span className="text-[11px] text-zinc-400">{categories.join(', ')}</span>}
                     </div>
-                    {sos.length > 0 && (
+                    {(piNos.length > 0 || grpItems.some(i => i.driveLinkExcel || i.driveLinkCi || i.driveLinkPl)) && (
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {sos.map(so => (
-                          <span key={so} className="font-mono text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">{so}</span>
+                        {piNos.map(pi => (
+                          <span key={pi} className="font-mono text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">{pi}</span>
                         ))}
                         {/* Drive links from first item that has them */}
                         {(() => {

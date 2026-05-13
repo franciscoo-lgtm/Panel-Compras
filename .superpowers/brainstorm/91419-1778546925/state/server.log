@@ -1,0 +1,15 @@
+{"type":"server-started","port":51823,"host":"0.0.0.0","url_host":"localhost","url":"http://localhost:51823","screen_dir":"/workspaces/Panel-Compras/.superpowers/brainstorm/91419-1778546925/content","state_dir":"/workspaces/Panel-Compras/.superpowers/brainstorm/91419-1778546925/state"}
+{"type":"screen-added","file":"/workspaces/Panel-Compras/.superpowers/brainstorm/91419-1778546925/content/overview.html"}
+{"source":"user-event","type":"click","text":"A\n    \n      Tabla del Panel General\n      Rediseñar columnas, selector para mostrar/ocultar, mejorar lectura y filtros","choice":"table","id":null,"timestamp":1778546978991}
+{"source":"user-event","type":"click","text":"B\n    \n      Dashboard de KPIs y Tiempos\n      Gráficos de demoras, tiempos promedio ASN→ETA, comparativa PL vs GSO, estado de shipments","choice":"dashboard","id":null,"timestamp":1778546980755}
+{"source":"user-event","type":"click","text":"C\n    \n      Fuentes externas (Google Sheets)\n      Mejorar la UI para conectar fuentes, mapear columnas y elegir en qué paneles aparecen","choice":"sources","id":null,"timestamp":1778546981478}
+{"source":"user-event","type":"click","text":"D\n    \n      Todo junto, empezando por lo más impactante\n      Rediseño completo — el orden lo definís vos o lo priorizo yo según impacto","choice":"all","id":null,"timestamp":1778546982272}
+{"source":"user-event","type":"click","text":"B\n    \n      Dashboard de KPIs y Tiempos\n      Gráficos de demoras, tiempos promedio ASN→ETA, comparativa PL vs GSO, estado de shipments","choice":"dashboard","id":null,"timestamp":1778546985826}
+{"source":"user-event","type":"click","text":"C\n    \n      Fuentes externas (Google Sheets)\n      Mejorar la UI para conectar fuentes, mapear columnas y elegir en qué paneles aparecen","choice":"sources","id":null,"timestamp":1778546986403}
+{"source":"user-event","type":"click","text":"D\n    \n      Todo junto, empezando por lo más impactante\n      Rediseño completo — el orden lo definís vos o lo priorizo yo según impacto","choice":"all","id":null,"timestamp":1778546987232}
+{"source":"user-event","type":"click","text":"B\n    \n      Dashboard de KPIs y Tiempos\n      Gráficos de demoras, tiempos promedio ASN→ETA, comparativa PL vs GSO, estado de shipments","choice":"dashboard","id":null,"timestamp":1778546996750}
+{"source":"user-event","type":"click","text":"C\n    \n      Fuentes externas (Google Sheets)\n      Mejorar la UI para conectar fuentes, mapear columnas y elegir en qué paneles aparecen","choice":"sources","id":null,"timestamp":1778546997376}
+{"source":"user-event","type":"click","text":"D\n    \n      Todo junto, empezando por lo más impactante\n      Rediseño completo — el orden lo definís vos o lo priorizo yo según impacto","choice":"all","id":null,"timestamp":1778546998246}
+{"type":"screen-added","file":"/workspaces/Panel-Compras/.superpowers/brainstorm/91419-1778546925/content/scope.html"}
+{"type":"screen-added","file":"/workspaces/Panel-Compras/.superpowers/brainstorm/91419-1778546925/content/panel-v2.html"}
+{"type":"server-stopped","reason":"idle timeout"}

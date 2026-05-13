@@ -77,6 +77,7 @@ Rules:
 - uniXBulto = qty / qBultos (round to 4 decimals)
 - isDangerousGood: true if description includes lithium batteries, flammable liquids, aerosols, explosives, or any IATA/IMDG class dangerous goods
 - Apply fill-down for caseNo: if a sub-row has no case number, inherit the last known case number
+- Apply fill-down for gwKg, w, l, h: if multiple items share the same physical carton (caseNo), they all inherit the carton-level dimensions and gross weight — copy the value to every sub-row, do not leave them null
 - piNo = CAS No. from Commercial Invoice (applies to ALL rows)`
 
 async function callClaude(content: string): Promise<ExtractedItem[]> {
@@ -382,6 +383,7 @@ export async function guardarCIPL(formData: FormData): Promise<SaveResult> {
       return {
         tipoCarga,
         categoryName,
+        sortOrder:    i,
         soPrincipal:  so,
         soSecundario: sosSecundario[i]?.trim() || null,
         asn:          item.asn,

@@ -72,6 +72,7 @@ model CIPLItem {
   tipoCarga    String   // "Repuesto" | "Mercaderia"
 
   // ── Extraídos por ETL ───────────────────────────────────────────────────────
+  sortOrder       Int?      // row position within the original PL (0-based)
   asn             String?
   date            DateTime?
   piNo            String?

@@ -99,6 +99,7 @@ type AsnGroup = {
   etaCaldas: Date | null
   awb: string | null
   sos: string[]
+  piNos: string[]
   delayed: boolean
 }
 
@@ -126,11 +127,12 @@ function buildAsnGroups(items: Item[]): AsnGroup[] {
     const status = statusOrder.find(s => statuses.includes(s)) ?? 'pendiente'
 
     const sos = [...new Set(grpItems.flatMap(i => [i.soPrincipal, i.soSecundario]).filter(Boolean) as string[])]
+    const piNos = [...new Set(grpItems.map(i => i.piNo).filter(Boolean) as string[])]
 
     // Delay: ETA has passed but not arrived yet
     const delayed = !arriboWh && !etaCaldas && !!eta && isOverdue(eta)
 
-    return { asn, items: grpItems, status, etd, eta, arriboWh, etaCaldas, awb, sos, delayed }
+    return { asn, items: grpItems, status, etd, eta, arriboWh, etaCaldas, awb, sos, piNos, delayed }
   })
 }
 
@@ -210,9 +212,16 @@ function AsnCard({
               isRep ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
             }`}>{group.items[0]?.tipoCarga}</span>
           </div>
-          <div className="flex items-center gap-3 text-[11px] text-zinc-400 flex-wrap">
+          <div className="flex items-center gap-2 text-[11px] text-zinc-400 flex-wrap">
+            {group.piNos.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {group.piNos.map(pi => (
+                  <span key={pi} className="font-mono text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">{pi}</span>
+                ))}
+              </div>
+            )}
             {group.sos.length > 0 && (
-              <span className="font-mono">{group.sos.slice(0, 4).join(' · ')}{group.sos.length > 4 ? ` +${group.sos.length - 4}` : ''}</span>
+              <span className="text-zinc-400">{group.sos.length} SO{group.sos.length !== 1 ? 's' : ''}</span>
             )}
             <span>{group.items.length} ítem{group.items.length !== 1 ? 's' : ''}</span>
             {group.awb && <span className="font-mono text-zinc-500">AWB: {group.awb}</span>}

@@ -8,7 +8,7 @@ import { getComexSources, fetchAllSourcesData } from '@/app/lib/comex-sources'
 export default async function PanelGeneralPage() {
   const [rawItems, sources] = await Promise.all([
     prisma.cIPLItem.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { sortOrder: 'asc' }],
       take: 500,
       include: { _count: { select: { photos: true } } },
     }),
