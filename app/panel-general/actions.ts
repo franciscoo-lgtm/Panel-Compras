@@ -3,6 +3,8 @@
 import { prisma } from '@/lib/prisma'
 import { fetchGSORow, buildGSOMap } from '@/app/lib/sheets'
 import Anthropic from '@anthropic-ai/sdk'
+import { buildCiplWorkbook, workbookToBase64 } from '@/lib/exportCipl'
+import type { ExportItem } from '@/lib/exportCipl'
 
 const DATE_FIELDS = new Set(['arriboWh', 'fechaInstruccion', 'etd', 'eta', 'etaCaldas'])
 
@@ -161,5 +163,80 @@ Respondé SOLO con JSON: {"so":"SO-XXXX","reason":"<una oración explicando por 
   } catch (err) {
     console.error('[suggestSO] error:', err)
     return null
+  }
+}
+
+// ─── CIPL Export ──────────────────────────────────────────────────────────────
+
+export type CiplExportResult =
+  | { ok: true;  base64: string; filename: string }
+  | { ok: false; error: string }
+
+export async function exportCiplAction(itemIds: string[]): Promise<CiplExportResult> {
+  try {
+    if (!itemIds.length) return { ok: false, error: 'No items selected' }
+
+    const rows = await prisma.cIPLItem.findMany({
+      where: { id: { in: itemIds } },
+      select: {
+        isDangerousGood: true,
+        categoryName:    true,
+        piNo:            true,
+        caseNo:          true,
+        qBultos:         true,
+        qty:             true,
+        description:     true,
+        w:               true,
+        l:               true,
+        h:               true,
+        cbm:             true,
+        gwKg:            true,
+        cbmXBulto:       true,
+        uniXBulto:       true,
+        soPrincipal:     true,
+        sku:             true,
+        pa:              true,
+        incoterm:        true,
+        driveLinkPl:     true,
+        driveLinkExcel:  true,
+        asn:             true,
+      },
+      orderBy: [{ asn: 'asc' }, { caseNo: 'asc' }],
+    })
+
+    if (!rows.length) return { ok: false, error: 'No data found for selected items' }
+
+    const items: ExportItem[] = rows.map(r => ({
+      isDangerousGood: r.isDangerousGood,
+      categoryName:    r.categoryName,
+      piNo:            r.piNo,
+      caseNo:          r.caseNo,
+      qBultos:         r.qBultos,
+      qty:             r.qty,
+      description:     r.description,
+      w:               r.w,
+      l:               r.l,
+      h:               r.h,
+      cbm:             r.cbm,
+      gwKg:            r.gwKg,
+      cbmXBulto:       r.cbmXBulto,
+      uniXBulto:       r.uniXBulto,
+      soPrincipal:     r.soPrincipal,
+      sku:             r.sku,
+      pa:              r.pa,
+      incoterm:        r.incoterm,
+      driveLinkPl:     r.driveLinkPl,
+      driveLinkExcel:  r.driveLinkExcel,
+    }))
+
+    const wb       = buildCiplWorkbook(items)
+    const base64   = workbookToBase64(wb)
+    const asns     = [...new Set(rows.map(r => r.asn).filter(Boolean))].join('_')
+    const filename = `CIPL_${asns}_${new Date().toISOString().slice(0, 10)}.xlsx`
+
+    return { ok: true, base64, filename }
+  } catch (err) {
+    console.error('[exportCiplAction]', err)
+    return { ok: false, error: String(err) }
   }
 }
