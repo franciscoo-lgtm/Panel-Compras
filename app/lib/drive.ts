@@ -3,11 +3,6 @@
 import { google, drive_v3 } from 'googleapis'
 import { Readable } from 'stream'
 
-const MONTHS_ES = [
-  '01-Enero', '02-Febrero', '03-Marzo', '04-Abril',
-  '05-Mayo', '06-Junio', '07-Julio', '08-Agosto',
-  '09-Septiembre', '10-Octubre', '11-Noviembre', '12-Diciembre',
-]
 
 function getAuth() {
   const email = process.env.GOOGLE_CLIENT_EMAIL
@@ -61,7 +56,8 @@ export async function uploadToDrive(
     const drive   = google.drive({ version: 'v3', auth })
     const ref     = meta.date ? new Date(meta.date as string) : new Date()
     const year    = ref.getFullYear().toString()
-    const month   = MONTHS_ES[ref.getMonth()]
+    const mm      = String(ref.getMonth() + 1).padStart(2, '0')
+    const month   = `${mm}${year}` // MMAAAA e.g. "052026"
     // Sanitise folder name: strip characters invalid in Drive
     const invoice = (meta.piNo ?? meta.asn ?? 'Sin-Invoice')
       .replace(/[/\\?%*:|"<>]/g, '-')
