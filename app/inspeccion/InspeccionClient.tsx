@@ -2,29 +2,37 @@
 
 import { useState, useTransition, useCallback } from 'react'
 import { unzipSync } from 'fflate'
-import { Loader2, CheckCircle2, AlertTriangle, Camera, RotateCcw, Save, ChevronDown, ChevronRight } from 'lucide-react'
-import { matchLabelsToDB, guardarUnaAsignacion, getBoxesForAsn } from './actions'
-import type { ExcelRow, BoxOption } from './actions'
+import {
+  Loader2, CheckCircle2, AlertTriangle, Camera, RotateCcw, Save,
+  ChevronDown, ChevronRight, Search, FileText, ShieldCheck, ShieldAlert, ShieldQuestion,
+} from 'lucide-react'
+import {
+  matchLabelsToDB, guardarUnaAsignacion, getBoxesForAsn,
+  getPLItemsForInspection,
+} from './actions'
+import type { ExcelRow, BoxOption, PLItemForInspection } from './actions'
 
 // ─── Client-side xlsx image extraction ───────────────────────────────────────
 
 type PhotoEntry = { colIndex: number; base64: string; mediaType: string }
 
 type LabelResult = {
-  rowIndex:   number
-  photoCount: number
-  asn:        string | null
-  cartonNo:   string | null
-  soNo:       string | null
-  error:      string | null
+  rowIndex:    number
+  photoCount:  number
+  asn:         string | null
+  cartonNo:    string | null
+  caseNo:      string | null
+  soNo:        string | null
+  confidence:  'high' | 'medium' | 'low' | null
+  note:        string | null
+  error:       string | null
 }
 
 function uint8ToBase64(buf: Uint8Array): string {
   const CHUNK = 0x8000
   let str = ''
-  for (let i = 0; i < buf.length; i += CHUNK) {
+  for (let i = 0; i < buf.length; i += CHUNK)
     str += String.fromCharCode(...buf.subarray(i, i + CHUNK))
-  }
   return btoa(str)
 }
 
@@ -68,6 +76,29 @@ function extractImagesFromXlsx(buf: Uint8Array): Map<number, PhotoEntry[]> {
   return byRow
 }
 
+// Auto-detect ASN from Excel filename (e.g. "JDS260429M2NV-foo.xlsx" → "JDS260429M2NV")
+function extractAsnFromFilename(name: string): string | null {
+  const m = name.match(/([A-Z]{3}\d{6}[A-Z0-9]{4})/g)
+  return m?.[0] ?? null
+}
+
+// ─── Confidence badge ─────────────────────────────────────────────────────────
+
+function ConfidenceBadge({ level }: { level: 'high' | 'medium' | 'low' | null }) {
+  if (!level) return null
+  const cfg = {
+    high:   { icon: ShieldCheck,    cls: 'text-emerald-600 bg-emerald-50 border-emerald-100', label: 'Alta'  },
+    medium: { icon: ShieldQuestion, cls: 'text-amber-600   bg-amber-50   border-amber-100',   label: 'Media' },
+    low:    { icon: ShieldAlert,    cls: 'text-red-600     bg-red-50     border-red-100',      label: 'Baja'  },
+  }[level]
+  const Icon = cfg.icon
+  return (
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold ${cfg.cls}`}>
+      <Icon className="w-3 h-3" />{cfg.label}
+    </span>
+  )
+}
+
 // ─── Lightbox ─────────────────────────────────────────────────────────────────
 
 function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
@@ -84,11 +115,7 @@ type Assignment = { asn: string; caseNo: string }
 function boxKey(a: Assignment) { return `${a.asn}|${a.caseNo}` }
 
 function RowCard({
-  row,
-  photos,
-  assignment,
-  onAssign,
-  boxes,
+  row, photos, assignment, onAssign, boxes,
 }: {
   row:        ExcelRow
   photos:     PhotoEntry[]
@@ -99,9 +126,11 @@ function RowCard({
   const [expanded, setExpanded] = useState(false)
   const [lightbox, setLightbox] = useState<string | null>(null)
 
-  const hasIssue    = !!row.aiError
+  const hasIssue    = !!row.aiError || row.aiConfidence === 'low'
   const statusColor = assignment
-    ? 'border-emerald-200 bg-emerald-50'
+    ? row.aiConfidence === 'low'
+      ? 'border-amber-200 bg-amber-50'
+      : 'border-emerald-200 bg-emerald-50'
     : hasIssue
       ? 'border-orange-200 bg-orange-50'
       : 'border-zinc-200 bg-white'
@@ -123,23 +152,19 @@ function RowCard({
           onClick={() => setExpanded(e => !e)}
         >
           {expanded
-            ? <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0" />
+            ? <ChevronDown  className="w-4 h-4 text-zinc-400 shrink-0" />
             : <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />}
 
           <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest w-12 shrink-0">
-            Fila {row.rowIndex + 1}
+            Caja {row.rowIndex + 1}
           </span>
 
-          {/* Thumbnail strip (first 4 photos) */}
+          {/* Thumbnail strip */}
           <div className="flex gap-1 flex-1 overflow-hidden">
             {photos.slice(0, 4).map((p, i) => (
-              <img
-                key={i}
-                src={dataUrl(p)}
+              <img key={i} src={dataUrl(p)}
                 className="w-10 h-10 object-cover rounded border border-zinc-200 shrink-0"
-                alt=""
-                onClick={e => { e.stopPropagation(); setLightbox(dataUrl(p)) }}
-              />
+                alt="" onClick={e => { e.stopPropagation(); setLightbox(dataUrl(p)) }} />
             ))}
             {photos.length > 4 && (
               <div className="w-10 h-10 rounded border border-zinc-200 bg-zinc-100 flex items-center justify-center text-[10px] font-semibold text-zinc-500 shrink-0">
@@ -148,17 +173,24 @@ function RowCard({
             )}
           </div>
 
-          {/* AI read */}
-          <div className="hidden md:flex flex-col gap-0.5 min-w-[180px] shrink-0">
-            {row.aiAsn ? (
-              <>
-                <span className="text-[10px] font-mono text-zinc-600">{row.aiAsn}</span>
-                <span className="text-[10px] font-mono text-zinc-400 truncate max-w-[180px]">{row.aiCarton}</span>
-              </>
-            ) : (
+          {/* Claude result */}
+          <div className="hidden md:flex flex-col gap-1 min-w-[200px] shrink-0">
+            {row.aiError ? (
               <span className="text-[10px] text-orange-500 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" /> {row.aiError ?? 'Sin datos'}
+                <AlertTriangle className="w-3 h-3" /> {row.aiError}
               </span>
+            ) : (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <ConfidenceBadge level={row.aiConfidence} />
+                  <span className="font-mono text-[10px] text-zinc-600 truncate max-w-[160px]">
+                    {row.aiCaseNo ?? row.aiCarton ?? row.aiAsn ?? '—'}
+                  </span>
+                </div>
+                {row.aiNote && (
+                  <span className="text-[10px] text-zinc-400 italic truncate max-w-[200px]">{row.aiNote}</span>
+                )}
+              </>
             )}
           </div>
 
@@ -185,16 +217,13 @@ function RowCard({
         {expanded && (
           <div className="border-t border-zinc-100 px-4 py-4 space-y-4 bg-white">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">
-                Fotos ({photos.length})
-              </p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Fotos ({photos.length})</p>
               <div className="flex flex-wrap gap-2">
                 {photos.map((p, i) => (
                   <img key={i} src={dataUrl(p)}
                     onClick={() => setLightbox(dataUrl(p))}
                     className="w-20 h-20 object-cover rounded-lg border border-zinc-200 cursor-zoom-in hover:opacity-80 transition-opacity"
-                    alt={`foto ${i + 1}`}
-                  />
+                    alt={`foto ${i + 1}`} />
                 ))}
               </div>
             </div>
@@ -206,21 +235,40 @@ function RowCard({
                   <AlertTriangle className="w-3.5 h-3.5" />{row.aiError}
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  {[['ASN', row.aiAsn], ['Carton No', row.aiCarton], ['SO', row.aiSo]].map(([l, v]) => (
-                    <div key={l} className="bg-zinc-50 rounded-lg px-3 py-2">
-                      <p className="text-[10px] text-zinc-400 uppercase">{l}</p>
-                      <p className="font-mono text-zinc-700 mt-0.5">{v ?? '—'}</p>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {row.aiCaseNo ? (
+                      <div className="bg-emerald-50 rounded-lg px-3 py-2 col-span-2">
+                        <p className="text-[10px] text-emerald-600 uppercase">Caja identificada (PL)</p>
+                        <p className="font-mono text-emerald-800 mt-0.5">{row.aiCaseNo}</p>
+                      </div>
+                    ) : (
+                      [['ASN', row.aiAsn], ['Caja No', row.aiCarton], ['SO', row.aiSo]].map(([l, v]) => (
+                        <div key={l} className="bg-zinc-50 rounded-lg px-3 py-2">
+                          <p className="text-[10px] text-zinc-400 uppercase">{l}</p>
+                          <p className="font-mono text-zinc-700 mt-0.5">{v ?? '—'}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  {row.aiNote && (
+                    <div className="flex items-start gap-2 bg-zinc-50 rounded-lg px-3 py-2">
+                      <span className="text-[10px] text-zinc-400 uppercase font-semibold shrink-0 mt-0.5">Observación</span>
+                      <span className="text-[11px] text-zinc-600 italic">{row.aiNote}</span>
                     </div>
-                  ))}
+                  )}
+                  {row.aiConfidence && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-zinc-400">Confianza:</span>
+                      <ConfidenceBadge level={row.aiConfidence} />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">
-                Asignar bulto
-              </p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Asignar bulto</p>
               <select
                 value={assignment ? boxKey(assignment) : ''}
                 onChange={e => {
@@ -256,8 +304,15 @@ export default function InspeccionClient() {
   const [error, setError]             = useState<string | null>(null)
   const [savedCount, setSavedCount]   = useState<number | null>(null)
   const [saveProgress, setSaveProgress] = useState<string | null>(null)
-  const [analyzing, startAnalyze]     = useTransition()
-  const [saving, startSave]           = useTransition()
+
+  // PL context
+  const [asnInput, setAsnInput]   = useState('')
+  const [plItems, setPlItems]     = useState<PLItemForInspection[] | null>(null)
+  const [loadingPL, setLoadingPL] = useState(false)
+  const [plError, setPlError]     = useState<string | null>(null)
+
+  const [analyzing, startAnalyze] = useTransition()
+  const [saving,    startSave]    = useTransition()
 
   const handleFile = useCallback(async (f: File) => {
     setFile(f)
@@ -268,17 +323,19 @@ export default function InspeccionClient() {
     setSavedCount(null)
     setSaveProgress(null)
     setPhotosByRow(new Map())
+    setPlItems(null)
+    setPlError(null)
 
-    if (f.size > 50 * 1024 * 1024) {
-      setError('El archivo es demasiado grande (máx. 50MB).')
-      return
-    }
+    // Auto-detect ASN from filename
+    const detectedAsn = extractAsnFromFilename(f.name)
+    if (detectedAsn) setAsnInput(detectedAsn)
 
-    // Extract images client-side (no server round-trip)
+    if (f.size > 50 * 1024 * 1024) { setError('El archivo es demasiado grande (máx. 50MB).'); return }
+
     setExtracting(true)
     try {
-      const buf    = new Uint8Array(await f.arrayBuffer())
-      const byRow  = extractImagesFromXlsx(buf)
+      const buf   = new Uint8Array(await f.arrayBuffer())
+      const byRow = extractImagesFromXlsx(buf)
       setPhotosByRow(byRow)
     } catch (e) {
       setError(`Error al leer el Excel: ${e instanceof Error ? e.message : String(e)}`)
@@ -286,6 +343,26 @@ export default function InspeccionClient() {
       setExtracting(false)
     }
   }, [])
+
+  async function handleLoadPL() {
+    const asn = asnInput.trim()
+    if (!asn) return
+    setLoadingPL(true)
+    setPlError(null)
+    setPlItems(null)
+    try {
+      const items = await getPLItemsForInspection(asn)
+      if (!items.length) {
+        setPlError(`No se encontraron ítems para ASN "${asn}" en el Panel General.`)
+      } else {
+        setPlItems(items)
+      }
+    } catch (e) {
+      setPlError(`Error: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setLoadingPL(false)
+    }
+  }
 
   function handleAnalyze() {
     if (!photosByRow.size) return
@@ -296,28 +373,22 @@ export default function InspeccionClient() {
         const rowIndices = [...photosByRow.keys()].sort((a, b) => a - b)
         const firstPhotos = rowIndices.map(ri => {
           const photos = photosByRow.get(ri)!
-          return {
-            rowIndex:   ri,
-            base64:     photos[0].base64,
-            mediaType:  photos[0].mediaType,
-            photoCount: photos.length,
-          }
+          return { rowIndex: ri, base64: photos[0].base64, mediaType: photos[0].mediaType, photoCount: photos.length }
         })
 
-        // Step 1: Claude label reading via Edge Route (25s timeout on Hobby)
+        // Build request — include PL context when available
+        const body: { firstPhotos: typeof firstPhotos; plItems?: PLItemForInspection[] } = { firstPhotos }
+        if (plItems?.length) body.plItems = plItems
+
         const labelRes = await fetch('/api/inspeccion/analizar', {
           method:  'POST',
           headers: { 'content-type': 'application/json' },
-          body:    JSON.stringify({ firstPhotos }),
+          body:    JSON.stringify(body),
         })
-        if (!labelRes.ok) {
-          setError(`Error ${labelRes.status} al llamar a Claude`)
-          return
-        }
+        if (!labelRes.ok) { setError(`Error ${labelRes.status} al llamar a Claude`); return }
         const labelData: { ok: boolean; labels?: LabelResult[]; error?: string } = await labelRes.json()
         if (!labelData.ok || !labelData.labels) { setError(labelData.error ?? 'Error desconocido'); return }
 
-        // Step 2: DB matching via Server Action (fast, ~1s, no timeout risk)
         const matchRes = await matchLabelsToDB(labelData.labels)
         if (!matchRes.ok) { setError(matchRes.error); return }
 
@@ -332,8 +403,9 @@ export default function InspeccionClient() {
         setAssignments(map)
 
         const asns = [...new Set(matchRes.rows.map(r => r.aiAsn).filter(Boolean))] as string[]
-        if (asns.length) {
-          const fetched = await getBoxesForAsn(asns[0])
+        const asnForBoxes = asnInput.trim() || asns[0]
+        if (asnForBoxes) {
+          const fetched = await getBoxesForAsn(asnForBoxes)
           setBoxes(fetched)
         }
       } catch (err) {
@@ -348,7 +420,6 @@ export default function InspeccionClient() {
       try {
         let totalCount = 0
         const entries = [...assignments.entries()]
-
         for (let i = 0; i < entries.length; i++) {
           const [rowIndex, { asn, caseNo }] = entries[i]
           setSaveProgress(`Guardando ${i + 1}/${entries.length}…`)
@@ -361,7 +432,6 @@ export default function InspeccionClient() {
           if (!res.ok) { setError(res.error); setSaveProgress(null); return }
           totalCount += res.count
         }
-
         setSaveProgress(null)
         setSavedCount(totalCount)
       } catch (err) {
@@ -374,6 +444,7 @@ export default function InspeccionClient() {
   const assignedCount   = assignments.size
   const unassignedCount = rows ? rows.length - assignedCount : 0
   const autoMatchCount  = rows ? rows.filter(r => r.matchedAsn && r.matchedCaseNo && !r.aiError).length : 0
+  const highConfCount   = rows ? rows.filter(r => r.aiConfidence === 'high').length : 0
   const rowIndices      = [...photosByRow.keys()].sort((a, b) => a - b)
   const ready           = photosByRow.size > 0 && !extracting
 
@@ -393,20 +464,19 @@ export default function InspeccionClient() {
           {file ? (
             <div className="text-center">
               <p className="text-sm font-semibold text-zinc-700">{file.name}</p>
-              <p className="text-xs text-zinc-400 mt-0.5">{(file.size / 1024 / 1024).toFixed(1)} MB
+              <p className="text-xs text-zinc-400 mt-0.5">
+                {(file.size / 1024 / 1024).toFixed(1)} MB
                 {ready && <span className="ml-2 text-emerald-600">· {rowIndices.length} cajas extraídas</span>}
               </p>
             </div>
           ) : (
             <div className="text-center">
               <p className="text-sm font-semibold text-zinc-600">Seleccioná el Excel con fotos de cajas</p>
-              <p className="text-xs text-zinc-400 mt-1">Formato: JDS260425M0NX-JDS260429M2NV.xlsx</p>
+              <p className="text-xs text-zinc-400 mt-1">El ASN se detecta automáticamente del nombre del archivo</p>
             </div>
           )}
-          <input
-            id="photo-excel-input" type="file" accept=".xlsx,.xls" className="hidden"
-            onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }}
-          />
+          <input id="photo-excel-input" type="file" accept=".xlsx,.xls" className="hidden"
+            onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }} />
         </div>
 
         {extracting && (
@@ -416,15 +486,66 @@ export default function InspeccionClient() {
           </div>
         )}
 
+        {/* ASN + PL loader */}
         {ready && !rows && (
-          <button
-            onClick={handleAnalyze}
-            disabled={analyzing}
-            className="mt-4 w-full h-11 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:opacity-60 text-zinc-900 font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-sm"
-          >
-            {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-            {analyzing ? 'Leyendo etiquetas con IA…' : 'Analizar fotos con IA'}
-          </button>
+          <div className="mt-4 space-y-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">
+                ASN del envío
+              </p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-300 pointer-events-none" />
+                  <input
+                    value={asnInput}
+                    onChange={e => { setAsnInput(e.target.value); setPlItems(null); setPlError(null) }}
+                    onKeyDown={e => e.key === 'Enter' && handleLoadPL()}
+                    placeholder="e.g. JDS260429M2NV"
+                    className="w-full h-9 pl-8 pr-3 text-xs rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-zinc-300 font-mono"
+                  />
+                </div>
+                <button
+                  onClick={handleLoadPL}
+                  disabled={!asnInput.trim() || loadingPL}
+                  className="h-9 px-4 rounded-xl bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 text-zinc-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  {loadingPL ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                  Cargar PL
+                </button>
+              </div>
+
+              {plError && (
+                <p className="mt-2 text-xs text-orange-500 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />{plError}
+                </p>
+              )}
+
+              {plItems && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-emerald-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  PL cargado: <span className="font-semibold">{plItems.length} líneas</span>
+                  <span className="text-zinc-400">— Claude comparará cada foto contra estas {plItems.length} cajas</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleAnalyze}
+              disabled={analyzing}
+              className={`w-full h-11 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-sm ${
+                plItems
+                  ? 'bg-amber-400 hover:bg-amber-500 disabled:opacity-60 text-zinc-900'
+                  : 'bg-zinc-800 hover:bg-zinc-700 disabled:opacity-60 text-white'
+              }`}
+            >
+              {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+              {analyzing
+                ? 'Analizando fotos…'
+                : plItems
+                  ? `Inspeccionar ${rowIndices.length} cajas contra PL (${plItems.length} líneas)`
+                  : `Analizar ${rowIndices.length} fotos (solo lectura de etiquetas)`}
+            </button>
+          </div>
         )}
 
         {error && (
@@ -438,10 +559,15 @@ export default function InspeccionClient() {
       {rows && (
         <>
           <div className="flex items-center gap-4 flex-wrap">
-            <span className="text-sm font-semibold text-zinc-700">{rows.length} cajas detectadas</span>
+            <span className="text-sm font-semibold text-zinc-700">{rows.length} cajas procesadas</span>
             <div className="flex items-center gap-1.5 text-xs text-emerald-600">
               <CheckCircle2 className="w-3.5 h-3.5" />{autoMatchCount} asignadas automáticamente
             </div>
+            {highConfCount > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-500">
+                <ShieldCheck className="w-3.5 h-3.5" />{highConfCount} confianza alta
+              </div>
+            )}
             {unassignedCount > 0 && (
               <div className="flex items-center gap-1.5 text-xs text-orange-500">
                 <AlertTriangle className="w-3.5 h-3.5" />{unassignedCount} sin asignar
@@ -449,7 +575,7 @@ export default function InspeccionClient() {
             )}
             <div className="ml-auto flex gap-2">
               <button
-                onClick={() => { setRows(null); setFile(null); setPhotosByRow(new Map()) }}
+                onClick={() => { setRows(null); setFile(null); setPhotosByRow(new Map()); setPlItems(null) }}
                 className="h-9 px-4 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-500 hover:bg-zinc-50 flex items-center gap-1.5"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Nuevo

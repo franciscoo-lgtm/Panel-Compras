@@ -3,6 +3,13 @@ export const maxDuration = 25
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type PLItem = {
+  caseNo:      string
+  description: string | null
+  qty:         number | null
+  gwKg:        number | null
+}
+
 type FirstPhotoInput = {
   rowIndex:   number
   base64:     string
@@ -11,12 +18,15 @@ type FirstPhotoInput = {
 }
 
 export type LabelResult = {
-  rowIndex:   number
-  photoCount: number
-  asn:        string | null
-  cartonNo:   string | null
-  soNo:       string | null
-  error:      string | null
+  rowIndex:    number
+  photoCount:  number
+  asn:         string | null
+  cartonNo:    string | null
+  caseNo:      string | null           // direct PL caseNo when plItems provided
+  soNo:        string | null
+  confidence:  'high' | 'medium' | 'low' | null
+  note:        string | null
+  error:       string | null
 }
 
 type RouteResult =
@@ -27,7 +37,11 @@ type RouteResult =
 
 export async function POST(req: Request): Promise<Response> {
   try {
-    const { firstPhotos }: { firstPhotos: FirstPhotoInput[] } = await req.json()
+    const {
+      firstPhotos,
+      plItems,
+    }: { firstPhotos: FirstPhotoInput[]; plItems?: PLItem[] } = await req.json()
+
     if (!firstPhotos?.length) {
       return Response.json({ ok: true, labels: [] } satisfies RouteResult)
     }
@@ -41,18 +55,47 @@ export async function POST(req: Request): Promise<Response> {
       },
     }))
 
-    const promptText = `You will receive ${firstPhotos.length} photos of shipping box labels, in order.
+    let promptText: string
+
+    if (plItems?.length) {
+      // ── PL-aware inspection mode ──────────────────────────────────────────
+      const plContext = plItems
+        .map((item, i) =>
+          `  [${String(i + 1).padStart(2)}] CaseNo: ${item.caseNo} | ${item.description ?? '—'} | Qty: ${item.qty ?? '?'} | GW: ${item.gwKg ?? '?'} kg`
+        )
+        .join('\n')
+
+      promptText = `Sos un inspector de depósito verificando cajas físicas contra un Packing List.
+
+PACKING LIST (${plItems.length} líneas):
+${plContext}
+
+Te muestro ${firstPhotos.length} fotos de cajas físicas (en orden).
+
+Para cada foto, actuá como lo haría un humano:
+1. Leé el número de caja / código de barras de la etiqueta
+2. Buscá esa caja en el Packing List de arriba — el código de barras está contenido dentro del CaseNo
+3. Anotá brevemente lo que observás (si la etiqueta es clara, si hay daños, si el contenido visible coincide, etc.)
+
+Devolvé ÚNICAMENTE un array JSON con exactamente ${firstPhotos.length} elementos, uno por foto en orden:
+[{"rowIndex": 0, "caseNo": "<CaseNo exacto del PL>", "confidence": "high|medium|low", "note": "<observación breve en español>"}, ...]
+
+- confidence "high": etiqueta claramente legible y código coincide exactamente
+- confidence "medium": coincidencia parcial o inferida por contexto
+- confidence "low": etiqueta ilegible, resultado estimado
+- Poné caseNo en null si no hay coincidencia posible`
+    } else {
+      // ── Legacy label-reading mode (no PL context) ─────────────────────────
+      promptText = `You will receive ${firstPhotos.length} photos of shipping box labels, in order.
 For each photo, extract from the shipping label:
 - ASN / Shipment No (出货单号): e.g. "JDS260425M0NX"
 - CartonNo (箱号): the long barcode number (digits only)
 - SO: the sales order number e.g. "SO09797165"
 
 Return ONLY a JSON array with exactly ${firstPhotos.length} elements, one per photo in order:
-[
-  { "asn": "...", "cartonNo": "...", "soNo": "...", "error": null },
-  ...
-]
+[{ "asn": "...", "cartonNo": "...", "soNo": "...", "error": null }, ...]
 If a photo does not show a readable label, set all fields to null and set "error" to a short reason.`
+    }
 
     const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -76,16 +119,26 @@ If a photo does not show a readable label, set all fields to null and set "error
     const data  = await apiRes.json()
     const raw   = data.content?.[0]?.type === 'text' ? (data.content[0].text as string) : '[]'
     const start = raw.indexOf('['), end = raw.lastIndexOf(']')
-    const parsed: Array<{ asn?: string | null; cartonNo?: string | null; soNo?: string | null; error?: string | null }> =
-      start >= 0 ? JSON.parse(raw.slice(start, end + 1)) : []
+    const parsed: Array<{
+      asn?:        string | null
+      cartonNo?:   string | null
+      caseNo?:     string | null
+      soNo?:       string | null
+      confidence?: 'high' | 'medium' | 'low' | null
+      note?:       string | null
+      error?:      string | null
+    }> = start >= 0 ? JSON.parse(raw.slice(start, end + 1)) : []
 
     const labels: LabelResult[] = firstPhotos.map((r, i) => ({
       rowIndex:   r.rowIndex,
       photoCount: r.photoCount,
-      asn:        parsed[i]?.asn      ?? null,
-      cartonNo:   parsed[i]?.cartonNo ?? null,
-      soNo:       parsed[i]?.soNo     ?? null,
-      error:      parsed[i]?.error    ?? null,
+      asn:        parsed[i]?.asn        ?? null,
+      cartonNo:   parsed[i]?.cartonNo   ?? null,
+      caseNo:     parsed[i]?.caseNo     ?? null,
+      soNo:       parsed[i]?.soNo       ?? null,
+      confidence: parsed[i]?.confidence ?? null,
+      note:       parsed[i]?.note       ?? null,
+      error:      parsed[i]?.error      ?? null,
     }))
 
     return Response.json({ ok: true, labels } satisfies RouteResult)
