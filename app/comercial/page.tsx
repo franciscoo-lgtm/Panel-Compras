@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useTransition, useRef, useEffect } from 'react'
-import { extraerCIPL, guardarCIPL, sugerirSOsCIPL } from '@/app/lib/etl'
+import { guardarCIPL, uploadFilesToDrive } from '@/app/lib/etl'
 import type { ExtractedItem, DriveLinks, SOSuggestion, SOSuggestionResult } from '@/app/lib/etl'
 import { fetchSalesOrders } from '@/app/lib/sheets'
 import {
@@ -37,15 +37,41 @@ function Step1Upload({
     if (!ready) return
     setError(null)
     start(async () => {
+      // Build FormData for both the edge extract route and the Drive upload action
       const fd = new FormData()
       fd.set('tipoCarga', tipo)
       if (tipo === 'Repuesto' && file)     fd.set('file',    file)
       if (tipo === 'Mercaderia' && fileCi) fd.set('file_ci', fileCi)
       if (tipo === 'Mercaderia' && filePl) fd.set('file_pl', filePl)
 
-      const res = await extraerCIPL(fd)
-      if (!res.success) { setError(res.error); return }
-      onDone(res.items, res.tipoCarga, category.trim(), res.driveLinks)
+      // Call the edge route — no timeout issue (25 s limit, Haiku model)
+      let extractRes: { success: boolean; items?: ExtractedItem[]; tipoCarga?: 'Repuesto' | 'Mercaderia'; error?: string }
+      try {
+        extractRes = await fetch('/api/extract', { method: 'POST', body: fd }).then(r => r.json())
+      } catch (err) {
+        setError(`Error de red al extraer: ${String(err)}`)
+        return
+      }
+      if (!extractRes.success || !extractRes.items) {
+        setError(extractRes.error ?? 'Error desconocido al extraer.')
+        return
+      }
+
+      // Drive upload via fast server action (separate FormData, same files)
+      const fd2 = new FormData()
+      fd2.set('tipoCarga', tipo)
+      if (tipo === 'Repuesto' && file)     fd2.set('file',    file)
+      if (tipo === 'Mercaderia' && fileCi) fd2.set('file_ci', fileCi)
+      if (tipo === 'Mercaderia' && filePl) fd2.set('file_pl', filePl)
+
+      const firstItem = extractRes.items[0]
+      const driveLinks = await uploadFilesToDrive(fd2, {
+        piNo: firstItem?.piNo,
+        asn:  firstItem?.asn,
+        date: firstItem?.date,
+      })
+
+      onDone(extractRes.items, extractRes.tipoCarga ?? tipo, category.trim(), driveLinks)
     })
   }
 
@@ -181,12 +207,16 @@ function Step2Preview({
     setSuggestions([])
     setSuggestResult(null)
     try {
-      const res: SOSuggestionResult = await sugerirSOsCIPL(items)
+      const res: SOSuggestionResult = await fetch('/api/suggest-sos', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ items }),
+      }).then(r => r.json())
+
       setSuggestions(res.suggestions)
-      // Pre-fill SO fields with suggestions (only where field is currently empty)
       setSos(prev => prev.map((v, i) => {
-        if (v.trim()) return v                     // keep manual entry
-        return res.suggestions[i]?.so ?? ''        // apply suggestion
+        if (v.trim()) return v
+        return res.suggestions[i]?.so ?? ''
       }))
       if (res.error) {
         setSuggestResult({ ok: false, msg: res.error })
