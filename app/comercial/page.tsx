@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useTransition, useRef, useEffect } from 'react'
-import { guardarCIPL, uploadFilesToDrive } from '@/app/lib/etl'
+import { guardarCIPL } from '@/app/lib/etl'
 import type { ExtractedItem, DriveLinks, SOSuggestion, SOSuggestionResult } from '@/app/lib/etl'
 import { fetchSalesOrders } from '@/app/lib/sheets'
 import {
@@ -57,19 +57,20 @@ function Step1Upload({
         return
       }
 
-      // Drive upload via fast server action (separate FormData, same files)
+      // Drive upload via edge route (25s limit, no Node.js deps)
+      const firstItem = extractRes.items[0]
       const fd2 = new FormData()
       fd2.set('tipoCarga', tipo)
+      fd2.set('piNo', firstItem?.piNo ?? '')
+      fd2.set('asn',  firstItem?.asn  ?? '')
+      fd2.set('date', firstItem?.date ?? '')
       if (tipo === 'Repuesto' && file)     fd2.set('file',    file)
       if (tipo === 'Mercaderia' && fileCi) fd2.set('file_ci', fileCi)
       if (tipo === 'Mercaderia' && filePl) fd2.set('file_pl', filePl)
 
-      const firstItem = extractRes.items[0]
-      const driveLinks = await uploadFilesToDrive(fd2, {
-        piNo: firstItem?.piNo,
-        asn:  firstItem?.asn,
-        date: firstItem?.date,
-      })
+      const driveLinks: DriveLinks = await fetch('/api/upload-drive', { method: 'POST', body: fd2 })
+        .then(r => r.json())
+        .catch(() => ({ excel: null, ci: null, pl: null }))
 
       onDone(extractRes.items, extractRes.tipoCarga ?? tipo, category.trim(), driveLinks)
     })

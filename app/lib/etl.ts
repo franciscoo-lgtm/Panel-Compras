@@ -1,7 +1,6 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { uploadToDrive } from '@/app/lib/drive'
 import { buildGSOMap } from '@/app/lib/sheets'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -34,34 +33,6 @@ export type DriveLinks = {
 export type SaveResult =
   | { success: true;  count: number }
   | { success: false; error: string }
-
-// ─── Drive upload (fast, stays as Node.js server action) ─────────────────────
-
-export async function uploadFilesToDrive(
-  formData: FormData,
-  meta: { piNo?: string | null; asn?: string | null; date?: string | null },
-): Promise<DriveLinks> {
-  const tipo     = formData.get('tipoCarga') as string
-  const links: DriveLinks = { excel: null, ci: null, pl: null }
-  try {
-    if (tipo === 'Repuesto') {
-      const file = formData.get('file') as File | null
-      if (file) links.excel = await uploadToDrive(file, meta)
-    } else if (tipo === 'Mercaderia') {
-      const fileCi = formData.get('file_ci') as File | null
-      const filePl = formData.get('file_pl') as File | null
-      const [ciLink, plLink] = await Promise.all([
-        fileCi ? uploadToDrive(fileCi, meta) : Promise.resolve(null),
-        filePl ? uploadToDrive(filePl, meta) : Promise.resolve(null),
-      ])
-      links.ci = ciLink
-      links.pl = plLink
-    }
-  } catch (err) {
-    console.error('[ETL] uploadFilesToDrive error:', err)
-  }
-  return links
-}
 
 export type SOSuggestion = { so: string; reason: string } | null
 export type SOSuggestionResult = { suggestions: SOSuggestion[]; error?: string; soCount: number }
