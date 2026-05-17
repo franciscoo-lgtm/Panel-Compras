@@ -1,8 +1,6 @@
 export const runtime    = 'edge'
 export const maxDuration = 25
 
-import * as XLSX from 'xlsx'
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type ExtractedItem = {
@@ -66,29 +64,6 @@ Rules:
 - CRITICAL: output items in EXACTLY the same top-to-bottom order as they appear in the Packing List document. Do not reorder items.
 - piNo = CAS No. from Commercial Invoice (applies to ALL rows)`
 
-// ─── XLSX helpers ─────────────────────────────────────────────────────────────
-
-function findSheet(wb: XLSX.WorkBook, patterns: RegExp[]): XLSX.WorkSheet | null {
-  const name = wb.SheetNames.find(n => patterns.some(p => p.test(n)))
-  return name ? wb.Sheets[name] : null
-}
-
-function sheetToText(ws: XLSX.WorkSheet): string {
-  if (!ws['!ref']) return ''
-  const range = XLSX.utils.decode_range(ws['!ref'])
-  const rows: string[] = []
-  for (let r = range.s.r; r <= range.e.r; r++) {
-    const cells: string[] = []
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const cell = ws[XLSX.utils.encode_cell({ r, c })]
-      cells.push(cell ? String(cell.v ?? '') : '')
-    }
-    const row = cells.join(' | ')
-    if (row.replace(/[| ]/g, '').length) rows.push(row)
-  }
-  return rows.join('\n')
-}
-
 // ─── Anthropic call (raw fetch, edge-compatible) ──────────────────────────────
 
 async function callHaiku(
@@ -144,19 +119,10 @@ export async function POST(req: Request): Promise<Response> {
     const formData = await req.formData()
     const tipo     = formData.get('tipoCarga') as string | null
 
-    // ── Repuesto (Excel CIPL) ─────────────────────────────────────────────────
+    // ── Repuesto (Excel CIPL — text extracted client-side) ───────────────────
     if (tipo === 'Repuesto') {
-      const file = formData.get('file') as File | null
-      if (!file) return Response.json({ success: false, error: 'Archivo Excel requerido.' } satisfies RouteResult)
-
-      const arrayBuffer = await file.arrayBuffer()
-      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', cellDates: true })
-
-      const ciSheet = findSheet(wb, [/commercial\s*invoice/i, /comercial/i, /invoice/i])
-      const plSheet = findSheet(wb, [/packing\s*list/i, /p12/i, /packing/i])
-
-      const ciText = ciSheet ? sheetToText(ciSheet) : '(no CommercialInvoice sheet found)'
-      const plText = plSheet ? sheetToText(plSheet) : '(no PackingList sheet found)'
+      const ciText = (formData.get('ciText') as string | null) ?? '(no CommercialInvoice sheet found)'
+      const plText = (formData.get('plText') as string | null) ?? '(no PackingList sheet found)'
 
       const promptText = `Extract all line items from this DJI Repuesto (Spare Parts) Excel CIPL.
 

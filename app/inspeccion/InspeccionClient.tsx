@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useCallback } from 'react'
+import { useState, useTransition, useCallback, useMemo } from 'react'
 import { unzipSync } from 'fflate'
 import {
   Loader2, CheckCircle2, AlertTriangle, Camera, RotateCcw, Save,
@@ -18,6 +18,7 @@ type PhotoEntry = { colIndex: number; base64: string; mediaType: string }
 
 type LabelResult = {
   rowIndex:    number
+  colIndex:    number
   photoCount:  number
   asn:         string | null
   cartonNo:    string | null
@@ -76,11 +77,12 @@ function extractImagesFromXlsx(buf: Uint8Array): Map<number, PhotoEntry[]> {
   return byRow
 }
 
-// Auto-detect ASN from Excel filename (e.g. "JDS260429M2NV-foo.xlsx" → "JDS260429M2NV")
 function extractAsnFromFilename(name: string): string | null {
   const m = name.match(/([A-Z]{3}\d{6}[A-Z0-9]{4})/g)
   return m?.[0] ?? null
 }
+
+const photoKey = (rowIndex: number, colIndex: number) => `${rowIndex}_${colIndex}`
 
 // ─── Confidence badge ─────────────────────────────────────────────────────────
 
@@ -109,43 +111,128 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
   )
 }
 
-// ─── Row card ─────────────────────────────────────────────────────────────────
+// ─── Assignment types ─────────────────────────────────────────────────────────
 
 type Assignment = { asn: string; caseNo: string }
 function boxKey(a: Assignment) { return `${a.asn}|${a.caseNo}` }
 
-function RowCard({
-  row, photos, assignment, onAssign, boxes,
+// ─── Single photo item inside a row card ─────────────────────────────────────
+
+function PhotoItem({
+  excelRow, photo, assignment, onAssign, boxes, onLightbox,
 }: {
-  row:        ExcelRow
-  photos:     PhotoEntry[]
+  excelRow:   ExcelRow
+  photo:      PhotoEntry
   assignment: Assignment | null
   onAssign:   (asn: string, caseNo: string) => void
   boxes:      BoxOption[]
+  onLightbox: (src: string) => void
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const [lightbox, setLightbox] = useState<string | null>(null)
-
-  const hasIssue    = !!row.aiError || row.aiConfidence === 'low'
-  const statusColor = assignment
-    ? row.aiConfidence === 'low'
-      ? 'border-amber-200 bg-amber-50'
-      : 'border-emerald-200 bg-emerald-50'
-    : hasIssue
-      ? 'border-orange-200 bg-orange-50'
-      : 'border-zinc-200 bg-white'
-
+  const dataUrl     = `data:${photo.mediaType};base64,${photo.base64}`
   const selectedBox = assignment
     ? boxes.find(b => b.asn === assignment.asn && b.caseNo === assignment.caseNo)
     : null
 
-  const dataUrl = (p: PhotoEntry) => `data:${p.mediaType};base64,${p.base64}`
+  const borderCls = assignment
+    ? excelRow.aiConfidence === 'low'
+      ? 'border-amber-200 bg-amber-50'
+      : 'border-emerald-200 bg-emerald-50'
+    : excelRow.aiError
+      ? 'border-orange-200 bg-orange-50'
+      : 'border-zinc-100 bg-zinc-50'
+
+  return (
+    <div className={`flex gap-3 p-3 rounded-xl border ${borderCls}`}>
+      {/* Thumbnail */}
+      <img
+        src={dataUrl}
+        onClick={() => onLightbox(dataUrl)}
+        className="w-16 h-16 object-cover rounded-lg border border-zinc-200 cursor-zoom-in hover:opacity-80 shrink-0"
+        alt=""
+      />
+
+      {/* AI info + match */}
+      <div className="flex-1 min-w-0 space-y-1.5">
+        {excelRow.aiError ? (
+          <p className="text-[10px] text-orange-500 flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3 shrink-0" />{excelRow.aiError}
+          </p>
+        ) : (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <ConfidenceBadge level={excelRow.aiConfidence} />
+            <span className="font-mono text-[10px] text-zinc-600 truncate">
+              {excelRow.aiCaseNo ?? excelRow.aiCarton ?? excelRow.aiAsn ?? '—'}
+            </span>
+          </div>
+        )}
+        {excelRow.aiNote && (
+          <p className="text-[10px] text-zinc-400 italic truncate">{excelRow.aiNote}</p>
+        )}
+        {assignment ? (
+          <div className="flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+            <span className="text-[10px] text-emerald-700 font-mono truncate">{assignment.caseNo}</span>
+            {selectedBox && (
+              <span className="text-[10px] text-emerald-600 truncate">· {selectedBox.desc.slice(0, 35)}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-[10px] text-orange-500">Sin asignar</span>
+        )}
+      </div>
+
+      {/* Box selector */}
+      <select
+        value={assignment ? boxKey(assignment) : ''}
+        onChange={e => {
+          const val = e.target.value
+          if (!val) { onAssign('', ''); return }
+          const idx = val.indexOf('|')
+          onAssign(val.slice(0, idx), val.slice(idx + 1))
+        }}
+        className="w-52 h-8 px-2 text-[10px] rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white shrink-0 self-start"
+      >
+        <option value="">— Sin asignar —</option>
+        {boxes.map(b => (
+          <option key={boxKey(b)} value={boxKey(b)}>
+            {b.caseNo} · {b.desc.slice(0, 35)}{b.itemCount > 1 ? ` (${b.itemCount})` : ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+// ─── Row card (one per Excel row, N photos inside) ────────────────────────────
+
+function RowCard({
+  rowIndex, excelRows, photos, assignments, onAssign, boxes,
+}: {
+  rowIndex:    number
+  excelRows:   ExcelRow[]
+  photos:      PhotoEntry[]
+  assignments: Map<string, Assignment>
+  onAssign:    (key: string, asn: string, caseNo: string) => void
+  boxes:       BoxOption[]
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [lightbox, setLightbox] = useState<string | null>(null)
+
+  const assignedInRow  = excelRows.filter(r => assignments.has(photoKey(r.rowIndex, r.colIndex))).length
+  const hasIssue       = excelRows.some(r => r.aiError || r.aiConfidence === 'low')
+  const allAssigned    = assignedInRow === excelRows.length
+
+  const borderCls = allAssigned
+    ? 'border-emerald-200 bg-emerald-50'
+    : hasIssue
+      ? 'border-orange-200 bg-orange-50'
+      : 'border-zinc-200 bg-white'
 
   return (
     <>
       {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
 
-      <div className={`rounded-xl border ${statusColor} overflow-hidden`}>
+      <div className={`rounded-xl border ${borderCls} overflow-hidden`}>
         {/* Header */}
         <div
           className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
@@ -155,136 +242,70 @@ function RowCard({
             ? <ChevronDown  className="w-4 h-4 text-zinc-400 shrink-0" />
             : <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />}
 
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest w-12 shrink-0">
-            Caja {row.rowIndex + 1}
+          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest w-16 shrink-0">
+            Fila {rowIndex + 1}
           </span>
 
-          {/* Thumbnail strip */}
+          {/* Thumbnail strip — green dot when assigned */}
           <div className="flex gap-1 flex-1 overflow-hidden">
-            {photos.slice(0, 4).map((p, i) => (
-              <img key={i} src={dataUrl(p)}
-                className="w-10 h-10 object-cover rounded border border-zinc-200 shrink-0"
-                alt="" onClick={e => { e.stopPropagation(); setLightbox(dataUrl(p)) }} />
-            ))}
-            {photos.length > 4 && (
+            {photos.slice(0, 5).map((p, i) => {
+              const exRow    = excelRows.find(r => r.colIndex === p.colIndex)
+              const assigned = exRow ? assignments.has(photoKey(exRow.rowIndex, exRow.colIndex)) : false
+              return (
+                <div key={i} className="relative shrink-0">
+                  <img
+                    src={`data:${p.mediaType};base64,${p.base64}`}
+                    className="w-10 h-10 object-cover rounded border border-zinc-200"
+                    alt=""
+                    onClick={e => { e.stopPropagation(); setLightbox(`data:${p.mediaType};base64,${p.base64}`) }}
+                  />
+                  {assigned && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border border-white" />
+                  )}
+                </div>
+              )
+            })}
+            {photos.length > 5 && (
               <div className="w-10 h-10 rounded border border-zinc-200 bg-zinc-100 flex items-center justify-center text-[10px] font-semibold text-zinc-500 shrink-0">
-                +{photos.length - 4}
+                +{photos.length - 5}
               </div>
             )}
           </div>
 
-          {/* Claude result */}
-          <div className="hidden md:flex flex-col gap-1 min-w-[200px] shrink-0">
-            {row.aiError ? (
-              <span className="text-[10px] text-orange-500 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" /> {row.aiError}
-              </span>
+          {/* Summary */}
+          <div className="shrink-0 text-right min-w-[110px]">
+            <p className="text-xs font-semibold text-zinc-700">
+              {photos.length} {photos.length === 1 ? 'caja' : 'cajas'}
+            </p>
+            {allAssigned ? (
+              <p className="text-[10px] text-emerald-600">Todas asignadas</p>
             ) : (
-              <>
-                <div className="flex items-center gap-1.5">
-                  <ConfidenceBadge level={row.aiConfidence} />
-                  <span className="font-mono text-[10px] text-zinc-600 truncate max-w-[160px]">
-                    {row.aiCaseNo ?? row.aiCarton ?? row.aiAsn ?? '—'}
-                  </span>
-                </div>
-                {row.aiNote && (
-                  <span className="text-[10px] text-zinc-400 italic truncate max-w-[200px]">{row.aiNote}</span>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Match status */}
-          <div className="shrink-0 min-w-[220px]">
-            {assignment ? (
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-emerald-700 font-mono truncate">{assignment.caseNo}</p>
-                  <p className="text-[10px] text-emerald-600 truncate">
-                    {selectedBox?.desc ?? ''}
-                    {selectedBox?.itemCount ? ` · ${selectedBox.itemCount} ítem${selectedBox.itemCount !== 1 ? 's' : ''}` : ''}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <span className="text-xs text-orange-500">Sin asignar</span>
+              <p className="text-[10px] text-orange-500">
+                {assignedInRow}/{excelRows.length} asignadas
+              </p>
             )}
           </div>
         </div>
 
-        {/* Expanded */}
+        {/* Expanded: one PhotoItem per photo */}
         {expanded && (
-          <div className="border-t border-zinc-100 px-4 py-4 space-y-4 bg-white">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Fotos ({photos.length})</p>
-              <div className="flex flex-wrap gap-2">
-                {photos.map((p, i) => (
-                  <img key={i} src={dataUrl(p)}
-                    onClick={() => setLightbox(dataUrl(p))}
-                    className="w-20 h-20 object-cover rounded-lg border border-zinc-200 cursor-zoom-in hover:opacity-80 transition-opacity"
-                    alt={`foto ${i + 1}`} />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Lectura IA</p>
-              {row.aiError ? (
-                <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2">
-                  <AlertTriangle className="w-3.5 h-3.5" />{row.aiError}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    {row.aiCaseNo ? (
-                      <div className="bg-emerald-50 rounded-lg px-3 py-2 col-span-2">
-                        <p className="text-[10px] text-emerald-600 uppercase">Caja identificada (PL)</p>
-                        <p className="font-mono text-emerald-800 mt-0.5">{row.aiCaseNo}</p>
-                      </div>
-                    ) : (
-                      [['ASN', row.aiAsn], ['Caja No', row.aiCarton], ['SO', row.aiSo]].map(([l, v]) => (
-                        <div key={l} className="bg-zinc-50 rounded-lg px-3 py-2">
-                          <p className="text-[10px] text-zinc-400 uppercase">{l}</p>
-                          <p className="font-mono text-zinc-700 mt-0.5">{v ?? '—'}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  {row.aiNote && (
-                    <div className="flex items-start gap-2 bg-zinc-50 rounded-lg px-3 py-2">
-                      <span className="text-[10px] text-zinc-400 uppercase font-semibold shrink-0 mt-0.5">Observación</span>
-                      <span className="text-[11px] text-zinc-600 italic">{row.aiNote}</span>
-                    </div>
-                  )}
-                  {row.aiConfidence && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-zinc-400">Confianza:</span>
-                      <ConfidenceBadge level={row.aiConfidence} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Asignar bulto</p>
-              <select
-                value={assignment ? boxKey(assignment) : ''}
-                onChange={e => {
-                  const [asn, caseNo] = e.target.value.split('|')
-                  onAssign(asn && caseNo ? asn : '', caseNo ?? '')
-                }}
-                className="w-full h-9 px-3 text-xs rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
-              >
-                <option value="">— Sin asignar —</option>
-                {boxes.map(b => (
-                  <option key={boxKey(b)} value={boxKey(b)}>
-                    {b.asn} · {b.caseNo} · {b.desc.slice(0, 50)}{b.itemCount > 1 ? ` (${b.itemCount} ítems)` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="border-t border-zinc-100 px-4 py-4 space-y-2 bg-white">
+            {excelRows.map(exRow => {
+              const photo = photos.find(p => p.colIndex === exRow.colIndex)
+              if (!photo) return null
+              const key = photoKey(exRow.rowIndex, exRow.colIndex)
+              return (
+                <PhotoItem
+                  key={key}
+                  excelRow={exRow}
+                  photo={photo}
+                  assignment={assignments.get(key) ?? null}
+                  onAssign={(asn, caseNo) => onAssign(key, asn, caseNo)}
+                  boxes={boxes}
+                  onLightbox={setLightbox}
+                />
+              )
+            })}
           </div>
         )}
       </div>
@@ -300,12 +321,11 @@ export default function InspeccionClient() {
   const [photosByRow, setPhotosByRow] = useState<Map<number, PhotoEntry[]>>(new Map())
   const [rows, setRows]               = useState<ExcelRow[] | null>(null)
   const [boxes, setBoxes]             = useState<BoxOption[]>([])
-  const [assignments, setAssignments] = useState<Map<number, Assignment>>(new Map())
+  const [assignments, setAssignments] = useState<Map<string, Assignment>>(new Map())
   const [error, setError]             = useState<string | null>(null)
   const [savedCount, setSavedCount]   = useState<number | null>(null)
   const [saveProgress, setSaveProgress] = useState<string | null>(null)
 
-  // PL context
   const [asnInput, setAsnInput]   = useState('')
   const [plItems, setPlItems]     = useState<PLItemForInspection[] | null>(null)
   const [loadingPL, setLoadingPL] = useState(false)
@@ -313,6 +333,22 @@ export default function InspeccionClient() {
 
   const [analyzing, startAnalyze] = useTransition()
   const [saving,    startSave]    = useTransition()
+
+  // Group ExcelRow[] by rowIndex for display
+  const rowsByGroup = useMemo(() => {
+    if (!rows) return new Map<number, ExcelRow[]>()
+    const map = new Map<number, ExcelRow[]>()
+    for (const row of rows) {
+      if (!map.has(row.rowIndex)) map.set(row.rowIndex, [])
+      map.get(row.rowIndex)!.push(row)
+    }
+    return map
+  }, [rows])
+
+  const groupedRowIndices = useMemo(
+    () => [...rowsByGroup.keys()].sort((a, b) => a - b),
+    [rowsByGroup]
+  )
 
   const handleFile = useCallback(async (f: File) => {
     setFile(f)
@@ -326,7 +362,6 @@ export default function InspeccionClient() {
     setPlItems(null)
     setPlError(null)
 
-    // Auto-detect ASN from filename
     const detectedAsn = extractAsnFromFilename(f.name)
     if (detectedAsn) setAsnInput(detectedAsn)
 
@@ -371,13 +406,19 @@ export default function InspeccionClient() {
     startAnalyze(async () => {
       try {
         const rowIndices = [...photosByRow.keys()].sort((a, b) => a - b)
-        const firstPhotos = rowIndices.map(ri => {
-          const photos = photosByRow.get(ri)!
-          return { rowIndex: ri, base64: photos[0].base64, mediaType: photos[0].mediaType, photoCount: photos.length }
-        })
 
-        // Build request — include PL context when available
-        const body: { firstPhotos: typeof firstPhotos; plItems?: PLItemForInspection[] } = { firstPhotos }
+        // Send ALL photos, each with its colIndex
+        const allPhotos = rowIndices.flatMap(ri =>
+          photosByRow.get(ri)!.map(p => ({ rowIndex: ri, colIndex: p.colIndex, base64: p.base64, mediaType: p.mediaType }))
+        )
+        const rowPhotoCounts: Record<number, number> = {}
+        rowIndices.forEach(ri => { rowPhotoCounts[ri] = photosByRow.get(ri)!.length })
+
+        const body: {
+          photos: typeof allPhotos
+          rowPhotoCounts: typeof rowPhotoCounts
+          plItems?: PLItemForInspection[]
+        } = { photos: allPhotos, rowPhotoCounts }
         if (plItems?.length) body.plItems = plItems
 
         const labelRes = await fetch('/api/inspeccion/analizar', {
@@ -394,10 +435,11 @@ export default function InspeccionClient() {
 
         setRows(matchRes.rows)
 
-        const map = new Map<number, Assignment>()
+        // Build per-photo assignments using composite key
+        const map = new Map<string, Assignment>()
         for (const row of matchRes.rows) {
           if (row.matchedAsn && row.matchedCaseNo) {
-            map.set(row.rowIndex, { asn: row.matchedAsn, caseNo: row.matchedCaseNo })
+            map.set(photoKey(row.rowIndex, row.colIndex), { asn: row.matchedAsn, caseNo: row.matchedCaseNo })
           }
         }
         setAssignments(map)
@@ -421,14 +463,18 @@ export default function InspeccionClient() {
         let totalCount = 0
         const entries = [...assignments.entries()]
         for (let i = 0; i < entries.length; i++) {
-          const [rowIndex, { asn, caseNo }] = entries[i]
+          const [key, { asn, caseNo }] = entries[i]
           setSaveProgress(`Guardando ${i + 1}/${entries.length}…`)
-          const photos = (photosByRow.get(rowIndex) ?? []).map(p => ({
+          const [rowStr, colStr] = key.split('_')
+          const rowIndex = parseInt(rowStr)
+          const colIndex = parseInt(colStr)
+          const photo = photosByRow.get(rowIndex)?.find(p => p.colIndex === colIndex)
+          if (!photo) continue
+          const res = await guardarUnaAsignacion(asn, caseNo, [{
             rowIndex,
-            colIndex: p.colIndex,
-            dataUrl:  `data:${p.mediaType};base64,${p.base64}`,
-          }))
-          const res = await guardarUnaAsignacion(asn, caseNo, photos)
+            colIndex,
+            dataUrl: `data:${photo.mediaType};base64,${photo.base64}`,
+          }])
           if (!res.ok) { setError(res.error); setSaveProgress(null); return }
           totalCount += res.count
         }
@@ -441,11 +487,13 @@ export default function InspeccionClient() {
     })
   }
 
+  const totalPhotos     = [...photosByRow.values()].reduce((s, p) => s + p.length, 0)
+  const rowIndices      = [...photosByRow.keys()].sort((a, b) => a - b)
   const assignedCount   = assignments.size
-  const unassignedCount = rows ? rows.length - assignedCount : 0
+  const totalRows       = rows?.length ?? 0
+  const unassignedCount = totalRows - assignedCount
   const autoMatchCount  = rows ? rows.filter(r => r.matchedAsn && r.matchedCaseNo && !r.aiError).length : 0
   const highConfCount   = rows ? rows.filter(r => r.aiConfidence === 'high').length : 0
-  const rowIndices      = [...photosByRow.keys()].sort((a, b) => a - b)
   const ready           = photosByRow.size > 0 && !extracting
 
   return (
@@ -466,7 +514,11 @@ export default function InspeccionClient() {
               <p className="text-sm font-semibold text-zinc-700">{file.name}</p>
               <p className="text-xs text-zinc-400 mt-0.5">
                 {(file.size / 1024 / 1024).toFixed(1)} MB
-                {ready && <span className="ml-2 text-emerald-600">· {rowIndices.length} cajas extraídas</span>}
+                {ready && (
+                  <span className="ml-2 text-emerald-600">
+                    · {totalPhotos} foto{totalPhotos !== 1 ? 's' : ''} en {rowIndices.length} fila{rowIndices.length !== 1 ? 's' : ''}
+                  </span>
+                )}
               </p>
             </div>
           ) : (
@@ -542,8 +594,8 @@ export default function InspeccionClient() {
               {analyzing
                 ? 'Analizando fotos…'
                 : plItems
-                  ? `Inspeccionar ${rowIndices.length} cajas contra PL (${plItems.length} líneas)`
-                  : `Analizar ${rowIndices.length} fotos (solo lectura de etiquetas)`}
+                  ? `Inspeccionar ${totalPhotos} fotos (${rowIndices.length} filas) contra PL (${plItems.length} líneas)`
+                  : `Analizar ${totalPhotos} fotos en ${rowIndices.length} filas`}
             </button>
           </div>
         )}
@@ -559,7 +611,7 @@ export default function InspeccionClient() {
       {rows && (
         <>
           <div className="flex items-center gap-4 flex-wrap">
-            <span className="text-sm font-semibold text-zinc-700">{rows.length} cajas procesadas</span>
+            <span className="text-sm font-semibold text-zinc-700">{totalRows} fotos procesadas</span>
             <div className="flex items-center gap-1.5 text-xs text-emerald-600">
               <CheckCircle2 className="w-3.5 h-3.5" />{autoMatchCount} asignadas automáticamente
             </div>
@@ -586,7 +638,7 @@ export default function InspeccionClient() {
                 className="h-9 px-4 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:bg-zinc-100 disabled:text-zinc-400 text-zinc-900 font-semibold text-xs flex items-center gap-1.5 transition-all"
               >
                 {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                {saveProgress ?? `Guardar ${assignedCount} asignaciones`}
+                {saveProgress ?? `Guardar ${assignedCount} fotos asignadas`}
               </button>
             </div>
           </div>
@@ -599,16 +651,17 @@ export default function InspeccionClient() {
           )}
 
           <div className="space-y-3">
-            {rows.map(row => (
+            {groupedRowIndices.map(rowIndex => (
               <RowCard
-                key={row.rowIndex}
-                row={row}
-                photos={photosByRow.get(row.rowIndex) ?? []}
-                assignment={assignments.get(row.rowIndex) ?? null}
-                onAssign={(asn, caseNo) => setAssignments(prev => {
+                key={rowIndex}
+                rowIndex={rowIndex}
+                excelRows={rowsByGroup.get(rowIndex)!}
+                photos={photosByRow.get(rowIndex) ?? []}
+                assignments={assignments}
+                onAssign={(key, asn, caseNo) => setAssignments(prev => {
                   const next = new Map(prev)
-                  if (asn && caseNo) next.set(row.rowIndex, { asn, caseNo })
-                  else next.delete(row.rowIndex)
+                  if (asn && caseNo) next.set(key, { asn, caseNo })
+                  else next.delete(key)
                   return next
                 })}
                 boxes={boxes}

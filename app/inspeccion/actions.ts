@@ -6,7 +6,8 @@ import { prisma } from '@/lib/prisma'
 
 export type ExcelRow = {
   rowIndex:     number
-  photoCount:   number
+  colIndex:     number               // column within the Excel row (0 = first photo)
+  photoCount:   number               // total photos in this Excel row
   aiAsn:        string | null
   aiCarton:     string | null
   aiCaseNo:     string | null        // direct PL match from Claude
@@ -45,6 +46,7 @@ export type PLItemForInspection = {
 
 type LabelInput = {
   rowIndex:    number
+  colIndex:    number
   photoCount:  number
   asn:         string | null
   cartonNo:    string | null
@@ -78,9 +80,12 @@ export async function getPLItemsForInspection(asn: string): Promise<PLItemForIns
 
 // ─── Batch box matching (single DB query) ────────────────────────────────────
 
+// Composite key for per-photo matching
+const photoKey = (rowIndex: number, colIndex: number) => `${rowIndex}_${colIndex}`
+
 async function batchMatchToBox(
-  labels: Array<{ rowIndex: number; asn: string | null; cartonNo: string | null; caseNo: string | null }>
-): Promise<Map<number, { asn: string; caseNo: string; desc: string }>> {
+  labels: Array<{ rowIndex: number; colIndex: number; asn: string | null; cartonNo: string | null; caseNo: string | null }>
+): Promise<Map<string, { asn: string; caseNo: string; desc: string }>> {
   const directCaseNos = labels.map(l => l.caseNo).filter((c): c is string => !!c)
   const asns = [...new Set(labels.map(l => l.asn).filter((a): a is string => !!a))]
 
@@ -93,57 +98,60 @@ async function batchMatchToBox(
         ...(asns.length ? [{ asn: { in: asns } }] : []),
       ],
     },
-    select: { asn: true, caseNo: true, description: true },
+    select: { asn: true, caseNo: true, description: true, piNo: true },
     take: 2000,
   })
 
-  const result = new Map<number, { asn: string; caseNo: string; desc: string }>()
+  const result = new Map<string, { asn: string; caseNo: string; desc: string }>()
 
   for (const label of labels) {
+    const key = photoKey(label.rowIndex, label.colIndex)
+
     if (label.caseNo) {
-      // Claude already matched to exact caseNo — direct lookup
-      const item = items.find(i => i.caseNo === label.caseNo)
+      // Claude returned a caseNo — try exact match, then partial numeric match
+      let item = items.find(i => i.caseNo === label.caseNo)
+      // Also try matching against piNo (barcode may correspond to piNo in DB)
+      if (!item) {
+        const stripped = label.caseNo.replace(/\D/g, '')
+        item = items.find(i => {
+          const p = (i.piNo ?? '').replace(/\D/g, '')
+          return p && stripped && (p.includes(stripped) || stripped.includes(p))
+        })
+      }
       if (item?.caseNo && item?.asn) {
-        result.set(label.rowIndex, { asn: item.asn, caseNo: item.caseNo, desc: item.description ?? item.caseNo })
+        result.set(key, { asn: item.asn, caseNo: item.caseNo, desc: item.description ?? item.caseNo })
       }
       continue
     }
 
-    // Legacy: match by barcode string against caseNo
+    // Legacy: match by carton barcode string against caseNo
     if (!label.asn) continue
     const asnItems = items.filter(i => i.asn === label.asn)
     if (!asnItems.length) continue
-
     if (!label.cartonNo) continue
     const stripped = label.cartonNo.replace(/\D/g, '')
 
     let matched: typeof asnItems[0] | undefined
-
     // 1. Exact numeric match
-    matched = asnItems.find(item => {
-      if (!item.caseNo) return false
-      return item.caseNo.replace(/\D/g, '') === stripped
-    })
-    // 2. Prefix/suffix match
+    matched = asnItems.find(item => item.caseNo?.replace(/\D/g, '') === stripped)
+    // 2. Prefix/suffix
     if (!matched) {
       matched = asnItems.find(item => {
-        if (!item.caseNo) return false
-        const d = item.caseNo.replace(/\D/g, '')
-        return d.startsWith(stripped) || stripped.startsWith(d.slice(0, -1))
+        const d = item.caseNo?.replace(/\D/g, '') ?? ''
+        return d && (d.startsWith(stripped) || stripped.startsWith(d.slice(0, -1)))
       })
     }
-    // 3. Ends-with match (unique only)
+    // 3. Ends-with (unique only)
     if (!matched) {
       const candidates = asnItems.filter(item => {
-        if (!item.caseNo) return false
-        const d = item.caseNo.replace(/\D/g, '')
+        const d = item.caseNo?.replace(/\D/g, '') ?? ''
         return d && (d.endsWith(stripped) || stripped.endsWith(d))
       })
       if (candidates.length === 1) matched = candidates[0]
     }
 
     if (matched?.caseNo) {
-      result.set(label.rowIndex, { asn: matched.asn!, caseNo: matched.caseNo, desc: matched.description ?? matched.caseNo })
+      result.set(key, { asn: matched.asn!, caseNo: matched.caseNo, desc: matched.description ?? matched.caseNo })
     }
   }
 
@@ -157,13 +165,14 @@ export async function matchLabelsToDB(labels: LabelInput[]): Promise<AnalysisRes
     if (!labels.length) return { ok: true, rows: [] }
 
     const matchMap = await batchMatchToBox(
-      labels.map(l => ({ rowIndex: l.rowIndex, asn: l.asn, cartonNo: l.cartonNo, caseNo: l.caseNo }))
+      labels.map(l => ({ rowIndex: l.rowIndex, colIndex: l.colIndex, asn: l.asn, cartonNo: l.cartonNo, caseNo: l.caseNo }))
     )
 
     const rows: ExcelRow[] = labels.map(l => {
-      const match = matchMap.get(l.rowIndex) ?? null
+      const match = matchMap.get(photoKey(l.rowIndex, l.colIndex)) ?? null
       return {
         rowIndex:      l.rowIndex,
+        colIndex:      l.colIndex,
         photoCount:    l.photoCount,
         aiAsn:         l.asn,
         aiCarton:      l.cartonNo,

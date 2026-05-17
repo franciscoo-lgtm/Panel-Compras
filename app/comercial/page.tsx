@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useTransition, useRef, useEffect } from 'react'
+import React, { useState, useTransition, useRef, useEffect, useCallback } from 'react'
+import * as XLSX from 'xlsx'
 import { guardarCIPL } from '@/app/lib/etl'
 import type { ExtractedItem, DriveLinks, SOSuggestion, SOSuggestionResult } from '@/app/lib/etl'
 import { fetchSalesOrders } from '@/app/lib/sheets'
@@ -37,10 +38,45 @@ function Step1Upload({
     if (!ready) return
     setError(null)
     start(async () => {
-      // Build FormData for both the edge extract route and the Drive upload action
       const fd = new FormData()
       fd.set('tipoCarga', tipo)
-      if (tipo === 'Repuesto' && file)     fd.set('file',    file)
+
+      if (tipo === 'Repuesto' && file) {
+        // Parse XLSX in the browser — xlsx is Node-incompatible in edge runtime
+        try {
+          const buf = new Uint8Array(await file.arrayBuffer())
+          const wb  = XLSX.read(buf, { type: 'array', cellDates: true })
+
+          const findSheet = (patterns: RegExp[]) => {
+            const name = wb.SheetNames.find(n => patterns.some(p => p.test(n)))
+            return name ? wb.Sheets[name] : null
+          }
+          const sheetToText = (ws: XLSX.WorkSheet): string => {
+            if (!ws['!ref']) return ''
+            const range = XLSX.utils.decode_range(ws['!ref'])
+            const rows: string[] = []
+            for (let r = range.s.r; r <= range.e.r; r++) {
+              const cells: string[] = []
+              for (let c = range.s.c; c <= range.e.c; c++) {
+                const cell = ws[XLSX.utils.encode_cell({ r, c })]
+                cells.push(cell ? String(cell.v ?? '') : '')
+              }
+              const row = cells.join(' | ')
+              if (row.replace(/[| ]/g, '').length) rows.push(row)
+            }
+            return rows.join('\n')
+          }
+
+          const ciSheet = findSheet([/commercial\s*invoice/i, /comercial/i, /invoice/i])
+          const plSheet = findSheet([/packing\s*list/i, /p12/i, /packing/i])
+          fd.set('ciText', ciSheet ? sheetToText(ciSheet).slice(0, 6000)  : '(no CommercialInvoice sheet found)')
+          fd.set('plText', plSheet ? sheetToText(plSheet).slice(0, 10000) : '(no PackingList sheet found)')
+        } catch (e) {
+          setError(`Error al leer el Excel: ${e instanceof Error ? e.message : String(e)}`)
+          return
+        }
+      }
+
       if (tipo === 'Mercaderia' && fileCi) fd.set('file_ci', fileCi)
       if (tipo === 'Mercaderia' && filePl) fd.set('file_pl', filePl)
 
