@@ -41,8 +41,10 @@ function Step1Upload({
       const fd = new FormData()
       fd.set('tipoCarga', tipo)
 
+      // ── Repuesto: parse Excel in browser, send JSON (avoids edge FormData issues)
       if (tipo === 'Repuesto' && file) {
-        // Parse XLSX in the browser — xlsx is Node-incompatible in edge runtime
+        let ciText = '(no CommercialInvoice sheet found)'
+        let plText = '(no PackingList sheet found)'
         try {
           const buf = new Uint8Array(await file.arrayBuffer())
           const wb  = XLSX.read(buf, { type: 'array', cellDates: true })
@@ -69,24 +71,57 @@ function Step1Upload({
 
           const ciSheet = findSheet([/commercial\s*invoice/i, /comercial/i, /invoice/i])
           const plSheet = findSheet([/packing\s*list/i, /p12/i, /packing/i])
-          fd.set('ciText', ciSheet ? sheetToText(ciSheet).slice(0, 6000)  : '(no CommercialInvoice sheet found)')
-          fd.set('plText', plSheet ? sheetToText(plSheet).slice(0, 10000) : '(no PackingList sheet found)')
+          if (ciSheet) ciText = sheetToText(ciSheet).slice(0, 6000)
+          if (plSheet) plText = sheetToText(plSheet).slice(0, 10000)
         } catch (e) {
           setError(`Error al leer el Excel: ${e instanceof Error ? e.message : String(e)}`)
           return
         }
+
+        let extractRes: { success: boolean; items?: ExtractedItem[]; tipoCarga?: 'Repuesto' | 'Mercaderia'; error?: string }
+        try {
+          const res  = await fetch('/api/extract', {
+            method:  'POST',
+            headers: { 'content-type': 'application/json' },
+            body:    JSON.stringify({ tipoCarga: 'Repuesto', ciText, plText }),
+          })
+          const raw = await res.text()
+          try { extractRes = JSON.parse(raw) }
+          catch { setError(`Error del servidor (${res.status}): ${raw.slice(0, 300)}`); return }
+        } catch (err) {
+          setError(`Error de red: ${String(err)}`); return
+        }
+        if (!extractRes.success || !extractRes.items) {
+          setError(extractRes.error ?? 'Error desconocido al extraer.')
+          return
+        }
+
+        const firstItem = extractRes.items[0]
+        const fd2 = new FormData()
+        fd2.set('tipoCarga', 'Repuesto')
+        fd2.set('piNo', firstItem?.piNo ?? '')
+        fd2.set('asn',  firstItem?.asn  ?? '')
+        fd2.set('date', firstItem?.date ?? '')
+        fd2.set('file', file)
+        const driveLinks: DriveLinks = await fetch('/api/upload-drive', { method: 'POST', body: fd2 })
+          .then(r => r.json()).catch(() => ({ excel: null, ci: null, pl: null }))
+
+        onDone(extractRes.items, 'Repuesto', category.trim(), driveLinks)
+        return
       }
 
+      // ── Mercadería: send PDFs as FormData
       if (tipo === 'Mercaderia' && fileCi) fd.set('file_ci', fileCi)
       if (tipo === 'Mercaderia' && filePl) fd.set('file_pl', filePl)
 
-      // Call the edge route — no timeout issue (25 s limit, Haiku model)
       let extractRes: { success: boolean; items?: ExtractedItem[]; tipoCarga?: 'Repuesto' | 'Mercaderia'; error?: string }
       try {
-        extractRes = await fetch('/api/extract', { method: 'POST', body: fd }).then(r => r.json())
+        const res  = await fetch('/api/extract', { method: 'POST', body: fd })
+        const raw  = await res.text()
+        try { extractRes = JSON.parse(raw) }
+        catch { setError(`Error del servidor (${res.status}): ${raw.slice(0, 300)}`); return }
       } catch (err) {
-        setError(`Error de red al extraer: ${String(err)}`)
-        return
+        setError(`Error de red: ${String(err)}`); return
       }
       if (!extractRes.success || !extractRes.items) {
         setError(extractRes.error ?? 'Error desconocido al extraer.')

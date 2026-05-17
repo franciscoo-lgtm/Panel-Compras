@@ -116,13 +116,13 @@ function toBase64(buf: ArrayBuffer): string {
 
 export async function POST(req: Request): Promise<Response> {
   try {
-    const formData = await req.formData()
-    const tipo     = formData.get('tipoCarga') as string | null
+    const contentType = req.headers.get('content-type') ?? ''
 
-    // ── Repuesto (Excel CIPL — text extracted client-side) ───────────────────
-    if (tipo === 'Repuesto') {
-      const ciText = (formData.get('ciText') as string | null) ?? '(no CommercialInvoice sheet found)'
-      const plText = (formData.get('plText') as string | null) ?? '(no PackingList sheet found)'
+    // ── Repuesto: JSON body (text extracted client-side, avoids edge FormData issues)
+    if (contentType.includes('application/json')) {
+      const json    = await req.json() as { tipoCarga?: string; ciText?: string; plText?: string }
+      const ciText  = json.ciText  ?? '(no CommercialInvoice sheet found)'
+      const plText  = json.plText  ?? '(no PackingList sheet found)'
 
       const promptText = `Extract all line items from this DJI Repuesto (Spare Parts) Excel CIPL.
 
@@ -145,7 +145,10 @@ INSTRUCTIONS:
       return Response.json({ success: true, items, tipoCarga: 'Repuesto' } satisfies RouteResult)
     }
 
-    // ── Mercadería (CI + PL PDFs) ─────────────────────────────────────────────
+    // ── Mercadería (CI + PL PDFs via FormData) ───────────────────────────────
+    const formData = await req.formData()
+    const tipo     = formData.get('tipoCarga') as string | null
+
     if (tipo === 'Mercaderia') {
       const fileCi = formData.get('file_ci') as File | null
       const filePl = formData.get('file_pl') as File | null
