@@ -80,10 +80,10 @@ function Step1Upload({
 
         let extractRes: { success: boolean; items?: ExtractedItem[]; tipoCarga?: 'Repuesto' | 'Mercaderia'; error?: string }
         try {
-          const res  = await fetch('/api/extract', {
+          const res  = await fetch('/api/extract?tipo=Repuesto', {
             method:  'POST',
             headers: { 'content-type': 'application/json' },
-            body:    JSON.stringify({ tipoCarga: 'Repuesto', ciText, plText }),
+            body:    JSON.stringify({ ciText, plText }),
           })
           const raw = await res.text()
           try { extractRes = JSON.parse(raw) }
@@ -116,7 +116,7 @@ function Step1Upload({
 
       let extractRes: { success: boolean; items?: ExtractedItem[]; tipoCarga?: 'Repuesto' | 'Mercaderia'; error?: string }
       try {
-        const res  = await fetch('/api/extract', { method: 'POST', body: fd })
+        const res  = await fetch('/api/extract?tipo=Mercaderia', { method: 'POST', body: fd })
         const raw  = await res.text()
         try { extractRes = JSON.parse(raw) }
         catch { setError(`Error del servidor (${res.status}): ${raw.slice(0, 300)}`); return }

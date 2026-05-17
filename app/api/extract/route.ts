@@ -116,11 +116,12 @@ function toBase64(buf: ArrayBuffer): string {
 
 export async function POST(req: Request): Promise<Response> {
   try {
-    const contentType = req.headers.get('content-type') ?? ''
+    const url  = new URL(req.url)
+    const tipo = url.searchParams.get('tipo')
 
     // ── Repuesto: JSON body (text extracted client-side, avoids edge FormData issues)
-    if (contentType.includes('application/json')) {
-      const json    = await req.json() as { tipoCarga?: string; ciText?: string; plText?: string }
+    if (tipo === 'Repuesto') {
+      const json    = await req.json() as { ciText?: string; plText?: string }
       const ciText  = json.ciText  ?? '(no CommercialInvoice sheet found)'
       const plText  = json.plText  ?? '(no PackingList sheet found)'
 
@@ -146,10 +147,8 @@ INSTRUCTIONS:
     }
 
     // ── Mercadería (CI + PL PDFs via FormData) ───────────────────────────────
-    const formData = await req.formData()
-    const tipo     = formData.get('tipoCarga') as string | null
-
     if (tipo === 'Mercaderia') {
+      const formData = await req.formData()
       const fileCi = formData.get('file_ci') as File | null
       const filePl = formData.get('file_pl') as File | null
       if (!fileCi || !filePl) {
