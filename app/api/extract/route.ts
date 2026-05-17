@@ -116,14 +116,15 @@ function toBase64(buf: ArrayBuffer): string {
 
 export async function POST(req: Request): Promise<Response> {
   try {
-    const url  = new URL(req.url)
-    const tipo = url.searchParams.get('tipo')
+    const tipoParam = new URL(req.url).searchParams.get('tipo')
+    const ct        = req.headers.get('content-type') ?? ''
 
-    // ── Repuesto: JSON body (text extracted client-side, avoids edge FormData issues)
-    if (tipo === 'Repuesto') {
+    // ── Repuesto ─────────────────────────────────────────────────────────────
+    // Client sends JSON body with pre-extracted sheet text (xlsx parsed browser-side)
+    if (tipoParam === 'Repuesto' || ct.includes('application/json')) {
       const json    = await req.json() as { ciText?: string; plText?: string }
-      const ciText  = json.ciText  ?? '(no CommercialInvoice sheet found)'
-      const plText  = json.plText  ?? '(no PackingList sheet found)'
+      const ciText  = json.ciText ?? '(no CommercialInvoice sheet found)'
+      const plText  = json.plText ?? '(no PackingList sheet found)'
 
       const promptText = `Extract all line items from this DJI Repuesto (Spare Parts) Excel CIPL.
 
@@ -146,19 +147,18 @@ INSTRUCTIONS:
       return Response.json({ success: true, items, tipoCarga: 'Repuesto' } satisfies RouteResult)
     }
 
-    // ── Mercadería (CI + PL PDFs via FormData) ───────────────────────────────
-    if (tipo === 'Mercaderia') {
-      const formData = await req.formData()
-      const fileCi = formData.get('file_ci') as File | null
-      const filePl = formData.get('file_pl') as File | null
-      if (!fileCi || !filePl) {
-        return Response.json({ success: false, error: 'Se requieren CI y PL en PDF.' } satisfies RouteResult)
-      }
+    // ── Mercadería ────────────────────────────────────────────────────────────
+    const formData = await req.formData()
+    const fileCi   = formData.get('file_ci') as File | null
+    const filePl   = formData.get('file_pl') as File | null
+    if (!fileCi || !filePl) {
+      return Response.json({ success: false, error: 'Se requieren CI y PL en PDF.' } satisfies RouteResult)
+    }
 
-      const [ciBuf, plBuf] = await Promise.all([fileCi.arrayBuffer(), filePl.arrayBuffer()])
-      const [ciB64, plB64] = [toBase64(ciBuf), toBase64(plBuf)]
+    const [ciBuf, plBuf] = await Promise.all([fileCi.arrayBuffer(), filePl.arrayBuffer()])
+    const [ciB64, plB64] = [toBase64(ciBuf), toBase64(plBuf)]
 
-      const promptText = `Extract all line items from this DJI Mercadería (Merchandise) CIPL.
+    const promptText = `Extract all line items from this DJI Mercadería (Merchandise) CIPL.
 
 INSTRUCTIONS:
 - Match items between CI and PL using the 13-digit EAN code
@@ -169,17 +169,15 @@ INSTRUCTIONS:
 - qBultos, gwKg, w, l, h, cbm: set ONLY on the primary row of each carton; null on sub-rows within the same carton
 - Output rows in EXACTLY the same order as the Packing List (top to bottom, by carton number)`
 
-      const items = await callHaiku([
-        { type: 'text', text: '=== COMMERCIAL INVOICE PDF ===' },
-        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: ciB64 } },
-        { type: 'text', text: '=== PACKING LIST PDF ===' },
-        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: plB64 } },
-        { type: 'text', text: promptText },
-      ])
-      return Response.json({ success: true, items, tipoCarga: 'Mercaderia' } satisfies RouteResult)
-    }
+    const items = await callHaiku([
+      { type: 'text', text: '=== COMMERCIAL INVOICE PDF ===' },
+      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: ciB64 } },
+      { type: 'text', text: '=== PACKING LIST PDF ===' },
+      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: plB64 } },
+      { type: 'text', text: promptText },
+    ])
+    return Response.json({ success: true, items, tipoCarga: 'Mercaderia' } satisfies RouteResult)
 
-    return Response.json({ success: false, error: 'Tipo de carga inválido.' } satisfies RouteResult)
   } catch (err) {
     console.error('[extract] error:', err)
     return Response.json({ success: false, error: String(err) } satisfies RouteResult)
