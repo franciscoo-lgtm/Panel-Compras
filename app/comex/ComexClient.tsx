@@ -620,7 +620,7 @@ export default function ComexClient({
         <KpiCard label="Lead time prom." value={kpis.avgLeadDays != null ? `${kpis.avgLeadDays}d` : '—'} sub="ETD → ETA Caldas" color="text-indigo-600" />
         <KpiCard label="Días en tránsito" value={kpis.avgTransitDays != null ? `${kpis.avgTransitDays}d` : '—'} sub="ETD → Arribo WH" color="text-sky-600" />
         <KpiCard label="Conf. pendientes" value={String(kpis.pendingConfirmations)} sub="Avisado sin confirmar" color="text-amber-600" />
-        <KpiCard label="Demorados" value={String(kpis.delayed)} sub="ETA vencida sin arribo" color={kpis.delayed > 0 ? 'text-red-600' : 'text-emerald-600'} />
+        <KpiCard label="Demorados" value={String(kpis.delayed)} sub="ASN con ETA vencida sin arribo" color={kpis.delayed > 0 ? 'text-red-600' : 'text-emerald-600'} />
       </div>
 
       {/* Toolbar */}

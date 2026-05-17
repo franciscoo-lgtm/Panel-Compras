@@ -787,6 +787,7 @@ export default function PanelGeneralClient({
     if (!confirm(`¿Borrar "${label}"?\nEsta acción no se puede deshacer.`)) return
     deleteCIPLItem(id).then(res => {
       if (res.ok) { setItems(prev => prev.filter(i => i.id !== id)); setSelected(prev => { const s = new Set(prev); s.delete(id); return s }) }
+      else alert(`Error al borrar: ${(res as { error?: string }).error ?? 'desconocido'}`)
     })
   }, [])
 

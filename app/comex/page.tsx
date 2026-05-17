@@ -37,9 +37,13 @@ export default async function ComexPage() {
 
   const pendingConfirmations = items.filter(i => !!i.avisoAgente && !i.avisoConfirmacion).length
 
-  const delayed = items.filter(i =>
-    !i.arriboWh && !i.etaCaldas && i.eta && new Date(i.eta) < today
-  ).length
+  // Count distinct delayed ASNs, not individual items
+  const delayedAsns = new Set(
+    items
+      .filter(i => !i.arriboWh && !i.etaCaldas && i.eta && new Date(i.eta) < today)
+      .map(i => i.asn ?? i.id)
+  )
+  const delayed = delayedAsns.size
 
   const kpis: ComexKpis = {
     avgLeadDays:          avg(leadDays),

@@ -114,7 +114,7 @@ function Step1Upload({
       </div>
 
       {tipo === 'Repuesto' ? (
-        <FileDropZone label="Excel CIPL" accept=".xlsx,.xls" file={file} onChange={setFile} hint="CommercialInvoice + PackingList" />
+        <FileDropZone label="Excel CIPL" accept=".xlsx,.xls" file={file} onChange={setFile} hint="Archivo .xlsx con CI + PL" />
       ) : (
         <div className="space-y-3">
           <FileDropZone label="Commercial Invoice (CI)" accept=".pdf" file={fileCi} onChange={setFileCi} hint="PDF" />
