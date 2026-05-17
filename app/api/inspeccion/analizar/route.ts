@@ -37,11 +37,19 @@ type RouteResult =
 
 // ─── POST /api/inspeccion/analizar ────────────────────────────────────────────
 
+const BATCH_SIZE = 8   // max photos per Claude call to stay under 413
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size))
+  return chunks
+}
+
 export async function POST(req: Request): Promise<Response> {
   try {
     const {
       photos,
-      rowPhotoCounts,   // Map of rowIndex → total photos in that row
+      rowPhotoCounts,
       plItems,
     }: { photos: PhotoInput[]; rowPhotoCounts: Record<number, number>; plItems?: PLItem[] } = await req.json()
 
@@ -49,6 +57,27 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ ok: true, labels: [] } satisfies RouteResult)
     }
 
+    // Process in batches to avoid 413 on large photo sets
+    const batches  = chunkArray(photos, BATCH_SIZE)
+    const allLabels: LabelResult[] = []
+
+    for (const batch of batches) {
+      const batchLabels = await processBatch(batch, rowPhotoCounts, plItems)
+      allLabels.push(...batchLabels)
+    }
+
+    return Response.json({ ok: true, labels: allLabels } satisfies RouteResult)
+  } catch (err) {
+    console.error('[analizar-edge] error:', err)
+    return Response.json({ ok: false, error: String(err) } satisfies RouteResult)
+  }
+}
+
+async function processBatch(
+  photos: PhotoInput[],
+  rowPhotoCounts: Record<number, number>,
+  plItems?: PLItem[],
+): Promise<LabelResult[]> {
     const imageContent = photos.map(r => ({
       type: 'image' as const,
       source: {
@@ -120,7 +149,7 @@ If a photo does not show a readable label, set all fields to null and set "error
 
     if (!apiRes.ok) {
       const t = await apiRes.text()
-      return Response.json({ ok: false, error: `Anthropic ${apiRes.status}: ${t.slice(0, 300)}` } satisfies RouteResult)
+      throw new Error(`Anthropic ${apiRes.status}: ${t.slice(0, 300)}`)
     }
 
     const data  = await apiRes.json()
@@ -138,7 +167,7 @@ If a photo does not show a readable label, set all fields to null and set "error
       error?:      string | null
     }> = start >= 0 ? JSON.parse(raw.slice(start, end + 1)) : []
 
-    const labels: LabelResult[] = photos.map((r, i) => ({
+    return photos.map((r, i) => ({
       rowIndex:   r.rowIndex,
       colIndex:   r.colIndex,
       photoCount: rowPhotoCounts[r.rowIndex] ?? 1,
@@ -150,10 +179,4 @@ If a photo does not show a readable label, set all fields to null and set "error
       note:       parsed[i]?.note       ?? null,
       error:      parsed[i]?.error      ?? null,
     }))
-
-    return Response.json({ ok: true, labels } satisfies RouteResult)
-  } catch (err) {
-    console.error('[analizar-edge] error:', err)
-    return Response.json({ ok: false, error: String(err) } satisfies RouteResult)
-  }
 }
