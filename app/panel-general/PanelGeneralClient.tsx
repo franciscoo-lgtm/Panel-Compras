@@ -783,8 +783,8 @@ export default function PanelGeneralClient({
     }
   }
 
-  const handleDelete = useCallback((id: string) => {
-    if (!confirm('¿Borrar este ítem? Esta acción no se puede deshacer.')) return
+  const handleDelete = useCallback((id: string, label: string) => {
+    if (!confirm(`¿Borrar "${label}"?\nEsta acción no se puede deshacer.`)) return
     deleteCIPLItem(id).then(res => {
       if (res.ok) { setItems(prev => prev.filter(i => i.id !== id)); setSelected(prev => { const s = new Set(prev); s.delete(id); return s }) }
     })
@@ -1329,7 +1329,7 @@ export default function PanelGeneralClient({
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 text-zinc-300 hover:text-amber-500 transition-colors">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => handleDelete(item.id)}
+                        <button onClick={() => handleDelete(item.id, item.description?.slice(0, 40) ?? item.caseNo ?? item.id.slice(0, 8))}
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-zinc-300 hover:text-red-500 transition-colors">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

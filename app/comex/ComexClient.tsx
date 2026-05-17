@@ -173,16 +173,15 @@ function TimelineStep({
 // ─── ASN Timeline Card ────────────────────────────────────────────────────────
 
 function AsnCard({
-  group, onEdit, liveData, extraColumns, forceExpanded,
+  group, onEdit, liveData, extraColumns, expanded, onToggle,
 }: {
   group: AsnGroup
   onEdit: (item: Item) => void
   liveData: LiveDataMap
   extraColumns: ExtraColumn[]
-  forceExpanded?: boolean
+  expanded: boolean
+  onToggle: () => void
 }) {
-  const [localExpanded, setLocalExpanded] = useState(false)
-  const expanded = forceExpanded ?? localExpanded
 
   const etdDone   = !!group.etd
   const etaDone   = !!group.arriboWh // ETA segment complete when arrived
@@ -241,7 +240,7 @@ function AsnCard({
 
         {/* Expand toggle */}
         <button
-          onClick={() => setLocalExpanded(v => !v)}
+          onClick={onToggle}
           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-400 shrink-0 mt-0.5"
         >
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -577,13 +576,13 @@ export default function ComexClient({
   extraColumns: ExtraColumn[]
   kpis: ComexKpis
 }) {
-  const [items,      setItems]      = useState<Item[]>(initialItems)
-  const [filter,     setFilter]     = useState<FilterStatus>('all')
-  const [tipoFilter, setTipoFilter] = useState<'all' | 'Repuesto' | 'Mercaderia'>('all')
-  const [search,     setSearch]     = useState('')
-  const [editing,    setEditing]    = useState<Item | null>(null)
-  const [view,       setView]       = useState<'timeline' | 'list'>('timeline')
-  const [allExpanded, setAllExpanded] = useState(false)
+  const [items,           setItems]           = useState<Item[]>(initialItems)
+  const [filter,          setFilter]          = useState<FilterStatus>('all')
+  const [tipoFilter,      setTipoFilter]      = useState<'all' | 'Repuesto' | 'Mercaderia'>('all')
+  const [search,          setSearch]          = useState('')
+  const [editing,         setEditing]         = useState<Item | null>(null)
+  const [view,            setView]            = useState<'timeline' | 'list'>('timeline')
+  const [expandedAsnKeys, setExpandedAsnKeys] = useState<Set<string>>(new Set())
 
   const hasLive = Object.keys(liveData).length > 0
 
@@ -599,20 +598,20 @@ export default function ComexClient({
     setEditing(prev => prev?.id === id ? ({ ...prev, ...fields } as Item) : prev)
   }, [])
 
-  const filterTabs: { key: FilterStatus; label: string }[] = [
-    { key: 'all',         label: `Todos (${items.length})` },
-    { key: 'pendiente',   label: `Pendiente (${items.filter(i => getStatus(i) === 'pendiente').length})` },
-    { key: 'avisado',     label: `Avisado (${items.filter(i => getStatus(i) === 'avisado').length})` },
-    { key: 'en-transito', label: `En tránsito (${items.filter(i => getStatus(i) === 'en-transito').length})` },
-    { key: 'llegado',     label: `Llegado WH (${items.filter(i => getStatus(i) === 'llegado').length})` },
-    { key: 'entregado',   label: `Entregado (${items.filter(i => getStatus(i) === 'entregado').length})` },
-  ]
-
   const byTipo   = tipoFilter === 'all' ? items : items.filter(i => i.tipoCarga === tipoFilter)
   const byStatus = filter === 'all' ? byTipo : byTipo.filter(i => getStatus(i) === filter)
   const bySearch = byStatus.filter(i => matchesSearch(i, search))
 
   const asnGroups = useMemo(() => buildAsnGroups(bySearch), [bySearch])
+
+  const filterTabs: { key: FilterStatus; label: string }[] = [
+    { key: 'all',         label: `Todos (${byTipo.length})` },
+    { key: 'pendiente',   label: `Pendiente (${byTipo.filter(i => getStatus(i) === 'pendiente').length})` },
+    { key: 'avisado',     label: `Avisado (${byTipo.filter(i => getStatus(i) === 'avisado').length})` },
+    { key: 'en-transito', label: `En tránsito (${byTipo.filter(i => getStatus(i) === 'en-transito').length})` },
+    { key: 'llegado',     label: `Llegado WH (${byTipo.filter(i => getStatus(i) === 'llegado').length})` },
+    { key: 'entregado',   label: `Entregado (${byTipo.filter(i => getStatus(i) === 'entregado').length})` },
+  ]
 
   return (
     <div className="space-y-4">
@@ -677,11 +676,19 @@ export default function ComexClient({
         {/* Expand all (timeline mode only) */}
         {view === 'timeline' && asnGroups.length > 0 && (
           <button
-            onClick={() => setAllExpanded(v => !v)}
+            onClick={() => {
+              const allExpanded = asnGroups.every(g => expandedAsnKeys.has(g.asn))
+              if (allExpanded) {
+                setExpandedAsnKeys(new Set())
+              } else {
+                setExpandedAsnKeys(new Set(asnGroups.map(g => g.asn)))
+              }
+            }}
             className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
           >
-            {allExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            {allExpanded ? 'Colapsar todo' : 'Expandir todo'}
+            {asnGroups.every(g => expandedAsnKeys.has(g.asn))
+              ? <><ChevronUp className="w-3.5 h-3.5" /> Colapsar todo</>
+              : <><ChevronDown className="w-3.5 h-3.5" /> Expandir todo</>}
           </button>
         )}
 
@@ -723,13 +730,18 @@ export default function ComexClient({
               onEdit={setEditing}
               liveData={liveData}
               extraColumns={extraColumns}
-              forceExpanded={allExpanded || undefined}
+              expanded={expandedAsnKeys.has(group.asn)}
+              onToggle={() => setExpandedAsnKeys(prev => {
+                const next = new Set(prev)
+                next.has(group.asn) ? next.delete(group.asn) : next.add(group.asn)
+                return next
+              })}
             />
           ))}
         </div>
       ) : (
         <ListViewTable
-          items={items}
+          items={byTipo}
           onEdit={setEditing}
           liveData={liveData}
           extraColumns={extraColumns}
