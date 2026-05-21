@@ -63,9 +63,43 @@ function groupSpan(group: ColGroup, vis: Set<ColKey>): number {
 }
 
 /** Returns the border class for the first currently-visible column of a group, or '' for others */
-function firstVisibleBorder(group: ColGroup, col: ColKey, vis: Set<ColKey>): string {
-  const first = group.cols.find(c => vis.has(c))
+function firstVisibleBorder(group: ColGroup, col: ColKey, vis: Set<ColKey>, ordered?: ColKey[]): string {
+  const first = (ordered ?? group.cols).find(c => vis.has(c))
   return first === col ? group.borderClass : ''
+}
+
+const COL_TH: Record<ColKey, { align: 'left' | 'right' | 'center'; width: string }> = {
+  tipo:         { align: 'left',   width: 'w-24'          },
+  cargado:      { align: 'left',   width: 'w-20'          },
+  category:     { align: 'left',   width: 'w-24'          },
+  asn:          { align: 'left',   width: 'w-28'          },
+  date:         { align: 'left',   width: 'w-20'          },
+  piNo:         { align: 'left',   width: 'w-28'          },
+  cajaBultos:   { align: 'left',   width: 'w-28'          },
+  ean:          { align: 'left',   width: 'w-28'          },
+  descripcion:  { align: 'left',   width: 'min-w-[180px]' },
+  qty:          { align: 'right',  width: 'w-12'          },
+  plSO:         { align: 'right',  width: 'w-20'          },
+  qGso:         { align: 'right',  width: 'w-16'          },
+  dif:          { align: 'right',  width: 'w-16'          },
+  wxlxh:        { align: 'right',  width: 'w-28'          },
+  gwKg:         { align: 'right',  width: 'w-16'          },
+  cbm:          { align: 'right',  width: 'w-16'          },
+  cbmBulto:     { align: 'right',  width: 'w-20'          },
+  uniBulto:     { align: 'right',  width: 'w-16'          },
+  dg:           { align: 'center', width: 'w-8'           },
+  soPrincipal:  { align: 'left',   width: 'w-32'          },
+  soSecundario: { align: 'left',   width: 'w-28'          },
+  drive:        { align: 'left',   width: 'w-20'          },
+  fotos:        { align: 'center', width: 'w-16'          },
+  incoterm:     { align: 'left',   width: 'w-24'          },
+  puertoSalida: { align: 'left',   width: 'w-28'          },
+  etd:          { align: 'left',   width: 'w-24'          },
+  eta:          { align: 'left',   width: 'w-24'          },
+  etaCaldas:    { align: 'left',   width: 'w-24'          },
+  awb:          { align: 'left',   width: 'w-28'          },
+  arriboWh:     { align: 'left',   width: 'w-24'          },
+  paletizado:   { align: 'left',   width: 'w-24'          },
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -181,9 +215,15 @@ function getLive(so: string | null | undefined, fieldKey: string, liveData: Live
 function ColumnSelectorPopover({
   visibleCols,
   onChange,
+  extraColumns,
+  visibleExtraCols,
+  onExtraChange,
 }: {
   visibleCols: Set<ColKey>
   onChange: (next: Set<ColKey>) => void
+  extraColumns: ExtraColumn[]
+  visibleExtraCols: Set<string>
+  onExtraChange: (next: Set<string>) => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -197,12 +237,20 @@ function ColumnSelectorPopover({
     return () => document.removeEventListener('mousedown', onDown)
   }, [open])
 
-  const hiddenCount = ALL_COLS.filter(c => !visibleCols.has(c)).length
+  const hiddenCount =
+    ALL_COLS.filter(c => !visibleCols.has(c)).length +
+    extraColumns.filter(c => !visibleExtraCols.has(c.fieldKey)).length
 
   const toggle = (col: ColKey) => {
     const next = new Set(visibleCols)
     next.has(col) ? next.delete(col) : next.add(col)
     onChange(next)
+  }
+
+  const toggleExtra = (key: string) => {
+    const next = new Set(visibleExtraCols)
+    next.has(key) ? next.delete(key) : next.add(key)
+    onExtraChange(next)
   }
 
   const applyPreset = (cols: readonly ColKey[] | ColKey[]) =>
@@ -246,10 +294,7 @@ function ColumnSelectorPopover({
           <div className="grid grid-cols-2 gap-x-8 gap-y-0.5">
             {GROUPS.map(group => (
               <Fragment key={group.label}>
-                <div
-                  key={`label-${group.label}`}
-                  className={`col-span-2 text-[9px] font-bold uppercase tracking-wider mt-3 mb-1 ${group.textColor}`}
-                >
+                <div className={`col-span-2 text-[9px] font-bold uppercase tracking-wider mt-3 mb-1 ${group.textColor}`}>
                   {group.label}
                 </div>
                 {group.cols.map(col => (
@@ -269,6 +314,30 @@ function ColumnSelectorPopover({
                 ))}
               </Fragment>
             ))}
+
+            {/* Extra columns from sources */}
+            {extraColumns.length > 0 && (
+              <>
+                <div className="col-span-2 text-[9px] font-bold uppercase tracking-wider mt-3 mb-1 text-violet-500">
+                  Fuentes
+                </div>
+                {extraColumns.map(c => (
+                  <label
+                    key={c.fieldKey}
+                    className="flex items-center gap-2 text-[11px] text-zinc-700 cursor-pointer select-none py-0.5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleExtraCols.has(c.fieldKey)}
+                      onChange={() => toggleExtra(c.fieldKey)}
+                      style={{ accentColor: '#8b5cf6' }}
+                      className="w-3.5 h-3.5 shrink-0"
+                    />
+                    {c.label}
+                  </label>
+                ))}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -699,8 +768,30 @@ export default function PanelGeneralClient({
   const [viewingPhotosFor, setViewingPhotosFor] = useState<Item | null>(null)
   const [deleting, startDelete]           = useTransition()
   const [exportingCipl, setExportingCipl] = useState(false)
-  const [groupByAsn, setGroupByAsn]       = useState(false)
-  const [expandedAsns, setExpandedAsns]   = useState<Set<string>>(new Set())
+  const [groupByAsn, setGroupByAsn]         = useState(false)
+  const [expandedAsns, setExpandedAsns]     = useState<Set<string>>(new Set())
+  const [expandedBultos, setExpandedBultos] = useState<Set<string>>(new Set())
+  const [bultoPhotos, setBultoPhotos]       = useState<Map<string, string[]>>(new Map())
+  const [loadingBultos, setLoadingBultos]   = useState<Set<string>>(new Set())
+
+  async function toggleBulto(bultoKey: string, itemIds: string[]) {
+    setExpandedBultos(prev => {
+      const next = new Set(prev)
+      next.has(bultoKey) ? next.delete(bultoKey) : next.add(bultoKey)
+      return next
+    })
+    // Fetch photos for items not yet loaded
+    const unloaded = itemIds.filter(id => !bultoPhotos.has(id))
+    if (!unloaded.length) return
+    setLoadingBultos(prev => new Set([...prev, bultoKey]))
+    const results = await Promise.all(unloaded.map(id => getItemPhotos(id)))
+    setBultoPhotos(prev => {
+      const next = new Map(prev)
+      unloaded.forEach((id, i) => next.set(id, (results[i] ?? []).map(p => p.dataUrl)))
+      return next
+    })
+    setLoadingBultos(prev => { const s = new Set(prev); s.delete(bultoKey); return s })
+  }
 
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() => {
     try {
@@ -714,6 +805,65 @@ export default function PanelGeneralClient({
     setVisibleCols(next)
     try { localStorage.setItem('panel-visible-cols', JSON.stringify([...next])) } catch {}
   }, [])
+
+  // Extra columns visibility — stored as hidden keys so new sources appear visible by default
+  const [visibleExtraCols, _setVisibleExtraCols] = useState<Set<string>>(() => {
+    const available = new Set(extraColumns.map(c => c.fieldKey))
+    try {
+      const saved = localStorage.getItem('panel-hidden-extra-cols')
+      if (saved) {
+        const hiddenKeys = new Set(JSON.parse(saved) as string[])
+        return new Set([...available].filter(k => !hiddenKeys.has(k)))
+      }
+    } catch {}
+    return available
+  })
+
+  const applyVisibleExtraCols = useCallback((next: Set<string>) => {
+    _setVisibleExtraCols(next)
+    const hiddenKeys = extraColumns.map(c => c.fieldKey).filter(k => !next.has(k))
+    try { localStorage.setItem('panel-hidden-extra-cols', JSON.stringify(hiddenKeys)) } catch {}
+  }, [extraColumns])
+
+  const [colOrderMap, setColOrderMap] = useState<Record<string, ColKey[]>>(() => {
+    try {
+      const saved = localStorage.getItem('panel-general-col-order')
+      if (saved) {
+        const parsed = JSON.parse(saved) as Record<string, ColKey[]>
+        if (GROUPS.every(g => Array.isArray(parsed[g.label]))) return parsed
+      }
+    } catch {}
+    return Object.fromEntries(GROUPS.map(g => [g.label, [...g.cols]]))
+  })
+
+  const dragColRef = useRef<{ groupLabel: string; col: ColKey } | null>(null)
+
+  function applyColOrder(next: Record<string, ColKey[]>) {
+    setColOrderMap(next)
+    try { localStorage.setItem('panel-general-col-order', JSON.stringify(next)) } catch {}
+  }
+
+  function onColDragStart(groupLabel: string, col: ColKey, e: React.DragEvent) {
+    dragColRef.current = { groupLabel, col }
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function onColDragOver(groupLabel: string, col: ColKey, e: React.DragEvent) {
+    e.preventDefault()
+    if (!dragColRef.current || dragColRef.current.groupLabel !== groupLabel) return
+    const src = dragColRef.current.col
+    if (src === col) return
+    const cols = [...(colOrderMap[groupLabel] ?? [])]
+    const si = cols.indexOf(src)
+    const di = cols.indexOf(col)
+    if (si === -1 || di === -1) return
+    cols.splice(si, 1)
+    cols.splice(di, 0, src)
+    applyColOrder({ ...colOrderMap, [groupLabel]: cols })
+    dragColRef.current = { groupLabel, col: src }
+  }
+
+  function onColDragEnd() { dragColRef.current = null }
 
   const vis = visibleCols  // short alias used throughout JSX
 
@@ -733,32 +883,33 @@ export default function PanelGeneralClient({
   const { spanMap, skipSet, dimsForKey } = buildDimGroups(filtered)
 
   const asnGroups = useMemo(() => {
+    if (!groupByAsn) return []
     const map = new Map<string, Item[]>()
     for (const item of filteredItems) {
       const key = item.asn ?? '(sin ASN)'
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(item)
     }
-    return [...map.entries()].map(([asn, grp]) => {
-      const sos = [...new Set(grp.flatMap(i => [i.soPrincipal, i.soSecundario]).filter(Boolean) as string[])]
-      const piNos = [...new Set(grp.map(i => i.piNo).filter(Boolean) as string[])]
-      // GW / CBM / qBultos belong to the carton, not each sub-item — deduplicate by caseNo
+    return [...map.entries()].map(([key, grpItems]) => {
+      const sos      = [...new Set(grpItems.flatMap(i => [i.soPrincipal, i.soSecundario]).filter(Boolean) as string[])]
+      const piNos    = [...new Set(grpItems.map(i => i.piNo).filter(Boolean) as string[])]
+      const tipo     = grpItems[0]?.tipoCarga ?? ''
+      const categories = [...new Set(grpItems.map(i => i.categoryName).filter(Boolean) as string[])]
       const seen = new Set<string>()
-      const primaryItems = grp.filter(i => {
+      const primaryItems = grpItems.filter(i => {
         const k = i.caseNo ?? i.id
         if (seen.has(k)) return false
-        seen.add(k)
-        return true
+        seen.add(k); return true
       })
-      const totalQty    = grp.reduce((s, i) => s + (i.qty  ?? 0), 0)
-      const totalCbm    = primaryItems.reduce((s, i) => s + (i.cbm  ?? 0), 0)
-      const totalGw     = primaryItems.reduce((s, i) => s + (i.gwKg ?? 0), 0)
-      const totalBultos = primaryItems.reduce((s, i) => s + (i.qBultos ?? 0), 0)
-      const tipo = grp[0]?.tipoCarga ?? ''
-      const categories = [...new Set(grp.map(i => i.categoryName).filter(Boolean) as string[])]
-      return { asn, items: grp, sos, piNos, totalQty, totalCbm, totalGw, totalBultos, tipo, categories }
+      return {
+        key, items: grpItems, sos, piNos, tipo, categories,
+        totalQty:    grpItems.reduce((s, i) => s + (i.qty    ?? 0), 0),
+        totalBultos: primaryItems.reduce((s, i) => s + (i.qBultos ?? 0), 0),
+        totalCbm:    +primaryItems.reduce((s, i) => s + (i.cbm   ?? 0), 0).toFixed(4),
+        totalGw:     +primaryItems.reduce((s, i) => s + (i.gwKg  ?? 0), 0).toFixed(2),
+      }
     })
-  }, [filteredItems])
+  }, [filteredItems, groupByAsn])
 
   // Sum of all qty for each SO (used for PL vs GSO comparison)
   const soQtyMap = useMemo(() => {
@@ -847,6 +998,161 @@ export default function PanelGeneralClient({
     { key: 'Mercaderia', label: `Mercadería (${items.filter(i => i.tipoCarga === 'Mercaderia').length})` },
   ] as const
 
+  // ─── Column render helpers ─────────────────────────────────────────────────
+
+  function renderGroupTh(group: ColGroup): React.ReactNode {
+    const ordered = colOrderMap[group.label] ?? group.cols
+    return ordered.filter(c => vis.has(c)).map(col => {
+      const cfg    = COL_TH[col]
+      const border = firstVisibleBorder(group, col, vis, ordered)
+      const align  = cfg.align === 'right' ? 'text-right' : cfg.align === 'center' ? 'text-center' : 'text-left'
+      const color  = ['plSO','qGso','dif'].includes(col)
+        ? 'text-blue-500'
+        : ['soPrincipal','soSecundario','drive','fotos','incoterm','puertoSalida'].includes(col)
+        ? 'text-violet-400'
+        : ['etd','eta','etaCaldas','awb','arriboWh','paletizado'].includes(col)
+        ? 'text-cyan-500'
+        : 'text-zinc-400'
+      return (
+        <th
+          key={col}
+          draggable
+          onDragStart={e => onColDragStart(group.label, col, e)}
+          onDragOver={e  => onColDragOver(group.label, col, e)}
+          onDragEnd={onColDragEnd}
+          className={`px-2 py-2 ${align} text-[10px] font-bold uppercase tracking-widest ${color} ${cfg.width} ${border} cursor-grab select-none hover:bg-zinc-100/60 transition-colors`}
+          title="Arrastrá para reordenar"
+        >
+          {COL_LABELS[col]}
+        </th>
+      )
+    })
+  }
+
+  function renderGroupCells(group: ColGroup, item: DisplayRow, rowKey: string): React.ReactNode {
+    const ordered   = colOrderMap[group.label] ?? group.cols
+    const dimSource = dimsForKey.get(rowKey) ?? item
+    const dims      = (dimSource.w && dimSource.l && dimSource.h) ? `${dimSource.w}×${dimSource.l}×${dimSource.h}` : '—'
+    const isRep     = item.tipoCarga === 'Repuesto'
+
+    let soTotal: number | null = null, qGsoVal: number | null = null, diff: number | null = null
+    let diffColor = 'text-zinc-300'
+    if (group.label === 'PL vs GSO') {
+      soTotal  = item._displaySO ? (soQtyMap.get(item._displaySO) ?? null) : null
+      const rq = gl(item, 'qPi')
+      qGsoVal  = rq != null ? (Number.isFinite(Number(rq)) ? Number(rq) : null) : (item._isPrimary ? item.qPi : null)
+      diff     = soTotal != null && qGsoVal != null ? soTotal - qGsoVal : null
+      diffColor = diff == null ? 'text-zinc-300' : diff === 0 ? 'text-emerald-600 font-bold' : diff > 0 ? 'text-amber-600 font-bold' : 'text-red-600 font-bold'
+    }
+
+    return ordered.filter(c => vis.has(c)).map(col => {
+      const border = firstVisibleBorder(group, col, vis, ordered)
+      switch (col) {
+        case 'tipo': return (
+          <td key={col} className="pl-5 pr-2 py-2.5">
+            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${isRep ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+              {isRep ? <FileSpreadsheet className="w-2.5 h-2.5" /> : <FileText className="w-2.5 h-2.5" />}
+              {item.tipoCarga}
+            </span>
+          </td>
+        )
+        case 'cargado':  return <td key={col} className="px-2 py-2.5 text-zinc-400 whitespace-nowrap">{fmtDate(item.createdAt)}</td>
+        case 'category': return <td key={col} className="px-2 py-2.5 text-zinc-500">{item.categoryName ?? '—'}</td>
+        case 'asn':      return <td key={col} className="px-2 py-2.5 font-mono text-zinc-600">{item.asn ?? '—'}</td>
+        case 'date':     return <td key={col} className="px-2 py-2.5 text-zinc-500 whitespace-nowrap">{fmtDate(item.date)}</td>
+        case 'piNo':     return <td key={col} className={`px-2 py-2.5 font-mono text-zinc-600 ${border}`}>{item.piNo ?? '—'}</td>
+        case 'cajaBultos': return (
+          <td key={col} className={`px-2 py-2.5 font-mono text-zinc-600 ${border}`}>
+            {isRep ? (item.caseNo ?? '—') : (item.qBultos != null ? `${item.qBultos} bultos` : '—')}
+          </td>
+        )
+        case 'ean':      return <td key={col} className={`px-2 py-2.5 font-mono text-zinc-600 ${border}`}>{item.codeEan ?? '—'}</td>
+        case 'descripcion': return (
+          <td key={col} className={`px-2 py-2.5 max-w-[180px] ${border}`}>
+            <span className="line-clamp-2 text-zinc-700" title={item.description ?? ''}>{item.description ?? '—'}</span>
+          </td>
+        )
+        case 'qty':  return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-600 ${border}`}>{item.qty ?? '—'}</td>
+        case 'plSO': return <td key={col} className={`px-2 py-2.5 text-right font-mono text-blue-700 ${border}`}>{soTotal != null ? soTotal.toLocaleString('es-AR') : '—'}</td>
+        case 'qGso': return <td key={col} className={`px-2 py-2.5 text-right font-mono text-blue-500 ${border}`}>{qGsoVal != null ? qGsoVal.toLocaleString('es-AR') : '—'}</td>
+        case 'dif':  return <td key={col} className={`px-2 py-2.5 text-right font-mono ${diffColor} ${border}`}>{diff == null ? '—' : diff > 0 ? `+${diff.toLocaleString('es-AR')}` : diff.toLocaleString('es-AR')}</td>
+        case 'wxlxh': {
+          if (skipSet.has(rowKey)) return null
+          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-500 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{dims}</td>
+        }
+        case 'gwKg': {
+          if (skipSet.has(rowKey)) return null
+          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-600 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{fmtNum(dimSource.gwKg, 2)}</td>
+        }
+        case 'cbm': {
+          if (skipSet.has(rowKey)) return null
+          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-600 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{fmtNum(dimSource.cbm, 5)}</td>
+        }
+        case 'cbmBulto': {
+          if (skipSet.has(rowKey)) return null
+          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-500 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{fmtNum(dimSource.cbmXBulto, 5)}</td>
+        }
+        case 'uniBulto': return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-500 ${border}`}>{fmtNum(item.uniXBulto, 4)}</td>
+        case 'dg': return (
+          <td key={col} className={`px-2 py-2.5 text-center ${border}`}>
+            {item.isDangerousGood ? <AlertTriangle className="w-3.5 h-3.5 text-orange-500 mx-auto" /> : <span className="text-zinc-200">—</span>}
+          </td>
+        )
+        case 'soPrincipal': return (
+          <td key={col} className={`px-2 py-2.5 ${border}`}>
+            {item._displaySO ? (
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="font-mono text-[11px] bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded">{item._displaySO}</span>
+                {item._isSplit && (
+                  <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${item._isPrimary ? 'bg-amber-100 text-amber-600' : 'bg-sky-50 text-sky-500'}`}>
+                    {item._isPrimary ? '1°' : '2°'}
+                  </span>
+                )}
+              </div>
+            ) : <span className="text-zinc-300 italic text-[10px]">sin SO</span>}
+          </td>
+        )
+        case 'soSecundario': return (
+          <td key={col} className={`px-2 py-2.5 ${border}`}>
+            {item._isSplit
+              ? <span className="font-mono text-[10px] text-zinc-300">{item._isPrimary ? (item.soSecundario ?? '—') : (item.soPrincipal ?? '—')}</span>
+              : item.soSecundario
+                ? <span className="font-mono text-[11px] bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded">{item.soSecundario}</span>
+                : <span className="text-zinc-200">—</span>}
+          </td>
+        )
+        case 'drive': return (
+          <td key={col} className={`px-2 py-2.5 ${border}`}>
+            <div className="flex items-center gap-0.5">
+              {item.driveLinkExcel ? <a href={item.driveLinkExcel} target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100" title="Excel CIPL">XLS</a> : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">XLS</span>}
+              {item.driveLinkCi    ? <a href={item.driveLinkCi}    target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100"   title="Commercial Invoice">CI</a>  : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">CI</span>}
+              {item.driveLinkPl    ? <a href={item.driveLinkPl}    target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 hover:bg-violet-100" title="Packing List">PL</a>    : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">PL</span>}
+            </div>
+          </td>
+        )
+        case 'fotos': return (
+          <td key={col} className={`px-2 py-2.5 text-center ${border}`}>
+            {item._isPrimary && (
+              <button onClick={() => setViewingPhotosFor(item)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors text-[10px] font-bold ${item.photoCount > 0 ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-zinc-50 text-zinc-300 hover:bg-zinc-100 hover:text-zinc-500'}`}>
+                <Camera className="w-3 h-3" />
+                {item.photoCount > 0 ? item.photoCount : '+'}
+              </button>
+            )}
+          </td>
+        )
+        case 'incoterm':     return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] ${border}`}>{item.incoterm ?? <span className="text-zinc-200">—</span>}</td>
+        case 'puertoSalida': return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] ${border}`}>{item.puertoSalida ?? <span className="text-zinc-200">—</span>}</td>
+        case 'etd':      return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${border}`}>{fmtDate(item.etd)}</td>
+        case 'eta':      return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${border}`}>{fmtDate(item.eta)}</td>
+        case 'etaCaldas':return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${border}`}>{fmtDate(item.etaCaldas)}</td>
+        case 'awb':      return <td key={col} className={`px-2 py-2.5 font-mono text-zinc-600 text-[11px] ${border}`}>{item.awb ?? <span className="text-zinc-200">—</span>}</td>
+        case 'arriboWh': return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${border}`}>{fmtDate(item.arriboWh)}</td>
+        case 'paletizado':return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] ${border}`}>{item.paletizado ?? <span className="text-zinc-200">—</span>}</td>
+        default: return null
+      }
+    })
+  }
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -910,7 +1216,7 @@ export default function PanelGeneralClient({
         <div className={`${selected.size > 0 ? '' : 'ml-auto'} flex items-center gap-2`}>
           <button
             onClick={() => setGroupByAsn(v => !v)}
-            title={groupByAsn ? 'Vista normal' : 'Agrupar por ASN'}
+            title={groupByAsn ? 'Quitar agrupación' : 'Agrupar por ASN'}
             className={`flex items-center gap-1.5 h-9 px-3 rounded-xl border text-xs font-medium transition-colors ${
               groupByAsn
                 ? 'border-amber-400 bg-amber-50 text-amber-700'
@@ -918,9 +1224,15 @@ export default function PanelGeneralClient({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            {groupByAsn ? 'Por ASN' : 'Agrupar ASN'}
+            Agrupar ASN
           </button>
-          <ColumnSelectorPopover visibleCols={visibleCols} onChange={applyVisibleCols} />
+          <ColumnSelectorPopover
+            visibleCols={visibleCols}
+            onChange={applyVisibleCols}
+            extraColumns={extraColumns}
+            visibleExtraCols={visibleExtraCols}
+            onExtraChange={applyVisibleExtraCols}
+          />
           <button
             onClick={() => exportXLSX(exportRows, extraColumns, liveData)}
             className="flex items-center gap-1.5 h-9 px-4 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
@@ -934,7 +1246,7 @@ export default function PanelGeneralClient({
       {/* ASN Grouped View */}
       {groupByAsn && (
         <div className="space-y-2">
-          {asnGroups.map(({ asn, items: grpItems, sos, piNos, totalQty, totalCbm, totalGw, totalBultos, tipo, categories }) => {
+          {asnGroups.map(({ key: asn, items: grpItems, sos, piNos, totalQty, totalCbm, totalGw, totalBultos, tipo, categories }) => {
             const exp = expandedAsns.has(asn)
             const isRep = tipo === 'Repuesto'
             return (
@@ -981,38 +1293,103 @@ export default function PanelGeneralClient({
                 </div>
                 {exp && (
                   <div className="border-t border-zinc-50 divide-y divide-zinc-50">
-                    {grpItems.map(item => (
-                      <div key={item.id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-zinc-50/60 transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-xs text-zinc-600">{item.piNo ?? item.caseNo ?? item.id.slice(0, 8)}</span>
-                            {item.soPrincipal && <span className="font-mono text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">{item.soPrincipal}</span>}
+                    {(() => {
+                      // Group items by caseNo → one row per bulto
+                      const bultosMap = new Map<string, typeof grpItems>()
+                      for (const item of grpItems) {
+                        const key = item.caseNo?.trim() || `__nocase_${item.id}`
+                        if (!bultosMap.has(key)) bultosMap.set(key, [])
+                        bultosMap.get(key)!.push(item)
+                      }
+                      return [...bultosMap.entries()].map(([key, bultoItems]) => {
+                        const primary       = bultoItems.find(i => i.gwKg != null) ?? bultoItems[0]!
+                        const cantItems     = bultoItems.length
+                        const cantProductos = bultoItems.reduce((s, i) => s + (i.qty ?? 0), 0)
+                        const cbmBulto      = primary.cbmXBulto
+                        const pesoBulto     = primary.gwKg
+                        const caseLabel     = primary.caseNo ?? '—'
+                        const bultoKey      = `${asn}|${key}`
+                        const bExp          = expandedBultos.has(bultoKey)
+                        const bLoading      = loadingBultos.has(bultoKey)
+                        return (
+                          <div key={key}>
+                            {/* Bulto header row */}
+                            <div
+                              className="flex items-center gap-4 px-5 py-2.5 hover:bg-zinc-50/80 cursor-pointer transition-colors"
+                              onClick={() => toggleBulto(bultoKey, bultoItems.map(i => i.id))}
+                            >
+                              <div className="text-zinc-300 shrink-0">
+                                {bExp ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="font-mono text-xs font-semibold text-zinc-700">{caseLabel}</span>
+                              </div>
+                              <div className="flex items-center gap-5 shrink-0 text-xs">
+                                <div className="text-right">
+                                  <div className="text-[9px] text-zinc-400 uppercase tracking-widest">Ítems</div>
+                                  <div className="font-semibold text-zinc-600">{cantItems}</div>
+                                </div>
+                                {cantProductos > 0 && (
+                                  <div className="text-right">
+                                    <div className="text-[9px] text-zinc-400 uppercase tracking-widest">Productos</div>
+                                    <div className="font-semibold text-zinc-600">{cantProductos.toLocaleString('es-AR')}</div>
+                                  </div>
+                                )}
+                                {cbmBulto != null && (
+                                  <div className="text-right">
+                                    <div className="text-[9px] text-zinc-400 uppercase tracking-widest">CBM/Bulto</div>
+                                    <div className="font-semibold text-zinc-600">{cbmBulto.toFixed(4)}</div>
+                                  </div>
+                                )}
+                                {pesoBulto != null && (
+                                  <div className="text-right">
+                                    <div className="text-[9px] text-zinc-400 uppercase tracking-widest">GW kg</div>
+                                    <div className="font-semibold text-zinc-600">{pesoBulto.toFixed(1)}</div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {/* Expanded product list */}
+                            {bExp && (
+                              <div className="border-t border-zinc-50 bg-zinc-50/40">
+                                {bLoading ? (
+                                  <div className="flex items-center gap-2 px-10 py-3 text-xs text-zinc-400">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando…
+                                  </div>
+                                ) : bultoItems.map(item => {
+                                  const photos = bultoPhotos.get(item.id) ?? []
+                                  return (
+                                    <div key={item.id} className="flex items-center gap-4 px-10 py-2.5 border-b border-zinc-100/60 last:border-0 hover:bg-white/60 transition-colors">
+                                      {/* Thumbnail */}
+                                      <div className="w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-zinc-100 border border-zinc-200 flex items-center justify-center">
+                                        {photos[0]
+                                          ? <img src={photos[0]} alt="" className="w-full h-full object-cover" />
+                                          : <Camera className="w-4 h-4 text-zinc-300" />
+                                        }
+                                      </div>
+                                      {/* SKU + description */}
+                                      <div className="flex-1 min-w-0">
+                                        {item.codeEan && (
+                                          <div className="font-mono text-[10px] text-zinc-400 leading-none mb-0.5">{item.codeEan}</div>
+                                        )}
+                                        <div className="text-xs text-zinc-700 truncate">{item.description ?? '—'}</div>
+                                      </div>
+                                      {/* Qty */}
+                                      {item.qty != null && (
+                                        <div className="shrink-0 text-right">
+                                          <div className="text-[9px] text-zinc-400 uppercase tracking-widest">Qty</div>
+                                          <div className="text-xs font-semibold text-zinc-700">{item.qty.toLocaleString('es-AR')}</div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
                           </div>
-                          {item.description && <p className="text-[11px] text-zinc-500 truncate mt-0.5">{item.description}</p>}
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0 text-xs text-zinc-500">
-                          {item.qty     != null && <span>Qty {item.qty}</span>}
-                          {item.qBultos != null && <span>{item.qBultos} bultos</span>}
-                          {item.cbm     != null && <span>{item.cbm.toFixed(3)} CBM</span>}
-                          {item.gwKg    != null && <span>{item.gwKg.toFixed(1)} kg</span>}
-                          <div className="flex items-center gap-0.5">
-                            {item.driveLinkExcel
-                              ? <a href={item.driveLinkExcel} target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100">XLS</a>
-                              : null}
-                            {item.driveLinkCi
-                              ? <a href={item.driveLinkCi} target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100">CI</a>
-                              : null}
-                            {item.driveLinkPl
-                              ? <a href={item.driveLinkPl} target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 hover:bg-violet-100">PL</a>
-                              : null}
-                          </div>
-                        </div>
-                        <button onClick={() => setEditing(item)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 text-zinc-300 hover:text-amber-500 transition-colors shrink-0">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                        )
+                      })
+                    })()}
                   </div>
                 )}
               </div>
@@ -1027,7 +1404,7 @@ export default function PanelGeneralClient({
       {/* Table */}
       {!groupByAsn && <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
         <div className="overflow-auto max-h-[640px]">
-          <table className="w-full text-xs border-collapse" style={{ minWidth: `${1600 + extraColumns.length * 120}px` }}>
+          <table className="w-full text-xs border-collapse" style={{ minWidth: `${1600 + extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).length * 120}px` }}>
             <thead className="sticky top-0 z-10 bg-zinc-50">
               {/* Row 1 — group labels */}
               <tr className="border-b border-zinc-100/60">
@@ -1047,81 +1424,33 @@ export default function PanelGeneralClient({
                     </th>
                   )
                 })}
-                {extraColumns.length > 0 && (
-                  <th colSpan={extraColumns.length} className="px-2 pt-2 pb-0.5 text-left border-l-2 border-l-violet-100">
+                {extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).length > 0 && (
+                  <th colSpan={extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).length} className="px-2 pt-2 pb-0.5 text-left border-l-2 border-l-violet-100">
                     <span className="text-[9px] font-bold uppercase tracking-widest px-0.5 text-violet-500">Fuentes</span>
                   </th>
                 )}
                 <th />
               </tr>
 
-              {/* Row 2 — column names */}
+              {/* Row 2 — column names (draggable within group) */}
               <tr className="border-b border-zinc-100">
                 <th className="w-8 pl-3 py-2">
                   <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll}
                     className="w-3.5 h-3.5 rounded accent-amber-400 cursor-pointer" />
                 </th>
-
-                {/* Identificación */}
-                {vis.has('tipo')     && <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-24">Tipo</th>}
-                {vis.has('cargado')  && <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-20">Cargado</th>}
-                {vis.has('category') && <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-24">Category</th>}
-                {vis.has('asn')      && <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-28">ASN</th>}
-                {vis.has('date')     && <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-20">Date</th>}
-
-                {/* Producto */}
-                {vis.has('piNo')      && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-28 ${firstVisibleBorder(GROUPS[1],'piNo',vis)}`}>PI No</th>}
-                {vis.has('cajaBultos')&& <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-28 ${firstVisibleBorder(GROUPS[1],'cajaBultos',vis)}`}>Caja / Bultos</th>}
-                {vis.has('ean')       && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-28 ${firstVisibleBorder(GROUPS[1],'ean',vis)}`}>EAN / Code</th>}
-                {vis.has('descripcion')&&<th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 min-w-[180px] ${firstVisibleBorder(GROUPS[1],'descripcion',vis)}`}>Descripción</th>}
-                {vis.has('qty')       && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-12 ${firstVisibleBorder(GROUPS[1],'qty',vis)}`}>Qty</th>}
-
-                {/* PL vs GSO */}
-                {vis.has('plSO') && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-blue-500 w-20 ${firstVisibleBorder(GROUPS[2],'plSO',vis)}`}>∑ PL/SO</th>}
-                {vis.has('qGso') && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-blue-500 w-16 ${firstVisibleBorder(GROUPS[2],'qGso',vis)}`}>Q GSO</th>}
-                {vis.has('dif')  && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-blue-500 w-16 ${firstVisibleBorder(GROUPS[2],'dif',vis)}`}>Dif</th>}
-
-                {/* Dimensiones */}
-                {vis.has('wxlxh')   && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-28 ${firstVisibleBorder(GROUPS[3],'wxlxh',vis)}`}>W×L×H (cm)</th>}
-                {vis.has('gwKg')    && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-16 ${firstVisibleBorder(GROUPS[3],'gwKg',vis)}`}>GW kg</th>}
-                {vis.has('cbm')     && <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-16 ${firstVisibleBorder(GROUPS[3],'cbm',vis)}`}>CBM</th>}
-                {vis.has('cbmBulto')&& <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-20 ${firstVisibleBorder(GROUPS[3],'cbmBulto',vis)}`}>CBM/Bulto</th>}
-                {vis.has('uniBulto')&& <th className={`px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-16 ${firstVisibleBorder(GROUPS[3],'uniBulto',vis)}`}>Uni/Bulto</th>}
-                {vis.has('dg')      && <th className={`px-2 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-zinc-400 w-8 ${firstVisibleBorder(GROUPS[3],'dg',vis)}`}>DG</th>}
-
-                {/* Comercial */}
-                {vis.has('soPrincipal') && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-32 ${firstVisibleBorder(GROUPS[4],'soPrincipal',vis)}`}>SO Principal</th>}
-                {vis.has('soSecundario')&& <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-28 ${firstVisibleBorder(GROUPS[4],'soSecundario',vis)}`}>SO Secund.</th>}
-                {vis.has('drive')       && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-20 ${firstVisibleBorder(GROUPS[4],'drive',vis)}`}>Drive</th>}
-                {vis.has('fotos')       && <th className={`px-2 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-violet-400 w-16 ${firstVisibleBorder(GROUPS[4],'fotos',vis)}`}>Fotos</th>}
-                {vis.has('incoterm')    && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-24 ${firstVisibleBorder(GROUPS[4],'incoterm',vis)}`}>Incoterm</th>}
-                {vis.has('puertoSalida')&& <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-28 ${firstVisibleBorder(GROUPS[4],'puertoSalida',vis)}`}>Puerto Salida</th>}
-
-                {/* Comex / Tracking */}
-                {vis.has('etd')      && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-24 ${firstVisibleBorder(GROUPS[5],'etd',vis)}`}>ETD</th>}
-                {vis.has('eta')      && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-24 ${firstVisibleBorder(GROUPS[5],'eta',vis)}`}>ETA</th>}
-                {vis.has('etaCaldas')&& <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-24 ${firstVisibleBorder(GROUPS[5],'etaCaldas',vis)}`}>ETA Caldas</th>}
-                {vis.has('awb')      && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-28 ${firstVisibleBorder(GROUPS[5],'awb',vis)}`}>AWB</th>}
-                {vis.has('arriboWh') && <th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-24 ${firstVisibleBorder(GROUPS[5],'arriboWh',vis)}`}>Arribo WH</th>}
-                {vis.has('paletizado')&&<th className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-cyan-500 w-24 ${firstVisibleBorder(GROUPS[5],'paletizado',vis)}`}>Paletizado</th>}
-
-                {/* Extra live-data columns */}
-                {extraColumns.map((c, ci) => (
+                {GROUPS.map(group => renderGroupTh(group))}
+                {extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).map((c, ci) => (
                   <th key={c.fieldKey}
                     className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-500 w-28 ${ci === 0 ? 'border-l-2 border-l-violet-100' : ''}`}>
                     {c.label}
                   </th>
                 ))}
-
                 <th className="w-10" />
               </tr>
             </thead>
             <tbody>
               {filtered.map(item => {
-                const isRep = item.tipoCarga === 'Repuesto'
                 const rowKey = `${item.id}-${item._isPrimary ? 'p' : 's'}`
-                const dimSource = dimsForKey.get(rowKey) ?? item
-                const dims = (dimSource.w && dimSource.l && dimSource.h) ? `${dimSource.w}×${dimSource.l}×${dimSource.h}` : '—'
                 const isSelected = selected.has(item.id)
                 return (
                   <tr key={rowKey} className={`border-b border-zinc-50 transition-colors ${isSelected ? 'bg-amber-50/60' : 'hover:bg-zinc-50/60'} ${
@@ -1139,185 +1468,10 @@ export default function PanelGeneralClient({
                       )}
                     </td>
 
-                    {vis.has('tipo') && (
-                      <td className="pl-5 pr-2 py-2.5">
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                          isRep ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
-                        }`}>
-                          {isRep ? <FileSpreadsheet className="w-2.5 h-2.5" /> : <FileText className="w-2.5 h-2.5" />}
-                          {item.tipoCarga}
-                        </span>
-                      </td>
-                    )}
-                    {vis.has('cargado')  && <td className="px-2 py-2.5 text-zinc-400 whitespace-nowrap">{fmtDate(item.createdAt)}</td>}
-                    {vis.has('category') && <td className="px-2 py-2.5 text-zinc-500">{item.categoryName ?? '—'}</td>}
-                    {vis.has('asn')      && <td className="px-2 py-2.5 font-mono text-zinc-600">{item.asn ?? '—'}</td>}
-                    {vis.has('date')     && <td className="px-2 py-2.5 text-zinc-500 whitespace-nowrap">{fmtDate(item.date)}</td>}
-                    {vis.has('piNo')       && <td className="px-2 py-2.5 font-mono text-zinc-600">{item.piNo ?? '—'}</td>}
-                    {vis.has('cajaBultos') && (
-                      <td className="px-2 py-2.5 font-mono text-zinc-600">
-                        {isRep ? (item.caseNo ?? '—') : (item.qBultos != null ? `${item.qBultos} bultos` : '—')}
-                      </td>
-                    )}
-                    {vis.has('ean')        && <td className="px-2 py-2.5 font-mono text-zinc-600">{item.codeEan ?? '—'}</td>}
-                    {vis.has('descripcion')&& (
-                      <td className="px-2 py-2.5 max-w-[180px]">
-                        <span className="line-clamp-2 text-zinc-700" title={item.description ?? ''}>{item.description ?? '—'}</span>
-                      </td>
-                    )}
-                    {vis.has('qty')        && <td className="px-2 py-2.5 text-right font-mono text-zinc-600">{item.qty ?? '—'}</td>}
-                    {vis.has('plSO') || vis.has('qGso') || vis.has('dif') ? (() => {
-                      const soTotal = item._displaySO ? (soQtyMap.get(item._displaySO) ?? null) : null
-                      const rawQGso = gl(item, 'qPi')
-                      const qGso   = rawQGso != null ? (Number.isFinite(Number(rawQGso)) ? Number(rawQGso) : null) : (item._isPrimary ? item.qPi : null)
-                      const diff   = soTotal != null && qGso != null ? soTotal - qGso : null
-                      const diffColor = diff == null ? 'text-zinc-300'
-                        : diff === 0 ? 'text-emerald-600 font-bold'
-                        : diff > 0   ? 'text-amber-600 font-bold'
-                        :              'text-red-600 font-bold'
-                      return <>
-                        {vis.has('plSO') && (
-                          <td className={`px-2 py-2.5 text-right font-mono text-blue-700 ${firstVisibleBorder(GROUPS[2],'plSO',vis)}`}>
-                            {soTotal != null ? soTotal.toLocaleString('es-AR') : '—'}
-                          </td>
-                        )}
-                        {vis.has('qGso') && (
-                          <td className={`px-2 py-2.5 text-right font-mono text-blue-500 ${firstVisibleBorder(GROUPS[2],'qGso',vis)}`}>
-                            {qGso != null ? qGso.toLocaleString('es-AR') : '—'}
-                          </td>
-                        )}
-                        {vis.has('dif') && (
-                          <td className={`px-2 py-2.5 text-right font-mono ${diffColor} ${firstVisibleBorder(GROUPS[2],'dif',vis)}`}>
-                            {diff == null ? '—' : diff > 0 ? `+${diff.toLocaleString('es-AR')}` : diff.toLocaleString('es-AR')}
-                          </td>
-                        )}
-                      </>
-                    })() : null}
-                    {vis.has('wxlxh') && !skipSet.has(rowKey) && (
-                      <td className={`px-2 py-2.5 text-right font-mono text-zinc-500 align-middle ${firstVisibleBorder(GROUPS[3],'wxlxh',vis)}`} rowSpan={spanMap.get(rowKey) ?? 1}>
-                        {dims}
-                      </td>
-                    )}
-                    {vis.has('gwKg') && !skipSet.has(rowKey) && (
-                      <td className={`px-2 py-2.5 text-right font-mono text-zinc-600 align-middle ${firstVisibleBorder(GROUPS[3],'gwKg',vis)}`} rowSpan={spanMap.get(rowKey) ?? 1}>
-                        {fmtNum(dimSource.gwKg, 2)}
-                      </td>
-                    )}
-                    {vis.has('cbm') && !skipSet.has(rowKey) && (
-                      <td className={`px-2 py-2.5 text-right font-mono text-zinc-600 align-middle ${firstVisibleBorder(GROUPS[3],'cbm',vis)}`} rowSpan={spanMap.get(rowKey) ?? 1}>
-                        {fmtNum(dimSource.cbm, 5)}
-                      </td>
-                    )}
-                    {vis.has('cbmBulto') && !skipSet.has(rowKey) && (
-                      <td className={`px-2 py-2.5 text-right font-mono text-zinc-500 align-middle ${firstVisibleBorder(GROUPS[3],'cbmBulto',vis)}`} rowSpan={spanMap.get(rowKey) ?? 1}>
-                        {fmtNum(dimSource.cbmXBulto, 5)}
-                      </td>
-                    )}
-                    {vis.has('uniBulto') && (
-                      <td className={`px-2 py-2.5 text-right font-mono text-zinc-500 ${firstVisibleBorder(GROUPS[3],'uniBulto',vis)}`}>
-                        {fmtNum(item.uniXBulto, 4)}
-                      </td>
-                    )}
-                    {vis.has('dg') && (
-                      <td className={`px-2 py-2.5 text-center ${firstVisibleBorder(GROUPS[3],'dg',vis)}`}>
-                        {item.isDangerousGood
-                          ? <AlertTriangle className="w-3.5 h-3.5 text-orange-500 mx-auto" />
-                          : <span className="text-zinc-200">—</span>}
-                      </td>
-                    )}
-                    {/* Comercial group */}
-                    {vis.has('soPrincipal') && (
-                      <td className={`px-2 py-2.5 ${firstVisibleBorder(GROUPS[4],'soPrincipal',vis)}`}>
-                        {item._displaySO ? (
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <span className="font-mono text-[11px] bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded">
-                              {item._displaySO}
-                            </span>
-                            {item._isSplit && (
-                              <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${
-                                item._isPrimary ? 'bg-amber-100 text-amber-600' : 'bg-sky-50 text-sky-500'
-                              }`}>
-                                {item._isPrimary ? '1°' : '2°'}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-zinc-300 italic text-[10px]">sin SO</span>
-                        )}
-                      </td>
-                    )}
-                    {vis.has('soSecundario') && (
-                      <td className={`px-2 py-2.5 ${firstVisibleBorder(GROUPS[4],'soSecundario',vis)}`}>
-                        {item._isSplit ? (
-                          <span className="font-mono text-[10px] text-zinc-300">
-                            {item._isPrimary ? (item.soSecundario ?? '—') : (item.soPrincipal ?? '—')}
-                          </span>
-                        ) : (
-                          item.soSecundario
-                            ? <span className="font-mono text-[11px] bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded">{item.soSecundario}</span>
-                            : <span className="text-zinc-200">—</span>
-                        )}
-                      </td>
-                    )}
-                    {vis.has('drive') && (
-                      <td className={`px-2 py-2.5 ${firstVisibleBorder(GROUPS[4],'drive',vis)}`}>
-                        <div className="flex items-center gap-0.5">
-                          {item.driveLinkExcel
-                            ? <a href={item.driveLinkExcel} target="_blank" rel="noopener noreferrer"
-                                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                                title="Excel CIPL">XLS</a>
-                            : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">XLS</span>}
-                          {item.driveLinkCi
-                            ? <a href={item.driveLinkCi} target="_blank" rel="noopener noreferrer"
-                                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                                title="Commercial Invoice">CI</a>
-                            : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">CI</span>}
-                          {item.driveLinkPl
-                            ? <a href={item.driveLinkPl} target="_blank" rel="noopener noreferrer"
-                                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors"
-                                title="Packing List">PL</a>
-                            : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">PL</span>}
-                        </div>
-                      </td>
-                    )}
-                    {vis.has('fotos') && (
-                      <td className={`px-2 py-2.5 text-center ${firstVisibleBorder(GROUPS[4],'fotos',vis)}`}>
-                        {item._isPrimary && (
-                          <button
-                            onClick={() => setViewingPhotosFor(item)}
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors text-[10px] font-bold ${
-                              item.photoCount > 0
-                                ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                                : 'bg-zinc-50 text-zinc-300 hover:bg-zinc-100 hover:text-zinc-500'
-                            }`}
-                          >
-                            <Camera className="w-3 h-3" />
-                            {item.photoCount > 0 ? item.photoCount : '+'}
-                          </button>
-                        )}
-                      </td>
-                    )}
-                    {vis.has('incoterm') && (
-                      <td className={`px-2 py-2.5 text-zinc-600 text-[11px] ${firstVisibleBorder(GROUPS[4],'incoterm',vis)}`}>
-                        {item.incoterm ?? <span className="text-zinc-200">—</span>}
-                      </td>
-                    )}
-                    {vis.has('puertoSalida') && (
-                      <td className={`px-2 py-2.5 text-zinc-600 text-[11px] ${firstVisibleBorder(GROUPS[4],'puertoSalida',vis)}`}>
-                        {item.puertoSalida ?? <span className="text-zinc-200">—</span>}
-                      </td>
-                    )}
-
-                    {/* Comex / Tracking */}
-                    {vis.has('etd')       && <td className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${firstVisibleBorder(GROUPS[5],'etd',vis)}`}>{fmtDate(item.etd)}</td>}
-                    {vis.has('eta')       && <td className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${firstVisibleBorder(GROUPS[5],'eta',vis)}`}>{fmtDate(item.eta)}</td>}
-                    {vis.has('etaCaldas') && <td className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${firstVisibleBorder(GROUPS[5],'etaCaldas',vis)}`}>{fmtDate(item.etaCaldas)}</td>}
-                    {vis.has('awb')       && <td className={`px-2 py-2.5 font-mono text-zinc-600 text-[11px] ${firstVisibleBorder(GROUPS[5],'awb',vis)}`}>{item.awb ?? <span className="text-zinc-200">—</span>}</td>}
-                    {vis.has('arriboWh')  && <td className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${firstVisibleBorder(GROUPS[5],'arriboWh',vis)}`}>{fmtDate(item.arriboWh)}</td>}
-                    {vis.has('paletizado')&& <td className={`px-2 py-2.5 text-zinc-600 text-[11px] ${firstVisibleBorder(GROUPS[5],'paletizado',vis)}`}>{item.paletizado ?? <span className="text-zinc-200">—</span>}</td>}
+                    {GROUPS.map(group => renderGroupCells(group, item, rowKey))}
 
                     {/* Extra columns from live sources */}
-                    {extraColumns.map(c => (
+                    {extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).map(c => (
                       <td key={c.fieldKey} className="px-2 py-2.5 text-violet-600">
                         {gl(item, c.fieldKey) ?? <span className="text-zinc-200">—</span>}
                       </td>
