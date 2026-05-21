@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useCallback, useMemo } from 'react'
+import { useState, useTransition, useCallback, useMemo, useRef } from 'react'
 import {
   FileSpreadsheet, FileText, Pencil,
   X, Save, Loader2, CheckCircle2, ExternalLink, Search, Zap,
@@ -15,6 +15,7 @@ type Item = {
   id: string; createdAt: Date; tipoCarga: string; categoryName: string | null
   asn: string | null; piNo: string | null; caseNo: string | null
   description: string | null; qty: number | null
+  qBultos: number | null; cbm: number | null; gwKg: number | null
   soPrincipal: string | null; soSecundario: string | null
   driveLinkExcel: string | null; driveLinkCi: string | null; driveLinkPl: string | null
   avisoAgente: string | null; avisoConfirmacion: string | null
@@ -24,6 +25,20 @@ type Item = {
 }
 
 type Status = 'pendiente' | 'avisado' | 'en-transito' | 'llegado' | 'entregado'
+
+// ─── Toggleable logistics columns ─────────────────────────────────────────────
+
+type ComexLogCol = 'avisoAgente' | 'avisoConfirmacion' | 'arriboWh' | 'etd' | 'eta' | 'etaCaldas' | 'awb'
+
+const COMEX_LOG_COLS: { key: ComexLogCol; label: string; width: string }[] = [
+  { key: 'avisoAgente',       label: 'Aviso Ag.',  width: 'w-24' },
+  { key: 'avisoConfirmacion', label: 'Confirmado', width: 'w-24' },
+  { key: 'arriboWh',          label: 'Arribo WH',  width: 'w-20' },
+  { key: 'etd',               label: 'ETD',        width: 'w-20' },
+  { key: 'eta',               label: 'ETA',        width: 'w-20' },
+  { key: 'etaCaldas',         label: 'ETA Caldas', width: 'w-22' },
+  { key: 'awb',               label: 'AWB',        width: 'w-28' },
+]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,11 +62,11 @@ function diffDays(a: Date | null | undefined, b: Date | null | undefined): numbe
   return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000)
 }
 
-function getStatus(item: Item): Status {
-  if (item.etaCaldas)   return 'entregado'
-  if (item.arriboWh)    return 'llegado'
-  if (item.etd)         return 'en-transito'
-  if (item.avisoAgente) return 'avisado'
+function getStatus(item: Item, liveData: LiveDataMap = {}): Status {
+  if (effectiveDate(item, 'etaCaldas', liveData)) return 'entregado'
+  if (effectiveDate(item, 'arriboWh',  liveData)) return 'llegado'
+  if (effectiveDate(item, 'etd',       liveData)) return 'en-transito'
+  if (effectiveStr(item,  'avisoAgente', liveData)) return 'avisado'
   return 'pendiente'
 }
 
@@ -79,6 +94,19 @@ function getLive(item: Item, fieldKey: string, liveData: LiveDataMap): string | 
   return liveData[so]?.[fieldKey] ?? null
 }
 
+// Live source first → DB as fallback
+function effectiveDate(item: Item, field: 'etd' | 'eta' | 'arriboWh' | 'etaCaldas', liveData: LiveDataMap): Date | null {
+  const lv = getLive(item, field, liveData)
+  if (lv) { const d = new Date(lv); if (!isNaN(d.getTime())) return d }
+  const dbVal = item[field]
+  if (!dbVal) return null
+  return dbVal instanceof Date ? dbVal : new Date(dbVal)
+}
+
+function effectiveStr(item: Item, field: 'avisoAgente' | 'awb', liveData: LiveDataMap): string | null {
+  return getLive(item, field, liveData) ?? item[field]
+}
+
 function matchesSearch(item: Item, q: string): boolean {
   if (!q) return true
   const lq = q.toLowerCase()
@@ -103,7 +131,7 @@ type AsnGroup = {
   delayed: boolean
 }
 
-function buildAsnGroups(items: Item[]): AsnGroup[] {
+function buildAsnGroups(items: Item[], liveData: LiveDataMap): AsnGroup[] {
   const map = new Map<string, Item[]>()
   for (const item of items) {
     const key = item.asn ?? '(sin ASN)'
@@ -112,24 +140,22 @@ function buildAsnGroups(items: Item[]): AsnGroup[] {
   }
 
   return [...map.entries()].map(([asn, grpItems]) => {
-    const first = (fn: (i: Item) => Date | null | undefined) =>
-      grpItems.map(fn).find(v => v != null) ?? null
+    const firstDate = (field: 'etd' | 'eta' | 'arriboWh' | 'etaCaldas') =>
+      grpItems.map(i => effectiveDate(i, field, liveData)).find(v => v != null) ?? null
 
-    const etd      = first(i => i.etd)
-    const eta      = first(i => i.eta)
-    const arriboWh = first(i => i.arriboWh)
-    const etaCaldas = first(i => i.etaCaldas)
-    const awb      = grpItems.map(i => i.awb).find(v => !!v) ?? null
+    const etd      = firstDate('etd')
+    const eta      = firstDate('eta')
+    const arriboWh = firstDate('arriboWh')
+    const etaCaldas = firstDate('etaCaldas')
+    const awb      = grpItems.map(i => effectiveStr(i, 'awb', liveData)).find(v => !!v) ?? null
 
-    // Best status across all items in group
-    const statuses: Status[] = grpItems.map(getStatus)
+    const statuses: Status[] = grpItems.map(i => getStatus(i, liveData))
     const statusOrder: Status[] = ['entregado','llegado','en-transito','avisado','pendiente']
     const status = statusOrder.find(s => statuses.includes(s)) ?? 'pendiente'
 
     const sos = [...new Set(grpItems.flatMap(i => [i.soPrincipal, i.soSecundario]).filter(Boolean) as string[])]
     const piNos = [...new Set(grpItems.map(i => i.piNo).filter(Boolean) as string[])]
 
-    // Delay: ETA has passed but not arrived yet
     const delayed = !arriboWh && !etaCaldas && !!eta && isOverdue(eta)
 
     return { asn, items: grpItems, status, etd, eta, arriboWh, etaCaldas, awb, sos, piNos, delayed }
@@ -173,12 +199,13 @@ function TimelineStep({
 // ─── ASN Timeline Card ────────────────────────────────────────────────────────
 
 function AsnCard({
-  group, onEdit, liveData, extraColumns, expanded, onToggle,
+  group, onEdit, liveData, extraColumns, visibleExtraCols, expanded, onToggle,
 }: {
   group: AsnGroup
   onEdit: (item: Item) => void
   liveData: LiveDataMap
   extraColumns: ExtraColumn[]
+  visibleExtraCols: Set<string>
   expanded: boolean
   onToggle: () => void
 }) {
@@ -284,7 +311,7 @@ function AsnCard({
                 </div>
 
                 {/* Extra columns */}
-                {extraColumns.map(c => {
+                {extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).map(c => {
                   const v = gl(c.fieldKey)
                   return v ? (
                     <span key={c.fieldKey} className="text-[10px] text-violet-600 shrink-0">{c.label}: {v}</span>
@@ -456,7 +483,7 @@ function F({ label, children }: { label: string; children: React.ReactNode }) {
 type FilterStatus = 'all' | Status
 
 function ListViewTable({
-  items, onEdit, liveData, extraColumns, filter, search,
+  items, onEdit, liveData, extraColumns, filter, search, visibleLogCols, visibleExtraCols,
 }: {
   items: Item[]
   onEdit: (item: Item) => void
@@ -464,29 +491,81 @@ function ListViewTable({
   extraColumns: ExtraColumn[]
   filter: FilterStatus
   search: string
+  visibleLogCols: Set<ComexLogCol>
+  visibleExtraCols: Set<string>
 }) {
   const gl = (item: Item, key: string) => getLive(item, key, liveData)
-  const byStatus = filter === 'all' ? items : items.filter(i => getStatus(i) === filter)
+  const byStatus = filter === 'all' ? items : items.filter(i => getStatus(i, liveData) === filter)
   const filtered = byStatus.filter(i => matchesSearch(i, search))
+
+  const [logColOrder, setLogColOrder] = useState<ComexLogCol[]>(() => {
+    try {
+      const saved = localStorage.getItem('comex-col-order')
+      if (saved) return JSON.parse(saved) as ComexLogCol[]
+    } catch {}
+    return COMEX_LOG_COLS.map(c => c.key)
+  })
+  const dragLogRef = useRef<ComexLogCol | null>(null)
+
+  function onLogDragStart(key: ComexLogCol, e: React.DragEvent) {
+    dragLogRef.current = key
+    e.dataTransfer.effectAllowed = 'move'
+  }
+  function onLogDragOver(key: ComexLogCol, e: React.DragEvent) {
+    e.preventDefault()
+    if (!dragLogRef.current || dragLogRef.current === key) return
+    const src = dragLogRef.current
+    const cols = [...logColOrder]
+    const si = cols.indexOf(src)
+    const di = cols.indexOf(key)
+    if (si === -1 || di === -1) return
+    cols.splice(si, 1)
+    cols.splice(di, 0, src)
+    setLogColOrder(cols)
+    try { localStorage.setItem('comex-col-order', JSON.stringify(cols)) } catch {}
+    dragLogRef.current = src
+  }
+  function onLogDragEnd() { dragLogRef.current = null }
+
+  const visibleLogOrdered = logColOrder.filter(k => visibleLogCols.has(k))
+  const logColMap = Object.fromEntries(COMEX_LOG_COLS.map(c => [c.key, c])) as Record<ComexLogCol, (typeof COMEX_LOG_COLS)[number]>
 
   return (
     <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
       <div className="overflow-auto max-h-[640px]">
-        <table className="w-full text-xs border-collapse" style={{ minWidth: `${1420 + extraColumns.length * 120}px` }}>
+        <table className="w-full text-xs border-collapse" style={{ minWidth: `${1420 + extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).length * 120}px` }}>
           <thead className="sticky top-0 z-10 bg-zinc-50">
             <tr className="border-b border-zinc-100">
-              {([
-                ['Estado','w-28'], ['Tipo','w-20'], ['PI No','w-28'], ['SO Principal','w-28'],
-                ['Descripción','min-w-[140px]'], ['Drive','w-20'],
-                ['Aviso Ag.','w-24'], ['Confirmado','w-24'], ['Arribo WH','w-20'],
-                ['ETD','w-20'], ['ETA','w-20'], ['ETA Caldas','w-22'], ['AWB','w-28'],
-                ...extraColumns.map(c => [c.label, 'w-28 text-violet-500']),
-                ['', 'w-10'],
-              ] as [string,string][]).map(([lbl, cls]) => (
-                <th key={lbl} className={`px-2 py-2.5 first:pl-5 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 ${cls}`}>
-                  {lbl}
+              {(([
+                  ['Estado','w-28'], ['Tipo','w-20'], ['PI No','w-28'], ['SO Principal','w-28'],
+                  ['Descripción','min-w-[140px]'], ['Drive','w-20'],
+                ] as [string,string][])).map(([lbl, cls]) => (
+                  <th key={lbl} className={`px-2 py-2.5 first:pl-5 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 ${cls}`}>
+                    {lbl}
+                  </th>
+                ))}
+              {visibleLogOrdered.map(key => {
+                const c = logColMap[key]
+                return (
+                  <th
+                    key={key}
+                    draggable
+                    onDragStart={e => onLogDragStart(key, e)}
+                    onDragOver={e  => onLogDragOver(key, e)}
+                    onDragEnd={onLogDragEnd}
+                    className={`px-2 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400 ${c.width} cursor-grab select-none hover:bg-zinc-100/60 transition-colors`}
+                    title="Arrastrá para reordenar"
+                  >
+                    {c.label}
+                  </th>
+                )
+              })}
+              {extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).map(c => (
+                <th key={c.fieldKey} className="px-2 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-28">
+                  {c.label}
                 </th>
               ))}
+              <th className="w-10" />
             </tr>
           </thead>
           <tbody>
@@ -494,7 +573,7 @@ function ListViewTable({
               const isRep = item.tipoCarga === 'Repuesto'
               return (
                 <tr key={item.id} className="border-b border-zinc-50 hover:bg-zinc-50/60 transition-colors">
-                  <td className="pl-5 pr-2 py-3"><StatusBadge status={getStatus(item)} /></td>
+                  <td className="pl-5 pr-2 py-3"><StatusBadge status={getStatus(item, liveData)} /></td>
                   <td className="px-2 py-3">
                     <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${
                       isRep ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
@@ -525,17 +604,24 @@ function ListViewTable({
                         : <span className="text-[9px] px-1.5 py-0.5 text-zinc-200">PL</span>}
                     </div>
                   </td>
-                  <td className="px-2 py-3 text-zinc-500">{gl(item,'avisoAgente') ?? item.avisoAgente ?? <span className="text-zinc-200">—</span>}</td>
-                  <td className="px-2 py-3 text-zinc-500">{gl(item,'avisoConfirmacion') ?? item.avisoConfirmacion ?? <span className="text-zinc-200">—</span>}</td>
-                  <td className="px-2 py-3 text-zinc-500 whitespace-nowrap">{fmtDate(item.arriboWh) ?? '—'}</td>
-                  <td className="px-2 py-3 text-zinc-500 whitespace-nowrap">{fmtDate(item.etd) ?? '—'}</td>
-                  <td className={`px-2 py-3 whitespace-nowrap font-medium ${!item.arriboWh && isOverdue(item.eta) ? 'text-red-500' : 'text-zinc-500'}`}>
-                    {fmtDate(item.eta) ?? '—'}
-                    {!item.arriboWh && isOverdue(item.eta) && <span className="ml-1 text-[9px]">⚠</span>}
-                  </td>
-                  <td className="px-2 py-3 text-zinc-500 whitespace-nowrap">{fmtDate(item.etaCaldas) ?? '—'}</td>
-                  <td className="px-2 py-3 font-mono text-zinc-600">{item.awb ?? <span className="text-zinc-200">—</span>}</td>
-                  {extraColumns.map(c => (
+                  {visibleLogOrdered.map(key => {
+                    switch (key) {
+                      case 'avisoAgente':       return <td key={key} className="px-2 py-3 text-zinc-500">{gl(item,'avisoAgente') ?? item.avisoAgente ?? <span className="text-zinc-200">—</span>}</td>
+                      case 'avisoConfirmacion': return <td key={key} className="px-2 py-3 text-zinc-500">{gl(item,'avisoConfirmacion') ?? item.avisoConfirmacion ?? <span className="text-zinc-200">—</span>}</td>
+                      case 'arriboWh':          return <td key={key} className="px-2 py-3 text-zinc-500 whitespace-nowrap">{fmtDate(effectiveDate(item,'arriboWh',liveData)) ?? '—'}</td>
+                      case 'etd':               return <td key={key} className="px-2 py-3 text-zinc-500 whitespace-nowrap">{fmtDate(effectiveDate(item,'etd',liveData)) ?? '—'}</td>
+                      case 'eta':               {
+                        const effEta = effectiveDate(item,'eta',liveData)
+                        const effWh  = effectiveDate(item,'arriboWh',liveData)
+                        const over   = !effWh && isOverdue(effEta)
+                        return <td key={key} className={`px-2 py-3 whitespace-nowrap font-medium ${over ? 'text-red-500' : 'text-zinc-500'}`}>{fmtDate(effEta) ?? '—'}{over && <span className="ml-1 text-[9px]">⚠</span>}</td>
+                      }
+                      case 'etaCaldas':         return <td key={key} className="px-2 py-3 text-zinc-500 whitespace-nowrap">{fmtDate(effectiveDate(item,'etaCaldas',liveData)) ?? '—'}</td>
+                      case 'awb':               return <td key={key} className="px-2 py-3 font-mono text-zinc-600">{effectiveStr(item,'awb',liveData) ?? <span className="text-zinc-200">—</span>}</td>
+                      default:                  return null
+                    }
+                  })}
+                  {extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).map(c => (
                     <td key={c.fieldKey} className="px-2 py-3 text-violet-600">
                       {gl(item, c.fieldKey) ?? <span className="text-zinc-200">—</span>}
                     </td>
@@ -583,6 +669,38 @@ export default function ComexClient({
   const [editing,         setEditing]         = useState<Item | null>(null)
   const [view,            setView]            = useState<'timeline' | 'list'>('timeline')
   const [expandedAsnKeys, setExpandedAsnKeys] = useState<Set<string>>(new Set())
+  const [showColMenu,     setShowColMenu]     = useState(false)
+  const [visibleLogCols,  setVisibleLogCols]  = useState<Set<ComexLogCol>>(() => {
+    try {
+      const saved = localStorage.getItem('comex-visible-cols')
+      if (saved) return new Set(JSON.parse(saved) as ComexLogCol[])
+    } catch {}
+    return new Set()
+  })
+
+  function toggleLogCol(key: ComexLogCol) {
+    const next = new Set(visibleLogCols)
+    next.has(key) ? next.delete(key) : next.add(key)
+    setVisibleLogCols(next)
+    try { localStorage.setItem('comex-visible-cols', JSON.stringify([...next])) } catch {}
+  }
+
+  const [visibleExtraCols, _setVisibleExtraCols] = useState<Set<string>>(() => {
+    const available = new Set(extraColumns.map(c => c.fieldKey))
+    try {
+      const saved = localStorage.getItem('comex-hidden-extra-cols')
+      if (saved) {
+        const hiddenKeys = new Set(JSON.parse(saved) as string[])
+        return new Set([...available].filter(k => !hiddenKeys.has(k)))
+      }
+    } catch {}
+    return available
+  })
+  const applyVisibleExtraCols = useCallback((next: Set<string>) => {
+    _setVisibleExtraCols(next)
+    const hiddenKeys = extraColumns.map(c => c.fieldKey).filter(k => !next.has(k))
+    try { localStorage.setItem('comex-hidden-extra-cols', JSON.stringify(hiddenKeys)) } catch {}
+  }, [extraColumns])
 
   const hasLive = Object.keys(liveData).length > 0
 
@@ -599,18 +717,18 @@ export default function ComexClient({
   }, [])
 
   const byTipo   = tipoFilter === 'all' ? items : items.filter(i => i.tipoCarga === tipoFilter)
-  const byStatus = filter === 'all' ? byTipo : byTipo.filter(i => getStatus(i) === filter)
+  const byStatus = filter === 'all' ? byTipo : byTipo.filter(i => getStatus(i, liveData) === filter)
   const bySearch = byStatus.filter(i => matchesSearch(i, search))
 
-  const asnGroups = useMemo(() => buildAsnGroups(bySearch), [bySearch])
+  const asnGroups = useMemo(() => buildAsnGroups(bySearch, liveData), [bySearch, liveData])
 
   const filterTabs: { key: FilterStatus; label: string }[] = [
     { key: 'all',         label: `Todos (${byTipo.length})` },
-    { key: 'pendiente',   label: `Pendiente (${byTipo.filter(i => getStatus(i) === 'pendiente').length})` },
-    { key: 'avisado',     label: `Avisado (${byTipo.filter(i => getStatus(i) === 'avisado').length})` },
-    { key: 'en-transito', label: `En tránsito (${byTipo.filter(i => getStatus(i) === 'en-transito').length})` },
-    { key: 'llegado',     label: `Llegado WH (${byTipo.filter(i => getStatus(i) === 'llegado').length})` },
-    { key: 'entregado',   label: `Entregado (${byTipo.filter(i => getStatus(i) === 'entregado').length})` },
+    { key: 'pendiente',   label: `Pendiente (${byTipo.filter(i => getStatus(i, liveData) === 'pendiente').length})` },
+    { key: 'avisado',     label: `Avisado (${byTipo.filter(i => getStatus(i, liveData) === 'avisado').length})` },
+    { key: 'en-transito', label: `En tránsito (${byTipo.filter(i => getStatus(i, liveData) === 'en-transito').length})` },
+    { key: 'llegado',     label: `Llegado WH (${byTipo.filter(i => getStatus(i, liveData) === 'llegado').length})` },
+    { key: 'entregado',   label: `Entregado (${byTipo.filter(i => getStatus(i, liveData) === 'entregado').length})` },
   ]
 
   return (
@@ -692,8 +810,52 @@ export default function ComexClient({
           </button>
         )}
 
+        {/* Column selector — only in list view */}
+        {view === 'list' && (
+          <div className="relative ml-auto">
+            <button
+              onClick={() => setShowColMenu(v => !v)}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-xl text-xs font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors"
+            >
+              Columnas {visibleLogCols.size > 0 && <span className="bg-indigo-500 text-white text-[9px] px-1 rounded-full">{visibleLogCols.size}</span>}
+            </button>
+            {showColMenu && (
+              <div className="absolute right-0 top-10 z-30 bg-white rounded-xl shadow-xl border border-zinc-100 p-3 min-w-[160px] space-y-1">
+                {COMEX_LOG_COLS.map(c => (
+                  <label key={c.key} className="flex items-center gap-2 py-1 px-1 rounded hover:bg-zinc-50 cursor-pointer text-xs text-zinc-700">
+                    <input type="checkbox" checked={visibleLogCols.has(c.key)} onChange={() => toggleLogCol(c.key)} className="rounded" />
+                    {c.label}
+                  </label>
+                ))}
+                {extraColumns.length > 0 && (
+                  <>
+                    <div className="pt-2 pb-1 px-1">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-violet-400">Fuentes</p>
+                    </div>
+                    {extraColumns.map(c => (
+                      <label key={c.fieldKey} className="flex items-center gap-2 py-1 px-1 rounded hover:bg-violet-50 cursor-pointer text-xs text-zinc-700">
+                        <input
+                          type="checkbox"
+                          checked={visibleExtraCols.has(c.fieldKey)}
+                          onChange={() => {
+                            const next = new Set(visibleExtraCols)
+                            next.has(c.fieldKey) ? next.delete(c.fieldKey) : next.add(c.fieldKey)
+                            applyVisibleExtraCols(next)
+                          }}
+                          className="rounded accent-violet-500"
+                        />
+                        {c.label}
+                      </label>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* View toggle */}
-        <div className="ml-auto flex items-center gap-1 bg-zinc-100 rounded-xl p-1">
+        <div className={`${view === 'list' ? '' : 'ml-auto'} flex items-center gap-1 bg-zinc-100 rounded-xl p-1`}>
           <button
             onClick={() => setView('timeline')}
             title="Vista timeline"
@@ -730,6 +892,7 @@ export default function ComexClient({
               onEdit={setEditing}
               liveData={liveData}
               extraColumns={extraColumns}
+              visibleExtraCols={visibleExtraCols}
               expanded={expandedAsnKeys.has(group.asn)}
               onToggle={() => setExpandedAsnKeys(prev => {
                 const next = new Set(prev)
@@ -747,6 +910,8 @@ export default function ComexClient({
           extraColumns={extraColumns}
           filter={filter}
           search={search}
+          visibleLogCols={visibleLogCols}
+          visibleExtraCols={visibleExtraCols}
         />
       )}
 
