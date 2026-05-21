@@ -392,14 +392,138 @@ export default function ReportesClient({
   }
 
   const exportXlsx = useCallback((cfg: ReportTileConfig) => {
-    // implemented in Task 7
-    console.log('export xlsx', cfg.id)
-  }, [initialItems, liveData])
+    const filtered = applyFilters(initialItems, cfg.filters)
+    const groups   = buildGroups(filtered, cfg.groupBy)
+
+    const allCols: ColDef[] = [
+      ...FIXED_COLS,
+      ...extraColumns.map(c => ({ fieldKey: c.fieldKey, label: c.label, category: 'calc' as ColCategory })),
+    ]
+    const colDefs = cfg.columns
+      .map(fk => allCols.find(c => c.fieldKey === fk))
+      .filter(Boolean) as ColDef[]
+
+    const groupLabel = GROUP_BY_OPTIONS.find(o => o.key === cfg.groupBy)?.label ?? cfg.groupBy
+    const headers = [groupLabel, ...colDefs.map(c => c.label)]
+
+    const rows: (string | number)[][] = []
+
+    for (const group of groups) {
+      const row: (string | number)[] = [group.key]
+      for (const col of colDefs) {
+        const fk = col.fieldKey
+        if      (fk === 'qty')     row.push(group.totalQty)
+        else if (fk === 'qBultos') row.push(group.totalBultos)
+        else if (fk === 'cbm')     row.push(group.totalCbm)
+        else if (fk === 'gwKg')    row.push(group.totalGw)
+        else {
+          const first = group.items.find(i => getCellValue(i, fk, liveData) !== '—')
+          row.push(first ? getCellValue(first, fk, liveData) : '')
+        }
+      }
+      rows.push(row)
+    }
+
+    // Totals row
+    const totalsRow: (string | number)[] = ['TOTAL']
+    for (const col of colDefs) {
+      const fk = col.fieldKey
+      if      (fk === 'qty')     totalsRow.push(groups.reduce((s, g) => s + g.totalQty,    0))
+      else if (fk === 'qBultos') totalsRow.push(groups.reduce((s, g) => s + g.totalBultos, 0))
+      else if (fk === 'cbm')     totalsRow.push(+groups.reduce((s, g) => s + g.totalCbm,   0).toFixed(4))
+      else if (fk === 'gwKg')    totalsRow.push(+groups.reduce((s, g) => s + g.totalGw,    0).toFixed(2))
+      else totalsRow.push('')
+    }
+    rows.push(totalsRow)
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, tileTitle(cfg).slice(0, 31))
+
+    const date = new Date().toISOString().split('T')[0]
+    XLSX.writeFile(wb, `reporte-${cfg.groupBy}-${date}.xlsx`)
+  }, [initialItems, extraColumns, liveData])
 
   const exportPdf = useCallback((cfg: ReportTileConfig) => {
-    // implemented in Task 8
-    console.log('export pdf', cfg.id)
-  }, [initialItems, liveData])
+    const filtered = applyFilters(initialItems, cfg.filters)
+    const groups   = buildGroups(filtered, cfg.groupBy)
+
+    const allCols: ColDef[] = [
+      ...FIXED_COLS,
+      ...extraColumns.map(c => ({ fieldKey: c.fieldKey, label: c.label, category: 'calc' as ColCategory })),
+    ]
+    const colDefs = cfg.columns
+      .map(fk => allCols.find(c => c.fieldKey === fk))
+      .filter(Boolean) as ColDef[]
+
+    const groupLabel = GROUP_BY_OPTIONS.find(o => o.key === cfg.groupBy)?.label ?? cfg.groupBy
+    const date = new Date().toLocaleDateString('es-AR')
+
+    const theadCells = [`<th style="text-align:left">${groupLabel}</th>`, ...colDefs.map(c => `<th style="text-align:right">${c.label}</th>`)].join('')
+
+    const tbodyRows = groups.map(group => {
+      const cells = colDefs.map(col => {
+        const fk = col.fieldKey
+        let val: string
+        if      (fk === 'qty')     val = group.totalQty.toLocaleString('es-AR')
+        else if (fk === 'qBultos') val = group.totalBultos.toLocaleString('es-AR')
+        else if (fk === 'cbm')     val = String(group.totalCbm)
+        else if (fk === 'gwKg')    val = String(group.totalGw)
+        else {
+          const first = group.items.find(i => getCellValue(i, fk, liveData) !== '—')
+          val = first ? getCellValue(first, fk, liveData) : '—'
+        }
+        return `<td style="text-align:right">${val}</td>`
+      }).join('')
+      return `<tr><td>${group.key}</td>${cells}</tr>`
+    }).join('')
+
+    const totalQty    = groups.reduce((s, g) => s + g.totalQty,    0)
+    const totalBultos = groups.reduce((s, g) => s + g.totalBultos, 0)
+    const totalCbm    = +groups.reduce((s, g) => s + g.totalCbm,   0).toFixed(4)
+    const totalGw     = +groups.reduce((s, g) => s + g.totalGw,    0).toFixed(2)
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${tileTitle(cfg)}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; }
+  h2 { font-size: 14px; margin-bottom: 4px; }
+  p  { color: #666; font-size: 10px; margin-bottom: 12px; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #f4f4f4; padding: 6px 8px; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; border-bottom: 2px solid #ddd; }
+  td { padding: 5px 8px; border-bottom: 1px solid #eee; }
+  tr.totals { font-weight: bold; border-top: 2px solid #ccc; }
+  .kpis { display: flex; gap: 24px; margin-bottom: 16px; }
+  .kpi  { text-align: center; }
+  .kpi-val { font-size: 18px; font-weight: bold; }
+  .kpi-lbl { font-size: 9px; color: #999; text-transform: uppercase; }
+</style>
+</head><body>
+<h2>${tileTitle(cfg)}</h2>
+<p>${groups.length} grupos · ${filtered.length} ítems · generado ${date}</p>
+<div class="kpis">
+  <div class="kpi"><div class="kpi-val">${totalQty.toLocaleString('es-AR')}</div><div class="kpi-lbl">Qty</div></div>
+  <div class="kpi"><div class="kpi-val">${totalBultos.toLocaleString('es-AR')}</div><div class="kpi-lbl">Bultos</div></div>
+  <div class="kpi"><div class="kpi-val">${totalCbm}</div><div class="kpi-lbl">CBM</div></div>
+  <div class="kpi"><div class="kpi-val">${totalGw}</div><div class="kpi-lbl">GW kg</div></div>
+</div>
+<table><thead><tr>${theadCells}</tr></thead><tbody>${tbodyRows}
+<tr class="totals"><td>TOTAL</td>${colDefs.map(col => {
+      const fk = col.fieldKey
+      if      (fk === 'qty')     return `<td style="text-align:right">${totalQty.toLocaleString('es-AR')}</td>`
+      else if (fk === 'qBultos') return `<td style="text-align:right">${totalBultos.toLocaleString('es-AR')}</td>`
+      else if (fk === 'cbm')     return `<td style="text-align:right">${totalCbm}</td>`
+      else if (fk === 'gwKg')    return `<td style="text-align:right">${totalGw}</td>`
+      else return '<td></td>'
+    }).join('')}
+</tr>
+</tbody></table>
+<script>window.onload=function(){window.print();}</script>
+</body></html>`
+
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(html); w.document.close() }
+  }, [initialItems, extraColumns, liveData])
 
   const hasLive = Object.keys(liveData).length > 0
 
