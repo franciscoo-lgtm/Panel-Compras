@@ -435,12 +435,17 @@ export default function ReportesClient({
       {tiles.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {tiles.map(cfg => (
-            <TilePlaceholder
+            <TileCard
               key={cfg.id}
               cfg={cfg}
+              items={initialItems}
+              liveData={liveData}
+              extraColumns={extraColumns}
               onEdit={() => openEditDrawer(cfg)}
               onDelete={() => deleteTile(cfg.id)}
               onExpand={() => setExpandedId(cfg.id)}
+              onExportXlsx={() => console.log('xlsx', cfg.id)}
+              onExportPdf={() => console.log('pdf', cfg.id)}
             />
           ))}
           {/* Add tile */}
@@ -466,26 +471,160 @@ export default function ReportesClient({
   )
 }
 
-// Temporary placeholder — replaced in Task 5
-function TilePlaceholder({
-  cfg, onEdit, onDelete, onExpand,
+const TRUNCATE_GROUPS = 5
+
+function TileCard({
+  cfg,
+  items,
+  liveData,
+  extraColumns,
+  onEdit,
+  onDelete,
+  onExpand,
+  onExportXlsx,
+  onExportPdf,
 }: {
-  cfg: ReportTileConfig
-  onEdit: () => void
-  onDelete: () => void
-  onExpand: () => void
+  cfg:          ReportTileConfig
+  items:        CIPLItemRow[]
+  liveData:     LiveDataMap
+  extraColumns: ExtraColumn[]
+  onEdit:       () => void
+  onDelete:     () => void
+  onExpand:     () => void
+  onExportXlsx: () => void
+  onExportPdf:  () => void
 }) {
+  const [showAll, setShowAll] = useState(false)
+
+  const filtered = useMemo(() => applyFilters(items, cfg.filters), [items, cfg.filters])
+  const groups   = useMemo(() => buildGroups(filtered, cfg.groupBy), [filtered, cfg.groupBy])
+
+  const totalQty    = groups.reduce((s, g) => s + g.totalQty,    0)
+  const totalBultos = groups.reduce((s, g) => s + g.totalBultos, 0)
+  const totalCbm    = +groups.reduce((s, g) => s + g.totalCbm,   0).toFixed(4)
+  const totalGw     = +groups.reduce((s, g) => s + g.totalGw,    0).toFixed(2)
+
+  const allCols: ColDef[] = [
+    ...FIXED_COLS,
+    ...extraColumns.map(c => ({ fieldKey: c.fieldKey, label: c.label, category: 'calc' as ColCategory })),
+  ]
+  const colDefs = cfg.columns
+    .map(fk => allCols.find(c => c.fieldKey === fk))
+    .filter(Boolean) as ColDef[]
+
+  const visibleGroups = showAll ? groups : groups.slice(0, TRUNCATE_GROUPS)
+  const hiddenCount   = groups.length - TRUNCATE_GROUPS
+
+  const activeFilters = [
+    cfg.filters.tipoCarga,
+    cfg.filters.dateFrom && `desde ${cfg.filters.dateFrom}`,
+    cfg.filters.dateTo   && `hasta ${cfg.filters.dateTo}`,
+    cfg.filters.search   && `"${cfg.filters.search}"`,
+  ].filter(Boolean) as string[]
+
   return (
-    <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4 flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-zinc-800">{tileTitle(cfg)}</span>
-        <div className="flex gap-2 text-zinc-400">
-          <button onClick={onExpand}  title="Expandir"><Maximize2  className="w-3.5 h-3.5 hover:text-zinc-700" /></button>
-          <button onClick={onEdit}    title="Editar">  <Settings2  className="w-3.5 h-3.5 hover:text-zinc-700" /></button>
-          <button onClick={onDelete}  title="Eliminar"><X          className="w-3.5 h-3.5 hover:text-red-500"  /></button>
+    <div className="bg-white rounded-xl border border-zinc-100 shadow-sm flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 px-4 py-3 border-b border-zinc-50">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm font-bold text-zinc-800">{tileTitle(cfg)}</span>
+            {activeFilters.map(f => (
+              <span key={f} className="text-[9px] bg-zinc-100 text-zinc-500 rounded px-1.5 py-0.5 font-medium">{f}</span>
+            ))}
+          </div>
+          <p className="text-[10px] text-zinc-400 mt-0.5">{groups.length} grupo{groups.length !== 1 ? 's' : ''} · {filtered.length} ítems</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 text-zinc-400">
+          <button onClick={onExpand} title="Pantalla completa" className="hover:text-zinc-700 transition-colors"><Maximize2  className="w-3.5 h-3.5" /></button>
+          <button onClick={onEdit}   title="Editar"            className="hover:text-zinc-700 transition-colors"><Settings2  className="w-3.5 h-3.5" /></button>
+          <button onClick={onExportXlsx} title="Exportar Excel" className="hover:text-emerald-600 transition-colors text-[10px] font-semibold">xlsx</button>
+          <button onClick={onExportPdf}  title="Exportar PDF"   className="hover:text-red-600    transition-colors text-[10px] font-semibold">pdf</button>
+          <button onClick={onDelete} title="Eliminar"          className="hover:text-red-500   transition-colors"><X          className="w-3.5 h-3.5" /></button>
         </div>
       </div>
-      <p className="text-xs text-zinc-300">Grupo: {cfg.groupBy} · {cfg.columns.length} columnas</p>
+
+      {/* Totals strip */}
+      <div className="grid grid-cols-4 divide-x divide-zinc-50 border-b border-zinc-50">
+        {[
+          { label: 'Qty',    value: totalQty.toLocaleString('es-AR'),    color: 'text-emerald-700' },
+          { label: 'Bultos', value: totalBultos.toLocaleString('es-AR'), color: 'text-sky-700'     },
+          { label: 'CBM',    value: `${totalCbm}`,                       color: 'text-orange-700'  },
+          { label: 'GW kg',  value: `${totalGw}`,                        color: 'text-amber-700'   },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="flex flex-col items-center py-2">
+            <span className={`text-sm font-bold tabular-nums leading-tight ${color}`}>{value}</span>
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400 mt-0.5">{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Table */}
+      {groups.length === 0 ? (
+        <div className="py-8 text-center text-xs text-zinc-300">Sin resultados</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-zinc-50">
+                <th className="text-left px-4 py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wide whitespace-nowrap">
+                  {GROUP_BY_OPTIONS.find(o => o.key === cfg.groupBy)?.label ?? cfg.groupBy}
+                </th>
+                {colDefs.map(col => (
+                  <th key={col.fieldKey} className="text-right px-3 py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wide whitespace-nowrap">
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleGroups.map(group => (
+                <tr key={group.key} className="border-b border-zinc-50 hover:bg-zinc-50/50">
+                  <td className="px-4 py-2 font-medium text-zinc-700 whitespace-nowrap max-w-[160px] truncate">{group.key}</td>
+                  {colDefs.map(col => {
+                    const fieldKey = col.fieldKey
+                    let display: string
+                    if      (fieldKey === 'qty')     display = group.totalQty.toLocaleString('es-AR')
+                    else if (fieldKey === 'qBultos') display = group.totalBultos.toLocaleString('es-AR')
+                    else if (fieldKey === 'cbm')     display = String(group.totalCbm)
+                    else if (fieldKey === 'gwKg')    display = String(group.totalGw)
+                    else {
+                      const first = group.items.find(i => {
+                        const v = getCellValue(i, fieldKey, liveData)
+                        return v !== '—'
+                      })
+                      display = first ? getCellValue(first, fieldKey, liveData) : '—'
+                    }
+                    const isDemorado = fieldKey === '_diasTransito' && display === '⚠ demorado'
+                    return (
+                      <td key={fieldKey} className={`px-3 py-2 text-right whitespace-nowrap ${isDemorado ? 'text-red-500 font-semibold' : 'text-zinc-600'}`}>
+                        {display}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!showAll && hiddenCount > 0 && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="w-full py-2 text-[10px] text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 transition-colors flex items-center justify-center gap-1"
+            >
+              <ChevronDown className="w-3 h-3" />
+              Ver {hiddenCount} grupo{hiddenCount !== 1 ? 's' : ''} más
+            </button>
+          )}
+          {showAll && groups.length > TRUNCATE_GROUPS && (
+            <button
+              onClick={() => setShowAll(false)}
+              className="w-full py-2 text-[10px] text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 transition-colors flex items-center justify-center gap-1"
+            >
+              <ChevronUp className="w-3 h-3" /> Mostrar menos
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
