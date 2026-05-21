@@ -193,7 +193,7 @@ function newId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
-// ─── Main component (stub — UI added in later tasks) ─────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ReportesClient({
   initialItems,
@@ -204,20 +204,124 @@ export default function ReportesClient({
   liveData:     LiveDataMap
   extraColumns: ExtraColumn[]
 }) {
-  const [tiles, setTiles] = useState<ReportTileConfig[]>([])
+  const [tiles,      setTiles]      = useState<ReportTileConfig[]>([])
+  const [drawerCfg,  setDrawerCfg]  = useState<ReportTileConfig | null>(null) // null = closed
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
   useEffect(() => { setTiles(loadTiles()) }, [])
 
   const updateTiles = useCallback((next: ReportTileConfig[]) => {
     setTiles(next); saveTiles(next)
   }, [])
 
+  const openNewDrawer = () => setDrawerCfg({
+    id:      newId(),
+    groupBy: 'asn',
+    filters: { ...DEFAULT_FILTERS },
+    columns: [...DEFAULT_COLUMNS],
+  })
+
+  const openEditDrawer = (cfg: ReportTileConfig) => setDrawerCfg({ ...cfg })
+
+  const deleteTile = (id: string) => updateTiles(tiles.filter(t => t.id !== id))
+
+  const saveDrawer = (cfg: ReportTileConfig) => {
+    const exists = tiles.some(t => t.id === cfg.id)
+    updateTiles(exists ? tiles.map(t => t.id === cfg.id ? cfg : t) : [...tiles, cfg])
+    setDrawerCfg(null)
+  }
+
   const hasLive = Object.keys(liveData).length > 0
 
   return (
     <div className="space-y-4">
-      <p className="text-zinc-400 text-sm">
-        {initialItems.length} ítems · {tiles.length} tiles · live={String(hasLive)}
-      </p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {tiles.length > 0 && (
+            <span className="text-xs text-zinc-400 font-mono">{tiles.length} reporte{tiles.length !== 1 ? 's' : ''}</span>
+          )}
+          {hasLive && (
+            <span className="flex items-center gap-1 text-[11px] text-green-600 font-medium">
+              <Zap className="w-3 h-3" />En vivo
+            </span>
+          )}
+        </div>
+        <button
+          onClick={openNewDrawer}
+          className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-[#E30613] hover:bg-red-700 text-white text-xs font-semibold transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Nuevo reporte
+        </button>
+      </div>
+
+      {/* Empty state */}
+      {tiles.length === 0 && (
+        <div className="flex flex-col items-center gap-3 py-24 text-center">
+          <BarChart2 className="w-10 h-10 text-zinc-200" />
+          <p className="text-sm text-zinc-400">No hay reportes todavía.</p>
+          <button
+            onClick={openNewDrawer}
+            className="flex items-center gap-1.5 h-8 px-4 rounded-xl bg-[#E30613]/10 hover:bg-[#E30613]/20 text-[#E30613] text-xs font-semibold transition-colors"
+          >
+            <Plus className="w-3 h-3" />
+            Crear el primero
+          </button>
+        </div>
+      )}
+
+      {/* Grid */}
+      {tiles.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {tiles.map(cfg => (
+            <TilePlaceholder
+              key={cfg.id}
+              cfg={cfg}
+              onEdit={() => openEditDrawer(cfg)}
+              onDelete={() => deleteTile(cfg.id)}
+              onExpand={() => setExpandedId(cfg.id)}
+            />
+          ))}
+          {/* Add tile */}
+          <button
+            onClick={openNewDrawer}
+            className="min-h-[140px] rounded-xl border-2 border-dashed border-zinc-200 flex flex-col items-center justify-center gap-2 text-zinc-300 hover:border-zinc-300 hover:text-zinc-400 transition-colors"
+          >
+            <Plus className="w-6 h-6" />
+            <span className="text-[10px] font-semibold uppercase tracking-widest">Nuevo reporte</span>
+          </button>
+        </div>
+      )}
+
+      {/* Drawer placeholder */}
+      {drawerCfg && (
+        <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setDrawerCfg(null)} />
+      )}
+    </div>
+  )
+}
+
+// Temporary placeholder — replaced in Task 5
+function TilePlaceholder({
+  cfg, onEdit, onDelete, onExpand,
+}: {
+  cfg: ReportTileConfig
+  onEdit: () => void
+  onDelete: () => void
+  onExpand: () => void
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4 flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-zinc-800">{tileTitle(cfg)}</span>
+        <div className="flex gap-2 text-zinc-400">
+          <button onClick={onExpand}  title="Expandir"><Maximize2  className="w-3.5 h-3.5 hover:text-zinc-700" /></button>
+          <button onClick={onEdit}    title="Editar">  <Settings2  className="w-3.5 h-3.5 hover:text-zinc-700" /></button>
+          <button onClick={onDelete}  title="Eliminar"><X          className="w-3.5 h-3.5 hover:text-red-500"  /></button>
+        </div>
+      </div>
+      <p className="text-xs text-zinc-300">Grupo: {cfg.groupBy} · {cfg.columns.length} columnas</p>
     </div>
   )
 }
