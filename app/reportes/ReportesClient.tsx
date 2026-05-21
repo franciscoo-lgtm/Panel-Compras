@@ -391,6 +391,16 @@ export default function ReportesClient({
     setDrawerCfg(null)
   }
 
+  const exportXlsx = useCallback((cfg: ReportTileConfig) => {
+    // implemented in Task 7
+    console.log('export xlsx', cfg.id)
+  }, [initialItems, liveData])
+
+  const exportPdf = useCallback((cfg: ReportTileConfig) => {
+    // implemented in Task 8
+    console.log('export pdf', cfg.id)
+  }, [initialItems, liveData])
+
   const hasLive = Object.keys(liveData).length > 0
 
   return (
@@ -444,8 +454,8 @@ export default function ReportesClient({
               onEdit={() => openEditDrawer(cfg)}
               onDelete={() => deleteTile(cfg.id)}
               onExpand={() => setExpandedId(cfg.id)}
-              onExportXlsx={() => console.log('xlsx', cfg.id)}
-              onExportPdf={() => console.log('pdf', cfg.id)}
+              onExportXlsx={() => exportXlsx(cfg)}
+              onExportPdf={() => exportPdf(cfg)}
             />
           ))}
           {/* Add tile */}
@@ -467,6 +477,146 @@ export default function ReportesClient({
           onClose={() => setDrawerCfg(null)}
         />
       )}
+
+      {/* Expanded modal */}
+      {expandedId && (() => {
+        const cfg = tiles.find(t => t.id === expandedId)
+        if (!cfg) return null
+        return (
+          <ExpandedModal
+            cfg={cfg}
+            items={initialItems}
+            liveData={liveData}
+            extraColumns={extraColumns}
+            onClose={() => setExpandedId(null)}
+            onExportXlsx={() => exportXlsx(cfg)}
+            onExportPdf={() => exportPdf(cfg)}
+          />
+        )
+      })()}
+    </div>
+  )
+}
+
+// ─── ExpandedModal ────────────────────────────────────────────────────────────
+
+function ExpandedModal({
+  cfg,
+  items,
+  liveData,
+  extraColumns,
+  onClose,
+  onExportXlsx,
+  onExportPdf,
+}: {
+  cfg:           ReportTileConfig
+  items:         CIPLItemRow[]
+  liveData:      LiveDataMap
+  extraColumns:  ExtraColumn[]
+  onClose:       () => void
+  onExportXlsx:  () => void
+  onExportPdf:   () => void
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const filtered = useMemo(() => applyFilters(items, cfg.filters), [items, cfg.filters])
+  const groups   = useMemo(() => buildGroups(filtered, cfg.groupBy), [filtered, cfg.groupBy])
+
+  const totalQty    = groups.reduce((s, g) => s + g.totalQty,    0)
+  const totalBultos = groups.reduce((s, g) => s + g.totalBultos, 0)
+  const totalCbm    = +groups.reduce((s, g) => s + g.totalCbm,   0).toFixed(4)
+  const totalGw     = +groups.reduce((s, g) => s + g.totalGw,    0).toFixed(2)
+
+  const allCols: ColDef[] = [
+    ...FIXED_COLS,
+    ...extraColumns.map(c => ({ fieldKey: c.fieldKey, label: c.label, category: 'calc' as ColCategory })),
+  ]
+  const colDefs = cfg.columns
+    .map(fk => allCols.find(c => c.fieldKey === fk))
+    .filter(Boolean) as ColDef[]
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex flex-col">
+      {/* Modal header */}
+      <div className="bg-white border-b border-zinc-100 px-6 py-4 flex items-center justify-between flex-shrink-0">
+        <div>
+          <span className="text-base font-bold text-zinc-800">{tileTitle(cfg)}</span>
+          <span className="ml-2 text-xs text-zinc-400">{groups.length} grupos · {filtered.length} ítems</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={onExportXlsx} className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-200 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors">
+            <FileSpreadsheet className="w-3.5 h-3.5" />xlsx
+          </button>
+          <button onClick={onExportPdf} className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-200 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors">
+            <FileText className="w-3.5 h-3.5" />pdf
+          </button>
+          <button onClick={onClose} className="h-8 w-8 flex items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-50 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Totals strip */}
+      <div className="bg-white border-b border-zinc-100 flex flex-shrink-0">
+        {[
+          { label: 'Qty',    value: totalQty.toLocaleString('es-AR'),    color: 'text-emerald-700' },
+          { label: 'Bultos', value: totalBultos.toLocaleString('es-AR'), color: 'text-sky-700'     },
+          { label: 'CBM',    value: `${totalCbm}`,                       color: 'text-orange-700'  },
+          { label: 'GW kg',  value: `${totalGw}`,                        color: 'text-amber-700'   },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="flex-1 flex flex-col items-center py-3 border-r last:border-r-0 border-zinc-50">
+            <span className={`text-base font-bold tabular-nums ${color}`}>{value}</span>
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400 mt-0.5">{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Table — full height, scrollable */}
+      <div className="flex-1 overflow-auto bg-white">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-zinc-50 z-10">
+            <tr>
+              <th className="text-left px-6 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-wide whitespace-nowrap border-b border-zinc-100">
+                {GROUP_BY_OPTIONS.find(o => o.key === cfg.groupBy)?.label ?? cfg.groupBy}
+              </th>
+              {colDefs.map(col => (
+                <th key={col.fieldKey} className="text-right px-4 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-wide whitespace-nowrap border-b border-zinc-100">
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map(group => (
+              <tr key={group.key} className="border-b border-zinc-50 hover:bg-zinc-50/50">
+                <td className="px-6 py-3 font-medium text-zinc-700">{group.key}</td>
+                {colDefs.map(col => {
+                  const fieldKey = col.fieldKey
+                  let display: string
+                  if      (fieldKey === 'qty')     display = group.totalQty.toLocaleString('es-AR')
+                  else if (fieldKey === 'qBultos') display = group.totalBultos.toLocaleString('es-AR')
+                  else if (fieldKey === 'cbm')     display = String(group.totalCbm)
+                  else if (fieldKey === 'gwKg')    display = String(group.totalGw)
+                  else {
+                    const first = group.items.find(i => getCellValue(i, fieldKey, liveData) !== '—')
+                    display = first ? getCellValue(first, fieldKey, liveData) : '—'
+                  }
+                  const isDemorado = fieldKey === '_diasTransito' && display === '⚠ demorado'
+                  return (
+                    <td key={fieldKey} className={`px-4 py-3 text-right whitespace-nowrap ${isDemorado ? 'text-red-500 font-semibold' : 'text-zinc-600'}`}>
+                      {display}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
