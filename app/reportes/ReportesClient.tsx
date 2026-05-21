@@ -193,6 +193,166 @@ function newId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
+// ─── ConfigDrawer ─────────────────────────────────────────────────────────────
+
+function ConfigDrawer({
+  cfg,
+  extraColumns,
+  onSave,
+  onClose,
+}: {
+  cfg:          ReportTileConfig
+  extraColumns: ExtraColumn[]
+  onSave:       (cfg: ReportTileConfig) => void
+  onClose:      () => void
+}) {
+  const [local, setLocal] = useState<ReportTileConfig>(cfg)
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const setFilter = <K extends keyof TileFilters>(key: K, val: TileFilters[K]) =>
+    setLocal(p => ({ ...p, filters: { ...p.filters, [key]: val } }))
+
+  const toggleColumn = (fieldKey: string) =>
+    setLocal(p => ({
+      ...p,
+      columns: p.columns.includes(fieldKey)
+        ? p.columns.filter(c => c !== fieldKey)
+        : [...p.columns, fieldKey],
+    }))
+
+  const allCols: ColDef[] = [
+    ...FIXED_COLS,
+    ...extraColumns.map(c => ({ fieldKey: c.fieldKey, label: c.label, category: 'calc' as ColCategory })),
+  ]
+
+  const byCategory = (cat: ColCategory) => allCols.filter(c => c.category === cat)
+  const extraCols  = extraColumns.map(c => c.fieldKey)
+  const fuentes    = allCols.filter(c => extraCols.includes(c.fieldKey))
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="fixed right-0 top-0 h-full w-80 z-50 bg-white shadow-2xl border-l border-zinc-100 flex flex-col overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+          <span className="text-sm font-bold text-zinc-800">Configurar reporte</span>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="flex-1 px-5 py-4 space-y-5">
+          {/* Group by */}
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1.5">Agrupar por</label>
+            <select
+              value={local.groupBy}
+              onChange={e => setLocal(p => ({ ...p, groupBy: e.target.value as GroupByField }))}
+              className="w-full h-9 px-3 text-sm rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-[#E30613]/30 bg-white text-zinc-700"
+            >
+              {GROUP_BY_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </div>
+
+          {/* Filters */}
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1.5">Filtros</label>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={local.filters.dateFrom}
+                  onChange={e => setFilter('dateFrom', e.target.value)}
+                  placeholder="Desde (ETD)"
+                  className="flex-1 h-8 px-2 text-xs rounded-lg border border-zinc-200 focus:outline-none focus:ring-1 focus:ring-[#E30613]/30"
+                />
+                <input
+                  type="date"
+                  value={local.filters.dateTo}
+                  onChange={e => setFilter('dateTo', e.target.value)}
+                  placeholder="Hasta (ETD)"
+                  className="flex-1 h-8 px-2 text-xs rounded-lg border border-zinc-200 focus:outline-none focus:ring-1 focus:ring-[#E30613]/30"
+                />
+              </div>
+              <select
+                value={local.filters.tipoCarga}
+                onChange={e => setFilter('tipoCarga', e.target.value as TileFilters['tipoCarga'])}
+                className="w-full h-8 px-2 text-xs rounded-lg border border-zinc-200 focus:outline-none focus:ring-1 focus:ring-[#E30613]/30 bg-white text-zinc-700"
+              >
+                <option value="">Todos los tipos</option>
+                <option value="Mercaderia">Mercadería</option>
+                <option value="Repuesto">Repuesto</option>
+              </select>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-300 pointer-events-none" />
+                <input
+                  type="text"
+                  value={local.filters.search}
+                  onChange={e => setFilter('search', e.target.value)}
+                  placeholder="Buscar ASN, PI, SO…"
+                  className="w-full h-8 pl-7 pr-2 text-xs rounded-lg border border-zinc-200 focus:outline-none focus:ring-1 focus:ring-[#E30613]/30"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Columns */}
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1.5">Columnas</label>
+            <div className="space-y-3">
+              {([
+                { label: 'Cantidades', cols: byCategory('qty')      },
+                { label: 'Logística',  cols: byCategory('logistica') },
+                { label: 'Calculadas', cols: byCategory('calc').filter(c => !extraCols.includes(c.fieldKey)) },
+                ...(fuentes.length > 0 ? [{ label: 'Fuentes', cols: fuentes }] : []),
+              ] as { label: string; cols: ColDef[] }[]).map(({ label, cols }) =>
+                cols.length === 0 ? null : (
+                  <div key={label}>
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-300 mb-1">{label}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {cols.map(col => {
+                        const on = local.columns.includes(col.fieldKey)
+                        return (
+                          <button
+                            key={col.fieldKey}
+                            onClick={() => toggleColumn(col.fieldKey)}
+                            className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                              on
+                                ? 'bg-[#E30613] text-white'
+                                : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+                            }`}
+                          >
+                            {col.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 border-t border-zinc-100">
+          <button
+            onClick={() => onSave(local)}
+            disabled={local.columns.length === 0}
+            className="w-full h-9 rounded-xl bg-[#E30613] hover:bg-red-700 disabled:opacity-40 text-white text-sm font-semibold transition-colors"
+          >
+            Guardar reporte
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ReportesClient({
@@ -294,9 +454,13 @@ export default function ReportesClient({
         </div>
       )}
 
-      {/* Drawer placeholder */}
       {drawerCfg && (
-        <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setDrawerCfg(null)} />
+        <ConfigDrawer
+          cfg={drawerCfg}
+          extraColumns={extraColumns}
+          onSave={saveDrawer}
+          onClose={() => setDrawerCfg(null)}
+        />
       )}
     </div>
   )
