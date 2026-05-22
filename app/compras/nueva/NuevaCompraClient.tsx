@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, ChevronLeft, Loader2, AlertCircle } from 'lucide-react'
+import { Search, X, ChevronLeft, Loader2, AlertCircle, ClipboardList } from 'lucide-react'
 import { crearCompra } from '@/app/compras/actions'
 import type { SOOption } from '@/app/lib/sheets'
 
@@ -11,10 +11,14 @@ const fmt = (n: number | null) =>
 
 export function NuevaCompraClient({ soList }: { soList: SOOption[] }) {
   const router = useRouter()
-  const [query, setQuery]         = useState('')
-  const [selected, setSelected]   = useState<SOOption[]>([])
-  const [pending, startTransition] = useTransition()
-  const [error, setError]         = useState<string | null>(null)
+  const [query, setQuery]           = useState('')
+  const [selected, setSelected]     = useState<SOOption[]>([])
+  const [pending, startTransition]  = useTransition()
+  const [error, setError]           = useState<string | null>(null)
+  const [pasteMode, setPasteMode]   = useState(false)
+  const [pasteText, setPasteText]   = useState('')
+  const [pasteResult, setPasteResult] = useState<{ found: string[]; missing: string[] } | null>(null)
+  const pasteRef = useRef<HTMLTextAreaElement>(null)
 
   const [piNo, setPiNo]                   = useState('')
   const [notas, setNotas]                 = useState('')
@@ -40,6 +44,41 @@ export function NuevaCompraClient({ soList }: { soList: SOOption[] }) {
         ? prev.filter(s => s.soNumber !== so.soNumber)
         : [...prev, so]
     )
+  }
+
+  function handlePasteConfirm() {
+    // Parse any separator: comma, semicolon, newline, tab, space
+    const tokens = pasteText
+      .split(/[\s,;|\t\n]+/)
+      .map(t => t.trim().toUpperCase())
+      .filter(Boolean)
+
+    const soIndex = new Map(soList.map(s => [s.soNumber.toUpperCase(), s]))
+    const found:   SOOption[] = []
+    const missing: string[]   = []
+
+    for (const token of tokens) {
+      // Accept "SO-12345", "SO 12345", or bare "12345"
+      const normalized = token.startsWith('SO') ? token : `SO-${token}`
+      const match = soIndex.get(token) ?? soIndex.get(normalized)
+      if (match) {
+        if (!selected.some(s => s.soNumber === match.soNumber) &&
+            !found.some(s => s.soNumber === match.soNumber)) {
+          found.push(match)
+        }
+      } else {
+        missing.push(token)
+      }
+    }
+
+    if (found.length > 0) {
+      setSelected(prev => [...prev, ...found])
+    }
+    setPasteResult({ found: found.map(s => s.soNumber), missing })
+    if (missing.length === 0) {
+      setPasteMode(false)
+      setPasteText('')
+    }
   }
 
   const totalQty = selected.reduce((s, o) => s + (o.qPi ?? 0), 0)
@@ -107,6 +146,58 @@ export function NuevaCompraClient({ soList }: { soList: SOOption[] }) {
           {/* SO Selector */}
           <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/25 mb-4">1. Seleccioná los SOs del GSO V4</p>
+            {/* Mode toggle */}
+            <div className="flex gap-1.5 mb-3">
+              <button
+                onClick={() => { setPasteMode(false); setPasteResult(null) }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${!pasteMode ? 'bg-white/[0.08] text-white' : 'text-white/30 hover:text-white/60'}`}
+              >
+                <Search className="w-3 h-3" /> Buscar
+              </button>
+              <button
+                onClick={() => { setPasteMode(true); setPasteResult(null); setTimeout(() => pasteRef.current?.focus(), 50) }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${pasteMode ? 'bg-white/[0.08] text-white' : 'text-white/30 hover:text-white/60'}`}
+              >
+                <ClipboardList className="w-3 h-3" /> Pegar lista
+              </button>
+            </div>
+
+            {pasteMode ? (
+              <div className="space-y-2">
+                <textarea
+                  ref={pasteRef}
+                  value={pasteText}
+                  onChange={e => { setPasteText(e.target.value); setPasteResult(null) }}
+                  placeholder={"Pegá los SOs separados por coma, espacio o enter:\nSO-40094, SO-40095\nSO-40096"}
+                  rows={4}
+                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2.5 text-[13px] text-white placeholder-white/20 outline-none focus:border-white/20 resize-none font-mono"
+                />
+                <button
+                  onClick={handlePasteConfirm}
+                  disabled={!pasteText.trim()}
+                  className="w-full py-2 rounded-lg text-[12px] font-semibold bg-[#E30613]/15 border border-[#E30613]/30 text-[#E30613] hover:bg-[#E30613]/25 transition-colors disabled:opacity-30"
+                >
+                  Agregar SOs
+                </button>
+                {pasteResult && (
+                  <div className="space-y-1.5">
+                    {pasteResult.found.length > 0 && (
+                      <div className="flex items-start gap-2 text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+                        <span className="shrink-0 font-semibold">{pasteResult.found.length} encontrados:</span>
+                        <span className="font-mono">{pasteResult.found.join(', ')}</span>
+                      </div>
+                    )}
+                    {pasteResult.missing.length > 0 && (
+                      <div className="flex items-start gap-2 text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                        <span className="shrink-0 font-semibold">{pasteResult.missing.length} no encontrados:</span>
+                        <span className="font-mono">{pasteResult.missing.join(', ')}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
               <input
@@ -155,6 +246,8 @@ export function NuevaCompraClient({ soList }: { soList: SOOption[] }) {
                   ))}
                 </div>
               </div>
+            )}
+            </>
             )}
           </div>
 
