@@ -168,6 +168,32 @@ export async function buildGSOMap(): Promise<Map<string, GSORow>> {
   return map
 }
 
+// Returns all SO rows as a flat array — used by the Nueva Compra SO picker
+export type SOOption = {
+  soNumber: string
+  modelo:   string | null
+  sku:      string | null
+  qPi:      number | null
+  fobUnit:  number | null
+  fobTotal: number | null
+  incoterm: string | null
+  pa:       string | null
+}
+
+export async function listAllSOs(): Promise<SOOption[]> {
+  const map = await buildGSOMap()
+  return Array.from(map.entries()).map(([soNumber, row]) => ({
+    soNumber,
+    modelo:   row.modelo,
+    sku:      row.sku,
+    qPi:      row.qPi,
+    fobUnit:  row.fobUnit,
+    fobTotal: row.fobTotal,
+    incoterm: row.incoterm,
+    pa:       row.pa,
+  }))
+}
+
 // Fetch a single SO row — use when updating one item
 export async function fetchGSORow(soId: string): Promise<GSORow | null> {
   try {
