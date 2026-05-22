@@ -6,7 +6,7 @@ import {
   upsertComexSource, toggleComexSource, deleteComexSource, previewSheetColumns,
 } from '@/app/lib/comex-sources'
 import type { ComexSource, ColumnMapping, PanelId } from '@/app/lib/comex-sources'
-import { KNOWN_MAPPABLE_FIELDS } from '@/app/lib/comex-fields'
+import { KNOWN_MAPPABLE_FIELDS, COMPRA_COMEX_MILESTONE_FIELDS } from '@/app/lib/comex-fields'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -489,6 +489,43 @@ export default function ComexSourcesClient({ initialSources }: { initialSources:
           Agregar fuente
         </button>
       )}
+
+      {/* Compra Milestone Mappings */}
+      <div className="mt-8 border border-zinc-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50/50">
+          <h2 className="text-[13px] font-semibold text-zinc-700">Hitos de Compra — Mapeo de Fuentes Comex</h2>
+          <p className="text-[11px] text-zinc-400 mt-1">
+            Configurá qué columna de tus fuentes Comex alimenta cada hito de la orden de compra.
+          </p>
+        </div>
+        <div className="divide-y divide-zinc-100">
+          {COMPRA_COMEX_MILESTONE_FIELDS.map(f => {
+            const mapped = sources.some(s =>
+              s.enabled && s.mappings.some(m => m.fieldKey === f.fieldKey && !m.isJoin)
+            )
+            return (
+              <div key={f.fieldKey} className="flex items-center justify-between px-5 py-3">
+                <div>
+                  <span className="text-[13px] text-zinc-600">{f.label}</span>
+                  <span className="ml-2 font-mono text-[10px] text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">{f.fieldKey}</span>
+                </div>
+                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                  mapped
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : 'bg-zinc-100 text-zinc-400'
+                }`}>
+                  {mapped ? '✓ Mapeado' : '⏳ Sin mapear'}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+        <div className="px-5 py-3 border-t border-zinc-100 bg-zinc-50/30">
+          <p className="text-[11px] text-zinc-400">
+            Para activar un hito, editá la fuente Comex correspondiente → agregá una columna → asignale el fieldKey exacto.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

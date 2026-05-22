@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, LayoutDashboard, Upload, Anchor, Database, ChevronLeft, ChevronRight, Camera, Send, BarChart2 } from 'lucide-react'
+import { Home, LayoutDashboard, Upload, Anchor, Database, ChevronLeft, ChevronRight, Camera, Send, BarChart2, ShoppingCart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const nav = [
   { href: '/',              label: 'Inicio',            icon: Home },
+  { href: '/compras',       label: 'Compras',           icon: ShoppingCart },
   { href: '/panel-general', label: 'Panel General',     icon: LayoutDashboard },
   { href: '/reportes',      label: 'Reportes',          icon: BarChart2 },
   { href: '/comercial',     label: 'Carga Comercial',   icon: Upload },
