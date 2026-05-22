@@ -22,6 +22,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   ciplItems     CIPLItem[]
+  compras       Compra[]
 }
 
 model Account {
@@ -114,6 +115,10 @@ model CIPLItem {
   // ── Fotos inspección ────────────────────────────────────────────────────────
   photos     CIPLPhoto[]
 
+  // ── Orden de Compra ─────────────────────────────────────────────────────────
+  compraId  String?
+  compra    Compra?  @relation(fields: [compraId], references: [id])
+
   // ── Comex tracking ──────────────────────────────────────────────────────────
   avisoAgente       String?   // fecha / estado aviso al agente
   avisoConfirmacion String?   // confirmación del agente
@@ -126,6 +131,53 @@ model CIPLItem {
   eta               DateTime? // Estimated Time of Arrival
   etaCaldas         DateTime? // ETA en Caldas 1535
   awb               String?   // Airway Bill Number
+}
+
+// ─── Órdenes de Compra ────────────────────────────────────────────────────────
+
+model Compra {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+
+  piNo  String?
+  notas String?
+
+  supplierName         String?
+  supplierAddress      String?
+  supplierContactName  String?
+  supplierContactPhone String?
+  supplierContactEmail String?
+
+  fechaOrden          DateTime  @default(now())
+  fechaEnvio          DateTime?
+  fechaPago           DateTime?
+  fechaSegundaValPA   DateTime?
+  fechaInstruccionCat DateTime?
+  fechaLMS            DateTime?
+
+  sos       CompraSOItem[]
+  ciplItems CIPLItem[]
+}
+
+model CompraSOItem {
+  id       String @id @default(cuid())
+  compraId String
+  compra   Compra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+
+  soNumber String
+
+  modelo   String?
+  sku      String?
+  qPi      Int?
+  fobUnit  Float?
+  fobTotal Float?
+  incoterm String?
+  pa       String?
+
+  @@index([soNumber])
 }
 
 // ─── Fotos de inspección ─────────────────────────────────────────────────────
