@@ -89,8 +89,28 @@ export async function guardarCIPL(formData: FormData): Promise<SaveResult> {
       }
     })
 
-    await prisma.cIPLItem.createMany({ data: rows })
-    return { success: true, count: rows.length }
+    const result = await prisma.cIPLItem.createMany({ data: rows })
+
+    // Auto-link new CIPLItems to a Compra if SO matches
+    const savedSOs = [...new Set(sosPrincipal.filter(Boolean).map(s => s.trim().toUpperCase()))]
+    if (savedSOs.length > 0) {
+      const compraSOItems = await prisma.compraSOItem.findMany({
+        where: { soNumber: { in: savedSOs } },
+        select: { compraId: true, soNumber: true },
+      })
+      if (compraSOItems.length > 0) {
+        const soToCompra = new Map(compraSOItems.map(c => [c.soNumber.toUpperCase(), c.compraId]))
+        for (const [so, compraId] of soToCompra) {
+          await prisma.cIPLItem.updateMany({
+            where: { soPrincipal: { equals: so, mode: 'insensitive' }, compraId: null },
+            data:  { compraId },
+          })
+        }
+        console.log(`[ETL] Auto-linked CIPLItems to compras for SOs: ${[...soToCompra.keys()].join(', ')}`)
+      }
+    }
+
+    return { success: true, count: result.count }
   } catch (err) {
     console.error('[ETL] guardarCIPL error:', err)
     return { success: false, error: String(err) }
