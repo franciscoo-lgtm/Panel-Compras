@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { listAllSOs } from '@/app/lib/sheets'
 import { NuevaCompraClient } from './NuevaCompraClient'
 
