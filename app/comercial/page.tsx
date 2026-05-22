@@ -29,14 +29,16 @@ function Step1Upload({
   const [file, setFile]         = useState<File | null>(null)
   const [fileCi, setFileCi]     = useState<File | null>(null)
   const [filePl, setFilePl]     = useState<File | null>(null)
-  const [error, setError]       = useState<string | null>(null)
-  const [pending, start]        = useTransition()
+  const [error, setError]           = useState<string | null>(null)
+  const [driveError, setDriveError] = useState<string | null>(null)
+  const [pending, start]            = useTransition()
 
   const ready = category.trim() && (tipo === 'Repuesto' ? !!file : (!!fileCi && !!filePl))
 
   function handleExtract() {
     if (!ready) return
     setError(null)
+    setDriveError(null)
     start(async () => {
       const fd = new FormData()
       fd.set('tipoCarga', tipo)
@@ -71,7 +73,7 @@ function Step1Upload({
 
           const ciSheet = findSheet([/commercial\s*invoice/i, /comercial/i, /invoice/i])
           const plSheet = findSheet([/packing\s*list/i, /p12/i, /packing/i])
-          if (ciSheet) ciText = sheetToText(ciSheet).slice(0, 6000)
+          if (ciSheet) ciText = sheetToText(ciSheet).slice(0, 8000)
           if (plSheet) plText = sheetToText(plSheet).slice(0, 10000)
         } catch (e) {
           setError(`Error al leer el Excel: ${e instanceof Error ? e.message : String(e)}`)
@@ -103,8 +105,10 @@ function Step1Upload({
         fd2.set('asn',  firstItem?.asn  ?? '')
         fd2.set('date', firstItem?.date ?? '')
         fd2.set('file', file)
-        const driveLinks: DriveLinks = await fetch('/api/upload-drive', { method: 'POST', body: fd2 })
-          .then(r => r.json()).catch(() => ({ excel: null, ci: null, pl: null }))
+        const driveRes = await fetch('/api/upload-drive', { method: 'POST', body: fd2 })
+          .then(r => r.json()).catch((e: unknown) => ({ excel: null, ci: null, pl: null, uploadError: String(e) })) as DriveLinks & { uploadError?: string }
+        if (driveRes.uploadError) setDriveError(`Drive: ${driveRes.uploadError}`)
+        const driveLinks: DriveLinks = { excel: driveRes.excel, ci: driveRes.ci, pl: driveRes.pl }
 
         onDone(extractRes.items, 'Repuesto', category.trim(), driveLinks)
         return
@@ -139,9 +143,10 @@ function Step1Upload({
       if (tipo === 'Mercaderia' && fileCi) fd2.set('file_ci', fileCi)
       if (tipo === 'Mercaderia' && filePl) fd2.set('file_pl', filePl)
 
-      const driveLinks: DriveLinks = await fetch('/api/upload-drive', { method: 'POST', body: fd2 })
-        .then(r => r.json())
-        .catch(() => ({ excel: null, ci: null, pl: null }))
+      const driveRes2 = await fetch('/api/upload-drive', { method: 'POST', body: fd2 })
+        .then(r => r.json()).catch((e: unknown) => ({ excel: null, ci: null, pl: null, uploadError: String(e) })) as DriveLinks & { uploadError?: string }
+      if (driveRes2.uploadError) setDriveError(`Drive: ${driveRes2.uploadError}`)
+      const driveLinks: DriveLinks = { excel: driveRes2.excel, ci: driveRes2.ci, pl: driveRes2.pl }
 
       onDone(extractRes.items, extractRes.tipoCarga ?? tipo, category.trim(), driveLinks)
     })
@@ -197,6 +202,13 @@ function Step1Upload({
         <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           {error}
+        </div>
+      )}
+
+      {driveError && (
+        <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span><strong>Error al subir a Drive:</strong> {driveError}</span>
         </div>
       )}
 
@@ -335,13 +347,13 @@ function Step2Preview({
        ['Code','w-28'],['Descripción',''],['Qty','w-12 text-right'],
        ['W','w-12 text-right'],['L','w-12 text-right'],['H','w-12 text-right'],
        ['CBM','w-16 text-right'],['GW (kg)','w-16 text-right'],
-       ['DG','w-8 text-center'],['SO Principal','w-40'],['SO Secundario','w-36']]
+       ['DG','w-8 text-center'],['SO Principal','w-56'],['SO Secundario','w-52']]
     : [['#','w-8'],['ASN','w-28'],['Date','w-20'],['PI No','w-24'],['Q Bultos','w-16 text-right'],
        ['EAN','w-32'],['Descripción',''],['Qty','w-12 text-right'],
        ['W','w-12 text-right'],['L','w-12 text-right'],['H','w-12 text-right'],
        ['GW (kg)','w-16 text-right'],['CBM','w-16 text-right'],
        ['CBM/Bulto','w-16 text-right'],['Uni/Bulto','w-14 text-right'],
-       ['DG','w-8 text-center'],['SO Principal','w-40'],['SO Secundario','w-36']]
+       ['DG','w-8 text-center'],['SO Principal','w-56'],['SO Secundario','w-52']]
 
   return (
     <div className="space-y-4">
