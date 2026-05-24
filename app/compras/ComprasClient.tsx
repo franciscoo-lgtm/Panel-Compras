@@ -73,8 +73,11 @@ export function ComprasClient({ compras }: { compras: CompraWithSOS[] }) {
                     <div className="text-[11px] text-white/30 mt-0.5">{fmtDate(c.fechaOrden)}</div>
                   </td>
                   <td className="py-3 pr-4">
-                    <div className="text-[12px] text-white/60 font-mono">{c.sos.map(s => s.soNumber).join(', ')}</div>
-                    {modelos.length > 0 && <div className="text-[11px] text-white/30 mt-0.5">{modelos.join(' · ')}</div>}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-semibold text-white/70 tabular-nums">{c.sos.length}</span>
+                      <span className="text-[11px] text-white/25">SO{c.sos.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    {modelos.length > 0 && <div className="text-[11px] text-white/30 mt-0.5 truncate max-w-[180px]">{modelos.join(' · ')}</div>}
                   </td>
                   <td className="py-3 pr-4">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${getStatusBadgeClass(status)}`}>
