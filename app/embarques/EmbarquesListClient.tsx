@@ -84,7 +84,8 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
       </div>
 
       <div className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] overflow-hidden">
-        <table className="w-full text-[12px]">
+        <div className="overflow-x-auto -mx-2 px-2">
+        <table className="w-full min-w-[640px] text-[12px]">
           <thead>
             <tr className="bg-[#0d0d0d] border-b border-white/[0.06]">
               <th className="text-left text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-4 py-2.5">N° Embarque</th>
@@ -127,6 +128,7 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
