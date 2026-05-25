@@ -23,7 +23,7 @@ export default async function EmbarquesPage() {
           <div>
             <p className="font-medium mb-1">Aviso al leer la planilla Comex:</p>
             <ul className="list-disc pl-4 space-y-0.5">
-              {errors.map((e, i) => <li key={i}>{e}</li>)}
+              {errors.map(e => <li key={e}>{e}</li>)}
             </ul>
           </div>
         </div>

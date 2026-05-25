@@ -46,7 +46,7 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
       if (filter !== 'todos' && s.estado !== filter) return false
       if (q) {
         if (s.embarqueNo.toUpperCase().includes(q)) return true
-        if (s.sos.some(so => so.includes(q))) return true
+        if (s.sos.some(so => so.toUpperCase().includes(q))) return true
         if (s.awb?.toUpperCase().includes(q)) return true
         return false
       }
