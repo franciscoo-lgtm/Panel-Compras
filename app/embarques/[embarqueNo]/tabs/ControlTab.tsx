@@ -3,21 +3,22 @@
 import { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { Camera, CameraOff, CheckCircle2, AlertTriangle, Info } from 'lucide-react'
+import type { EmbarqueItem } from '../types'
 
 type Filter = 'todos' | 'con-diferencia' | 'sin-foto' | 'ok'
 
-export function ControlTab({ items }: { items: any[] }) {
+export function ControlTab({ items }: { items: EmbarqueItem[] }) {
   const [filter, setFilter] = useState<Filter>('todos')
 
   const summary = useMemo(() => {
-    const conDiff = items.filter((i: any) => i.diferenciaPiPl != null && i.diferenciaPiPl !== 0).length
-    const sinFoto = items.filter((i: any) => (i.photos?.length ?? 0) === 0).length
+    const conDiff = items.filter(i => i.diferenciaPiPl != null && i.diferenciaPiPl !== 0).length
+    const sinFoto = items.filter(i => (i.photos?.length ?? 0) === 0).length
     const ok = items.length - conDiff - sinFoto
     return { conDiff, sinFoto, ok, total: items.length }
   }, [items])
 
   const visible = useMemo(() => {
-    return items.filter((i: any) => {
+    return items.filter(i => {
       const hasDiff = i.diferenciaPiPl != null && i.diferenciaPiPl !== 0
       const noPhoto = (i.photos?.length ?? 0) === 0
       const isOk = !hasDiff && !noPhoto
@@ -76,7 +77,7 @@ export function ControlTab({ items }: { items: any[] }) {
             <tbody>
               {visible.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-10 text-center text-zinc-500">Sin ítems para mostrar.</td></tr>
-              ) : visible.map((it: any) => {
+              ) : visible.map(it => {
                 const photos = it.photos?.length ?? 0
                 const diff = it.diferenciaPiPl ?? 0
                 const hasDiff = diff !== 0

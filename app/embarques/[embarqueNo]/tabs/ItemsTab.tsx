@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from 'react'
 import { Search } from 'lucide-react'
+import type { EmbarqueItem } from '../types'
 
-export function ItemsTab({ items }: { items: any[] }) {
+export function ItemsTab({ items }: { items: EmbarqueItem[] }) {
   const [query, setQuery] = useState('')
 
   const grouped = useMemo(() => {
@@ -17,7 +18,7 @@ export function ItemsTab({ items }: { items: any[] }) {
         i.codeEan?.toUpperCase().includes(q)
       )
     })
-    const map = new Map<string, any[]>()
+    const map = new Map<string, EmbarqueItem[]>()
     for (const it of filtered) {
       const key = it.asn ?? '(sin ASN)'
       if (!map.has(key)) map.set(key, [])
@@ -62,7 +63,7 @@ export function ItemsTab({ items }: { items: any[] }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((it: any) => (
+                  {rows.map(it => (
                     <tr key={it.id} className="border-b border-white/[0.04] last:border-0">
                       <td className="px-4 py-2 font-mono text-[11px] text-emerald-400">{it.soPrincipal ?? '—'}</td>
                       <td className="px-4 py-2 text-zinc-200">{it.description ?? '—'}</td>

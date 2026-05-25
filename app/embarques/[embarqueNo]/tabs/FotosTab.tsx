@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { Image as ImageIcon, X } from 'lucide-react'
+import type { EmbarqueItem } from '../types'
 
-export function FotosTab({ items }: { items: any[] }) {
+export function FotosTab({ items }: { items: EmbarqueItem[] }) {
   const [lightbox, setLightbox] = useState<string | null>(null)
 
   const withPhotos = items.filter(i => (i.photos?.length ?? 0) > 0)
@@ -20,7 +21,7 @@ export function FotosTab({ items }: { items: any[] }) {
 
   return (
     <div className="space-y-5">
-      {withPhotos.map((it: any) => (
+      {withPhotos.map(it => (
         <div key={it.id} className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] overflow-hidden">
           <div className="px-4 py-2 bg-[#0d0d0d] border-b border-white/[0.06] flex items-center gap-3">
             <span className="font-mono text-[11px] font-semibold text-emerald-400">{it.soPrincipal ?? '—'}</span>
@@ -28,7 +29,7 @@ export function FotosTab({ items }: { items: any[] }) {
             <span className="ml-auto text-[10px] text-zinc-500">{it.photos.length} foto{it.photos.length === 1 ? '' : 's'}</span>
           </div>
           <div className="p-3 grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-2">
-            {it.photos.map((p: any) => (
+            {it.photos.map(p => (
               <button
                 key={p.id}
                 onClick={() => setLightbox(p.dataUrl)}

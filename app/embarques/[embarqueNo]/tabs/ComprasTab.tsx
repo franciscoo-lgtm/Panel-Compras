@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { ShoppingCart, ExternalLink } from 'lucide-react'
+import type { EmbarqueCompra } from '../types'
 
 function fmtDate(d: string | Date | null): string {
   if (!d) return '—'
@@ -10,7 +11,7 @@ function fmtDate(d: string | Date | null): string {
   return dt.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
-export function ComprasTab({ compras, sos }: { compras: any[]; sos: string[] }) {
+export function ComprasTab({ compras, sos }: { compras: EmbarqueCompra[]; sos: string[] }) {
   if (compras.length === 0) {
     return (
       <div className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] py-12 text-center">
@@ -22,8 +23,8 @@ export function ComprasTab({ compras, sos }: { compras: any[]; sos: string[] }) 
 
   return (
     <div className="space-y-4">
-      {compras.map((c: any) => {
-        const sosEnEmbarque = (c.sos ?? []).filter((s: any) => sos.includes(s.soNumber))
+      {compras.map(c => {
+        const sosEnEmbarque = c.sos.filter(s => sos.includes(s.soNumber))
         return (
           <div key={c.id} className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] overflow-hidden">
             <div className="px-4 py-3 bg-[#0d0d0d] border-b border-white/[0.06] flex items-center gap-3">
@@ -42,11 +43,11 @@ export function ComprasTab({ compras, sos }: { compras: any[]; sos: string[] }) 
               <div><p className="text-zinc-500 text-[9px] uppercase tracking-wide">Fecha pago</p><p className="text-zinc-200 tabular-nums">{fmtDate(c.fechaPago)}</p></div>
               <div><p className="text-zinc-500 text-[9px] uppercase tracking-wide">Fecha LMS</p><p className="text-zinc-200 tabular-nums">{fmtDate(c.fechaLMS)}</p></div>
               <div><p className="text-zinc-500 text-[9px] uppercase tracking-wide">Fecha envío</p><p className="text-zinc-200 tabular-nums">{fmtDate(c.fechaEnvio)}</p></div>
-              <div><p className="text-zinc-500 text-[9px] uppercase tracking-wide">SOs en embarque</p><p className="text-zinc-200">{sosEnEmbarque.length} / {c.sos?.length ?? 0}</p></div>
+              <div><p className="text-zinc-500 text-[9px] uppercase tracking-wide">SOs en embarque</p><p className="text-zinc-200">{sosEnEmbarque.length} / {c.sos.length}</p></div>
             </div>
             {sosEnEmbarque.length > 0 && (
               <div className="px-4 pb-3 flex flex-wrap gap-1">
-                {sosEnEmbarque.map((s: any) => (
+                {sosEnEmbarque.map(s => (
                   <span key={s.id} className="px-2 py-0.5 rounded font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     {s.soNumber}
                   </span>

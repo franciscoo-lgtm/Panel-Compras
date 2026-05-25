@@ -5,10 +5,10 @@ import type { DetailProp } from '../EmbarqueDetailClient'
 
 export function ResumenTab({ detail }: { detail: DetailProp }) {
   const photoCount = detail.items.reduce((s, i) => s + (i.photos?.length ?? 0), 0)
-  const itemsConDiff = detail.items.filter((i: any) =>
+  const itemsConDiff = detail.items.filter(i =>
     i.diferenciaPiPl != null && i.diferenciaPiPl !== 0
   ).length
-  const itemsSinFoto = detail.items.filter((i: any) => (i.photos?.length ?? 0) === 0).length
+  const itemsSinFoto = detail.items.filter(i => (i.photos?.length ?? 0) === 0).length
   const okCount = detail.items.length - itemsConDiff - itemsSinFoto
 
   const firstShipment = detail.shipmentsBySO[0]?.[1]

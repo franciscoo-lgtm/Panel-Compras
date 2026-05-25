@@ -7,6 +7,7 @@ import { ItemsTab } from './tabs/ItemsTab'
 import { ControlTab } from './tabs/ControlTab'
 import { FotosTab } from './tabs/FotosTab'
 import { ComprasTab } from './tabs/ComprasTab'
+import type { EmbarqueItem, EmbarqueCompra } from './types'
 
 export type DetailProp = {
   embarqueNo: string
@@ -18,8 +19,8 @@ export type DetailProp = {
   totalItems: number
   totalQty: number
   totalCbm: number
-  items: any[]
-  compras: any[]
+  items: EmbarqueItem[]
+  compras: EmbarqueCompra[]
   shipmentsBySO: [string, { embarqueNo: string; extras: Record<string, string | null> }][]
   extraColumns: { fieldKey: string; label: string }[]
 }
@@ -30,7 +31,7 @@ export function EmbarqueDetailClient({ detail }: { detail: DetailProp }) {
   const [tab, setTab] = useState<TabId>('resumen')
 
   const photoCount = detail.items.reduce((sum, i) => sum + (i.photos?.length ?? 0), 0)
-  const controlIssues = detail.items.filter((i: any) =>
+  const controlIssues = detail.items.filter(i =>
     (i.diferenciaPiPl != null && i.diferenciaPiPl !== 0) || (i.photos?.length ?? 0) === 0
   ).length
 
