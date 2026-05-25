@@ -108,6 +108,13 @@ model CIPLItem {
   qPi            Int?
   diferenciaPiPl Int?
 
+  // ── Control (Fase 2) ───────────────────────────────────────────────────────
+  controlReviewed   Boolean   @default(false)
+  controlReviewedAt DateTime?
+  controlReviewedBy String?
+  controlNota       String?
+  controlManualQty  Int?
+
   // ── Fotos inspección ────────────────────────────────────────────────────────
   photos     CIPLPhoto[]
 
