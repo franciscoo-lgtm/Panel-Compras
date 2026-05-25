@@ -14,13 +14,13 @@ const interDisplay = Inter_Tight({
   subsets: ['latin'],
   variable: '--font-display',
   display: 'swap',
-  weight: ['500', '600', '700'],
 })
 
 const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
   weight: ['400', '500', '600'],
   variable: '--font-geist-mono',
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
