@@ -2,18 +2,19 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, LayoutDashboard, Upload, Anchor, Database, ChevronLeft, ChevronRight, Camera, Send, BarChart2, ShoppingCart } from 'lucide-react'
+import { Home, LayoutDashboard, Upload, Anchor, Database, ChevronLeft, ChevronRight, Camera, Send, BarChart2, ShoppingCart, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const nav = [
-  { href: '/',              label: 'Inicio',            icon: Home },
-  { href: '/compras',       label: 'Compras',           icon: ShoppingCart },
-  { href: '/panel-general', label: 'Panel General',     icon: LayoutDashboard },
-  { href: '/reportes',      label: 'Reportes',          icon: BarChart2 },
-  { href: '/comercial',     label: 'Carga Comercial',   icon: Upload },
-  { href: '/comex',         label: 'Comex Tracking',    icon: Anchor },
-  { href: '/operaciones',   label: 'Fuentes',            icon: Database },
-  { href: '/inspeccion',    label: 'Inspección Fotos',  icon: Camera },
+  { href: '/',              label: 'Inicio',           icon: Home,            legacy: false, badge: null    },
+  { href: '/embarques',     label: 'Embarques',        icon: Anchor,          legacy: false, badge: 'Nuevo' },
+  { href: '/compras',       label: 'Compras',          icon: ShoppingCart,    legacy: false, badge: null    },
+  { href: '/comercial',     label: 'Carga CIPL',       icon: Upload,          legacy: false, badge: null    },
+  { href: '/panel-general', label: 'Panel General',    icon: LayoutDashboard, legacy: true,  badge: null    },
+  { href: '/comex',         label: 'Comex Tracking',   icon: Database,        legacy: true,  badge: null    },
+  { href: '/inspeccion',    label: 'Inspección Fotos', icon: Camera,          legacy: true,  badge: null    },
+  { href: '/reportes',      label: 'Reportes',         icon: BarChart2,       legacy: true,  badge: null    },
+  { href: '/operaciones',   label: 'Fuentes',          icon: Settings,        legacy: true,  badge: null    },
 ]
 
 type Props = { collapsed: boolean; onToggle: () => void }
@@ -49,29 +50,50 @@ export function Sidebar({ collapsed, onToggle }: Props) {
             Módulos
           </p>
         )}
-        {nav.map(({ href, label, icon: Icon }) => {
-          const active = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
-          return (
-            <Link
-              key={href}
-              href={href}
-              title={collapsed ? label : undefined}
-              className={cn(
-                'flex items-center rounded-md text-[13px] font-medium transition-all duration-150 group',
-                collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-2.5 py-2',
-                active
-                  ? 'bg-[#E30613]/10 text-white'
-                  : 'text-white/40 hover:text-white/80 hover:bg-white/[0.04]'
-              )}
-            >
-              <Icon className={cn('w-4 h-4 shrink-0 transition-colors', active ? 'text-[#E30613]' : 'text-white/30 group-hover:text-white/60')} />
-              {!collapsed && <span className="truncate">{label}</span>}
-              {!collapsed && active && (
-                <span className="ml-auto w-1 h-5 rounded-full bg-[#E30613] shrink-0" />
-              )}
-            </Link>
-          )
-        })}
+        {(() => {
+          let legacyHeaderShown = false
+          return nav.map(({ href, label, icon: Icon, legacy, badge }) => {
+            const active = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
+            const showLegacyHeader = legacy && !legacyHeaderShown
+            if (showLegacyHeader) legacyHeaderShown = true
+            return (
+              <div key={href}>
+                {showLegacyHeader && !collapsed && (
+                  <p className="px-2 pt-4 pb-1 text-[9px] uppercase tracking-[0.2em] text-white/15 font-bold">
+                    Legacy
+                  </p>
+                )}
+                {showLegacyHeader && collapsed && (
+                  <div className="mx-1.5 my-2 border-t border-white/[0.06]" />
+                )}
+                <Link
+                  href={href}
+                  title={collapsed ? label : undefined}
+                  className={cn(
+                    'flex items-center rounded-md text-[13px] font-medium transition-all duration-150 group',
+                    collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-2.5 py-2',
+                    active
+                      ? 'bg-[#E30613]/10 text-white'
+                      : legacy
+                        ? 'text-white/25 hover:text-white/50 hover:bg-white/[0.02]'
+                        : 'text-white/40 hover:text-white/80 hover:bg-white/[0.04]'
+                  )}
+                >
+                  <Icon className={cn('w-4 h-4 shrink-0 transition-colors', active ? 'text-[#E30613]' : legacy ? 'text-white/20 group-hover:text-white/40' : 'text-white/30 group-hover:text-white/60')} />
+                  {!collapsed && <span className="truncate">{label}</span>}
+                  {!collapsed && badge && (
+                    <span className="ml-auto text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#E30613]/15 text-[#E30613] font-semibold shrink-0">
+                      {badge}
+                    </span>
+                  )}
+                  {!collapsed && active && !badge && (
+                    <span className="ml-auto w-1 h-5 rounded-full bg-[#E30613] shrink-0" />
+                  )}
+                </Link>
+              </div>
+            )
+          })
+        })()}
       </nav>
 
       {/* Footer / toggle */}
