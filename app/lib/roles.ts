@@ -1,5 +1,3 @@
-import { prisma } from '@/lib/prisma'
-
 export type AppRole = 'comercial' | 'comex' | 'admin'
 
 export const ROLE_LABELS: Record<AppRole, string> = {
@@ -10,6 +8,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 
 // TODO: replace this stub with actual session lookup once auth (NextAuth) is wired up.
 // For now everyone is admin so the new routes work without auth gating.
+// Future implementation will require `prisma` (to load the user record) and the user's session.
 export async function getCurrentRole(): Promise<AppRole | null> {
   return 'admin'
 }
