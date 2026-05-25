@@ -60,7 +60,7 @@ function pickField(shipment: ComexShipment, candidates: string[]): string | null
   return null
 }
 
-export function deriveStatus(shipment: ComexShipment): EmbarqueEstado {
+function deriveStatus(shipment: ComexShipment): EmbarqueEstado {
   const arribo = parseDateLoose(pickField(shipment, ['arribo']))
   if (arribo) return 'arribado'
   const etd = parseDateLoose(pickField(shipment, ['etd']))
