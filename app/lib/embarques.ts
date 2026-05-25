@@ -68,19 +68,41 @@ export function deriveStatus(shipment: ComexShipment): EmbarqueEstado {
   return etd <= new Date() ? 'en-transito' : 'pendiente'
 }
 
+const ESTADO_PRIORITY: Record<EmbarqueEstado, number> = {
+  desconocido:   0,
+  pendiente:     1,
+  'en-transito': 2,
+  arribado:      3,
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function listEmbarques(): Promise<{ summaries: EmbarqueSummary[]; errors: string[] }> {
   const comex = await fetchComexData()
   const summaries: EmbarqueSummary[] = []
 
+  const allSos = new Set<string>()
+  for (const soSet of comex.byEmbarque.values()) {
+    for (const so of soSet) allSos.add(so)
+  }
+
+  const allItems = await prisma.cIPLItem.findMany({
+    where: { soPrincipal: { in: Array.from(allSos) } },
+    select: { id: true, qty: true, cbm: true, soPrincipal: true },
+  })
+
+  const itemsBySO = new Map<string, typeof allItems>()
+  for (const it of allItems) {
+    if (!it.soPrincipal) continue
+    const key = it.soPrincipal.toUpperCase()
+    if (!itemsBySO.has(key)) itemsBySO.set(key, [])
+    itemsBySO.get(key)!.push(it)
+  }
+
   for (const [embarqueNo, soSet] of comex.byEmbarque) {
     const sos = Array.from(soSet)
 
-    const items = await prisma.cIPLItem.findMany({
-      where: { soPrincipal: { in: sos } },
-      select: { id: true, qty: true, cbm: true },
-    })
+    const items = sos.flatMap(so => itemsBySO.get(so.toUpperCase()) ?? [])
 
     let etd: string | null = null
     let eta: string | null = null
@@ -96,7 +118,7 @@ export async function listEmbarques(): Promise<{ summaries: EmbarqueSummary[]; e
       eta ??= pickField(ship, ['eta'])
       awb ??= pickField(ship, ['awb'])
       const st = deriveStatus(ship)
-      if (st !== 'desconocido') estado = st
+      if (ESTADO_PRIORITY[st] > ESTADO_PRIORITY[estado]) estado = st
     }
 
     summaries.push({
@@ -158,7 +180,7 @@ export async function getEmbarqueDetail(embarqueNoRaw: string): Promise<Embarque
     eta ??= pickField(ship, ['eta'])
     awb ??= pickField(ship, ['awb'])
     const st = deriveStatus(ship)
-    if (st !== 'desconocido') estado = st
+    if (ESTADO_PRIORITY[st] > ESTADO_PRIORITY[estado]) estado = st
   }
 
   return {
