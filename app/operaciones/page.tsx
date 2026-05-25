@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { Database } from 'lucide-react'
 import { getComexSources } from '@/app/lib/comex-sources'
 import ComexSourcesClient from './ComexSourcesClient'

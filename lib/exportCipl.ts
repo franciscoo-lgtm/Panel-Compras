@@ -18,7 +18,6 @@ export type ExportItem = {
   soPrincipal:     string | null
   sku:             string | null
   pa:              string | null
-  incoterm:        string | null
   driveLinkPl:     string | null
   driveLinkExcel:  string | null
 }
@@ -112,7 +111,7 @@ export function buildCiplWorkbook(items: ExportItem[]): XLSX.WorkBook {
       cell('', 's'),
       cell('', 's'),
       cell(item.piNo ?? '', 's'),
-      cell(item.incoterm ?? '', 's'),
+      cell('', 's'),
       cell(item.caseNo ?? '', 's'),
       cell(item.soPrincipal ?? '', 's'),
       cell(item.sku ?? '', 's'),

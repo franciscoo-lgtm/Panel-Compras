@@ -4,11 +4,13 @@ import { prisma } from '@/lib/prisma'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
+import { JoinField } from '@/app/lib/comex-fields'
+
 export type ColumnMapping = {
   sheetHeader: string  // exact header in the sheet
   fieldKey: string     // known CIPLItem field OR 'extra_<slug>'
   label: string        // display label in table
-  isJoin: boolean      // true = this column contains the SO number (join key)
+  isJoin: boolean      // true = this column is the join key
 }
 
 export type PanelId = 'panel-general' | 'comex'
@@ -20,6 +22,7 @@ export type ComexSource = {
   sheetName?: string    // exact tab name within the spreadsheet
   enabled: boolean
   panels: PanelId[]     // which panels show this source's columns
+  joinOn?: JoinField    // which panel field to match against (default: 'so')
   mappings: ColumnMapping[]
 }
 
@@ -173,16 +176,18 @@ async function fetchOneSource(source: ComexSource): Promise<LiveDataMap> {
       if (idx >= 0) colIdxMap.push({ fieldKey: m.fieldKey, colIdx: idx })
     }
 
+    const joinOn = source.joinOn ?? 'so'
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i]
       if (!line?.trim()) continue
       const cols = parseCSVRow(line)
-      const so = (cols[joinIdx] ?? '').trim().toUpperCase()
-      if (!so) continue
-      if (!result[so]) result[so] = {}
+      const joinVal = (cols[joinIdx] ?? '').trim().toUpperCase()
+      if (!joinVal) continue
+      const key = `${joinOn}:${joinVal}`
+      if (!result[key]) result[key] = {}
       for (const { fieldKey, colIdx } of colIdxMap) {
         const val = (cols[colIdx] ?? '').trim()
-        if (val) result[so]![fieldKey] = val
+        if (val) result[key]![fieldKey] = val
       }
     }
   } catch (err) {
@@ -209,8 +214,8 @@ export async function fetchAllSourcesData(sources: ComexSource[]): Promise<{
   const extraColumns: ExtraColumn[] = []
   for (const source of enabled) {
     for (const m of source.mappings) {
-      if (m.isJoin) continue
-      if (m.fieldKey.startsWith('extra_') && !seenKeys.has(m.fieldKey)) {
+      if (m.isJoin || m.fieldKey === '_join_') continue
+      if (!seenKeys.has(m.fieldKey)) {
         seenKeys.add(m.fieldKey)
         extraColumns.push({ fieldKey: m.fieldKey, label: m.label })
       }

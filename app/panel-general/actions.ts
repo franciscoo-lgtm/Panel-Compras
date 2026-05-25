@@ -6,12 +6,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { buildCiplWorkbook, workbookToBase64 } from '@/lib/exportCipl'
 import type { ExportItem } from '@/lib/exportCipl'
 
-const DATE_FIELDS = new Set(['arriboWh', 'fechaInstruccion', 'etd', 'eta', 'etaCaldas'])
-
 const GSO_NULL: Record<string, null> = {
-  sku: null, pa: null, modelo: null,
-  qPi: null, incoterm: null, puertoSalida: null,
-  fobUnit: null, fobTotal: null, etd: null, eta: null,
+  sku: null, pa: null, modelo: null, qPi: null,
 }
 
 export async function updateCIPLItem(
@@ -22,18 +18,17 @@ export async function updateCIPLItem(
     const data: Record<string, unknown> = {}
 
     for (const [k, v] of Object.entries(raw)) {
-      if (DATE_FIELDS.has(k)) {
-        data[k] = v ? new Date(v) : null
-      } else {
-        data[k] = v.trim() || null
-      }
+      data[k] = v.trim() || null
     }
 
-    // When SO principal changes, refresh GSO V4 cruce
+    // When SO principal changes, refresh GSO V4 cruce (only pick fields still on CIPLItem)
     if ('soPrincipal' in raw) {
       if (raw.soPrincipal) {
         const gso = await fetchGSORow(raw.soPrincipal)
-        if (gso) Object.assign(data, gso)
+        if (gso) {
+          const { sku, pa, modelo, qPi } = gso
+          Object.assign(data, { sku, pa, modelo, qPi })
+        }
       } else {
         Object.assign(data, GSO_NULL)
       }
@@ -196,7 +191,6 @@ export async function exportCiplAction(itemIds: string[]): Promise<CiplExportRes
         soPrincipal:     true,
         sku:             true,
         pa:              true,
-        incoterm:        true,
         driveLinkPl:     true,
         driveLinkExcel:  true,
         asn:             true,
@@ -224,7 +218,6 @@ export async function exportCiplAction(itemIds: string[]): Promise<CiplExportRes
       soPrincipal:     r.soPrincipal,
       sku:             r.sku,
       pa:              r.pa,
-      incoterm:        r.incoterm,
       driveLinkPl:     r.driveLinkPl,
       driveLinkExcel:  r.driveLinkExcel,
     }))

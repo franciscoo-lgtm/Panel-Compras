@@ -15,9 +15,6 @@ export type CIPLItemRow = {
   soPrincipal: string | null; tipoCarga: string; categoryName: string | null
   description: string | null; qty: number | null; qBultos: number | null
   cbm: number | null; gwKg: number | null
-  etd: string | null; eta: string | null
-  arriboWh: string | null; etaCaldas: string | null
-  awb: string | null; avisoAgente: string | null
 }
 
 // ─── Report tile config ───────────────────────────────────────────────────────
@@ -60,22 +57,16 @@ export type ColDef = { fieldKey: string; label: string; category: ColCategory }
 
 export const FIXED_COLS: ColDef[] = [
   { fieldKey: 'qty',          label: 'Qty',          category: 'qty'      },
-  { fieldKey: 'qBultos',      label: 'Bultos',        category: 'qty'      },
-  { fieldKey: 'cbm',          label: 'CBM',           category: 'qty'      },
-  { fieldKey: 'gwKg',         label: 'GW (kg)',        category: 'qty'      },
-  { fieldKey: 'etd',          label: 'ETD',           category: 'logistica' },
-  { fieldKey: 'eta',          label: 'ETA',           category: 'logistica' },
-  { fieldKey: 'arriboWh',     label: 'Arribo WH',     category: 'logistica' },
-  { fieldKey: 'etaCaldas',    label: 'ETA Caldas',    category: 'logistica' },
-  { fieldKey: 'awb',          label: 'AWB',           category: 'logistica' },
-  { fieldKey: 'avisoAgente',  label: 'Aviso Ag.',     category: 'logistica' },
-  { fieldKey: 'description',  label: 'Descripción',   category: 'logistica' },
-  { fieldKey: 'caseNo',       label: 'N° Caja',       category: 'logistica' },
-  { fieldKey: 'piNo',         label: 'N° PI',         category: 'logistica' },
-  { fieldKey: 'soPrincipal',  label: 'SO Principal',  category: 'logistica' },
-  { fieldKey: 'tipoCarga',    label: 'Tipo',          category: 'logistica' },
-  { fieldKey: 'categoryName', label: 'Categoría',     category: 'logistica' },
-  { fieldKey: '_diasTransito', label: 'Días tránsito', category: 'calc'    },
+  { fieldKey: 'qBultos',      label: 'Bultos',       category: 'qty'      },
+  { fieldKey: 'cbm',          label: 'CBM',          category: 'qty'      },
+  { fieldKey: 'gwKg',         label: 'GW (kg)',      category: 'qty'      },
+  { fieldKey: 'description',  label: 'Descripción',  category: 'logistica' },
+  { fieldKey: 'caseNo',       label: 'N° Caja',      category: 'logistica' },
+  { fieldKey: 'piNo',         label: 'N° PI',        category: 'logistica' },
+  { fieldKey: 'soPrincipal',  label: 'SO Principal', category: 'logistica' },
+  { fieldKey: 'tipoCarga',    label: 'Tipo',         category: 'logistica' },
+  { fieldKey: 'categoryName', label: 'Categoría',    category: 'logistica' },
+  { fieldKey: '_diasTransito', label: 'Días tránsito', category: 'calc'   },
 ]
 
 export const GROUP_BY_OPTIONS: { key: GroupByField; label: string }[] = [
@@ -111,12 +102,6 @@ function applyFilters(items: CIPLItemRow[], f: TileFilters): CIPLItemRow[] {
       const q = f.search.toLowerCase()
       if (![item.asn, item.piNo, item.soPrincipal, item.description]
           .some(v => v?.toLowerCase().includes(q))) return false
-    }
-    if (f.dateFrom || f.dateTo) {
-      const d = item.etd ? new Date(item.etd) : null
-      if (!d) return false
-      if (f.dateFrom && d < new Date(f.dateFrom)) return false
-      if (f.dateTo   && d > new Date(f.dateTo))   return false
     }
     return true
   })
@@ -155,21 +140,48 @@ function buildGroups(items: CIPLItemRow[], groupBy: GroupByField): ReportGroup[]
   })
 }
 
+// ─── Live data helpers ────────────────────────────────────────────────────────
+
+function getLiveValue(item: CIPLItemRow, fieldKey: string, liveData: LiveDataMap): string | null {
+  const keys = [
+    item.soPrincipal ? `so:${item.soPrincipal.trim().toUpperCase()}` : null,
+    item.asn         ? `asn:${item.asn.trim().toUpperCase()}`        : null,
+    item.piNo        ? `piNo:${item.piNo.trim().toUpperCase()}`      : null,
+  ].filter((k): k is string => !!k)
+  for (const k of keys) {
+    const v = liveData[k]?.[fieldKey]
+    if (v != null) return v
+    const en = liveData[k]?.['embarqueNo']?.trim().toUpperCase()
+    if (en) {
+      const v2 = liveData[`embarqueNo:${en}`]?.[fieldKey]
+      if (v2 != null) return v2
+    }
+  }
+  return null
+}
+
 // ─── Cell value resolver ──────────────────────────────────────────────────────
 
 function getCellValue(item: CIPLItemRow, fieldKey: string, liveData: LiveDataMap): string {
   if (fieldKey === '_diasTransito') {
-    const etd    = item.etd    ? new Date(item.etd)    : null
-    const arribo = item.arriboWh ? new Date(item.arriboWh) : null
-    const eta    = item.eta    ? new Date(item.eta)    : null
+    const etdRaw    = getLiveValue(item, 'etd', liveData)
+    const arriboRaw = getLiveValue(item, 'arriboWh', liveData)
+    const etaRaw    = getLiveValue(item, 'eta', liveData)
+    const etd    = etdRaw    ? new Date(etdRaw)    : null
+    const arribo = arriboRaw ? new Date(arriboRaw) : null
+    const eta    = etaRaw    ? new Date(etaRaw)    : null
     if (!etd) return '—'
     if (arribo) return String(Math.round((arribo.getTime() - etd.getTime()) / 86400000))
     if (eta && eta < new Date()) return '⚠ demorado'
     return '—'
   }
-  if (fieldKey.startsWith('extra_')) {
-    const so = item.soPrincipal?.trim().toUpperCase()
-    return so ? (liveData[so]?.[fieldKey] ?? '—') : '—'
+  // Try liveData first (covers source-mapped fields like etd, eta, arriboWh, etc.)
+  const lv = getLiveValue(item, fieldKey, liveData)
+  if (lv != null) {
+    if (/^\d{4}-\d{2}-\d{2}/.test(lv)) {
+      return new Date(lv).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+    }
+    return lv
   }
   const val = (item as Record<string, unknown>)[fieldKey]
   if (val == null) return '—'

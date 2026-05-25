@@ -1,5 +1,17 @@
 // Shared constant — no 'use server' (not a server action file)
 
+export const JOINABLE_FIELDS = [
+  { key: 'so',         label: 'SO (número de orden)'   },
+  { key: 'asn',        label: 'ASN (número de envío)'  },
+  { key: 'piNo',       label: 'N° PI / Invoice'         },
+  { key: 'embarqueNo', label: 'N° Embarque'             },
+] as const
+export type JoinField = typeof JOINABLE_FIELDS[number]['key']
+
+// Fields that are NOT native CIPLItem properties — their value must be looked up
+// from liveData before using them as a secondary join key.
+export const LIVE_JOIN_FIELDS: JoinField[] = ['embarqueNo']
+
 export const KNOWN_MAPPABLE_FIELDS = [
   { key: 'etd',                  label: 'ETD',              type: 'date'   },
   { key: 'eta',                  label: 'ETA',              type: 'date'   },
@@ -29,10 +41,16 @@ export type KnownFieldKey = typeof KNOWN_MAPPABLE_FIELDS[number]['key']
 
 // Fields that are Compra logistics milestones (come from Comex sources)
 export const COMPRA_COMEX_MILESTONE_FIELDS: Array<{ fieldKey: string; label: string; type: 'date' | 'string' }> = [
-  { fieldKey: 'embarqueNo',          label: 'N° Embarque (interno)',  type: 'string' },
-  { fieldKey: 'arriboWh',            label: 'Arribo WH Airsea',       type: 'date'   },
+  { fieldKey: 'embarqueNo',          label: 'N° Embarque',            type: 'string' },
+  { fieldKey: 'awb',                 label: 'AWB / BL',               type: 'string' },
+  { fieldKey: 'fechaInstruccion',    label: 'F. Instrucción',         type: 'date'   },
   { fieldKey: 'etd',                 label: 'ETD',                    type: 'date'   },
   { fieldKey: 'eta',                 label: 'ETA',                    type: 'date'   },
+  { fieldKey: 'etaCaldas',           label: 'ETA Caldas',             type: 'date'   },
+  { fieldKey: 'arriboWh',            label: 'Arribo WH',              type: 'date'   },
   { fieldKey: 'fechaArriboAduana',   label: 'Arribo Aduana',          type: 'date'   },
   { fieldKey: 'fechaArriboDeposito', label: 'Arribo Depósito',        type: 'date'   },
+  { fieldKey: 'avisoAgente',         label: 'Aviso Agente',           type: 'string' },
+  { fieldKey: 'avisoConfirmacion',   label: 'Conf. Agente',           type: 'string' },
+  { fieldKey: 'confirmacionOk',      label: 'Conf. OK',               type: 'string' },
 ]

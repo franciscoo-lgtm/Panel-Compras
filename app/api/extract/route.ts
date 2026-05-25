@@ -1,5 +1,4 @@
-export const runtime    = 'edge'
-export const maxDuration = 25
+export const maxDuration = 60
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,9 +65,10 @@ Rules:
 
 // ─── Anthropic call (raw fetch, edge-compatible) ──────────────────────────────
 
-async function callHaiku(
+async function callHaikuText(
+  system: string,
   userContent: Array<{ type: string; [key: string]: unknown }>
-): Promise<ExtractedItem[]> {
+): Promise<string> {
   const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -80,7 +80,7 @@ async function callHaiku(
     body: JSON.stringify({
       model:      'claude-haiku-4-5-20251001',
       max_tokens: 8192,
-      system:     SYSTEM_PROMPT,
+      system,
       messages:   [{ role: 'user', content: userContent }],
     }),
   })
@@ -90,8 +90,14 @@ async function callHaiku(
     throw new Error(`Anthropic ${apiRes.status}: ${t.slice(0, 300)}`)
   }
 
-  const data  = await apiRes.json() as { content?: Array<{ type: string; text?: string }> }
-  const raw   = data.content?.[0]?.type === 'text' ? (data.content[0].text ?? '[]') : '[]'
+  const data = await apiRes.json() as { content?: Array<{ type: string; text?: string }> }
+  return data.content?.[0]?.type === 'text' ? (data.content[0].text ?? '') : ''
+}
+
+async function callHaiku(
+  userContent: Array<{ type: string; [key: string]: unknown }>
+): Promise<ExtractedItem[]> {
+  const raw   = await callHaikuText(SYSTEM_PROMPT, userContent)
   const start = raw.indexOf('[')
   const end   = raw.lastIndexOf(']')
   if (start === -1 || end === -1) {
@@ -99,6 +105,21 @@ async function callHaiku(
     return []
   }
   return JSON.parse(raw.slice(start, end + 1)) as ExtractedItem[]
+}
+
+// ─── Enforce single primary row per carton ────────────────────────────────────
+// Claude sometimes fills dimensions on all sub-rows; this corrects it.
+
+function enforcePrimaryRow(items: ExtractedItem[]): ExtractedItem[] {
+  const seen = new Set<string>()
+  return items.map(item => {
+    if (!item.caseNo) return item
+    if (seen.has(item.caseNo)) {
+      return { ...item, qBultos: null, w: null, l: null, h: null, cbm: null, gwKg: null, cbmXBulto: null }
+    }
+    seen.add(item.caseNo)
+    return item
+  })
 }
 
 // ─── ArrayBuffer → base64 (no Buffer / Node.js needed) ───────────────────────
@@ -123,27 +144,70 @@ export async function POST(req: Request): Promise<Response> {
     // Client sends JSON body with pre-extracted sheet text (xlsx parsed browser-side)
     if (tipoParam === 'Repuesto' || ct.includes('application/json')) {
       const json    = await req.json() as { ciText?: string; plText?: string }
-      const ciText  = json.ciText ?? '(no CommercialInvoice sheet found)'
-      const plText  = json.plText ?? '(no PackingList sheet found)'
+      const ciText  = json.ciText ?? ''
+      const plText  = json.plText ?? ''
 
-      const promptText = `Extract all line items from this DJI Repuesto (Spare Parts) Excel CIPL.
+      // Extract shared header fields via regex — no AI tokens wasted repeating them per row
+      const combined  = ciText + '\n' + plText
+      const asnMatch  = combined.match(/\|\s*(?:ASN\.|Packing List No\.)\s*\|\s*([A-Z]{2,5}\d{6,}[A-Z0-9]*)/i)
+      const dateMatch = combined.match(/\|\s*Date\s*\|\s*(\d{4}-\d{2}-\d{2})/)
+      const piNoMatch = ciText.match(/\|\s*CAS No\.\s*\|\s*(CAS-[\w-]+)/)
 
-=== COMMERCIAL INVOICE SHEET ===
-${ciText.slice(0, 6000)}
+      const sharedAsn  = asnMatch?.[1]?.trim()  ?? null
+      const sharedDate = dateMatch?.[1]?.trim()  ?? null
+      const sharedPiNo = piNoMatch?.[1]?.trim()  ?? null
 
-=== PACKING LIST SHEET ===
+      // Ask Claude only for per-row variable fields using compact abbreviated keys
+      // This keeps the response well under the 8192-token Haiku limit
+      const promptText = `Extract ALL data rows from this DJI Repuesto Packing List. Return ONLY a minified JSON array (no whitespace, no code fences).
+
+=== PACKING LIST ===
 ${plText.slice(0, 10000)}
 
-INSTRUCTIONS:
-- piNo = CAS No. value from CommercialInvoice (same for all rows)
-- codeEan = the DJI official part/item number (column labeled "No.", "Item No.", "P/N", "Product Code", or "Item" — NOT the EAN barcode, NOT a distributor SKU). This is typically a short numeric or alphanumeric code like "15522" or "CP.MA.00000266.01".
-- description = the text description only (e.g. "Motor", "Battery", "Arm") — do NOT include the item number in this field
-- caseNo: apply fill-down if rows share the same physical carton; multiple items in the same carton share the same caseNo
-- qBultos = 1 only on the FIRST item of each carton (primary row); set null on all subsequent items in the same carton
-- gwKg / w / l / h: set ONLY on the primary row of each carton; null on sub-rows
-- Output rows in EXACTLY the same order as the Packing List (top to bottom, by carton number)`
+One object per row using these abbreviated keys (omit null/blank fields entirely):
+- "cn": full Case No (e.g. "731226126040200000158-1"). Fill-down if blank. WARNING: the "No" column with 1,2,3… is the carton sequence — do NOT use it as cn.
+- "qb": 1 only on FIRST row of each cn; omit on sub-rows with same cn
+- "q": Qty column number
+- "c": Part No. or P/N column (e.g. "BC.AG.SS001102.01")
+- "d": Description text
+- "w","l","h": numbers from SIZE field (split "59*57*27" or "59x57x27" on * or x)
+- "cbm": Volume(CBM) — first row per cn only
+- "gw": GW(KG) — first row per cn only
+- "dg": true only if description mentions lithium battery, flammable, aerosol, or explosive
 
-      const items = await callHaiku([{ type: 'text', text: promptText }])
+Output MINIFIED JSON only — single line, no spaces between keys/values.`
+
+      type CompactRow = { cn?:string; qb?:number; q?:number; c?:string; d?:string; w?:number; l?:number; h?:number; cbm?:number; gw?:number; dg?:boolean }
+
+      const REPUESTO_SYSTEM = `You are a packing list data extractor. Return ONLY a compact minified JSON array with no whitespace and no code fences.`
+      const raw   = await callHaikuText(REPUESTO_SYSTEM, [{ type: 'text', text: promptText }])
+      const start = raw.indexOf('[')
+      const end   = raw.lastIndexOf(']')
+      if (start === -1 || end === -1) {
+        console.error('[extract/repuesto] No JSON array in response:', raw.slice(0, 300))
+        return Response.json({ success: false, error: 'La IA no devolvió datos válidos.' } satisfies RouteResult)
+      }
+      const compact = JSON.parse(raw.slice(start, end + 1)) as CompactRow[]
+
+      const items = enforcePrimaryRow(compact.map(row => ({
+        asn:             sharedAsn,
+        date:            sharedDate,
+        piNo:            sharedPiNo,
+        caseNo:          row.cn  ?? null,
+        qBultos:         row.qb  ?? null,
+        qty:             row.q   ?? null,
+        codeEan:         row.c   ?? null,
+        description:     row.d   ?? null,
+        w:               row.w   ?? null,
+        l:               row.l   ?? null,
+        h:               row.h   ?? null,
+        cbm:             row.cbm ?? null,
+        gwKg:            row.gw  ?? null,
+        cbmXBulto:       (row.cbm != null && (row.qb ?? 0) > 0) ? +((row.cbm) / (row.qb ?? 1)).toFixed(6) : null,
+        uniXBulto:       (row.q  != null && (row.qb ?? 0) > 0) ? +((row.q)   / (row.qb ?? 1)).toFixed(4) : null,
+        isDangerousGood: row.dg  ?? false,
+      })))
+
       return Response.json({ success: true, items, tipoCarga: 'Repuesto' } satisfies RouteResult)
     }
 
@@ -169,13 +233,13 @@ INSTRUCTIONS:
 - qBultos, gwKg, w, l, h, cbm: set ONLY on the primary row of each carton; null on sub-rows within the same carton
 - Output rows in EXACTLY the same order as the Packing List (top to bottom, by carton number)`
 
-    const items = await callHaiku([
+    const items = enforcePrimaryRow(await callHaiku([
       { type: 'text', text: '=== COMMERCIAL INVOICE PDF ===' },
       { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: ciB64 } },
       { type: 'text', text: '=== PACKING LIST PDF ===' },
       { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: plB64 } },
       { type: 'text', text: promptText },
-    ])
+    ]))
     return Response.json({ success: true, items, tipoCarga: 'Mercaderia' } satisfies RouteResult)
 
   } catch (err) {

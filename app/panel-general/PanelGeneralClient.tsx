@@ -14,8 +14,7 @@ const ALL_COLS = [
   'piNo','cajaBultos','ean','descripcion','qty',
   'plSO','qGso','dif',
   'wxlxh','gwKg','cbm','cbmBulto','uniBulto','dg',
-  'soPrincipal','soSecundario','drive','fotos','incoterm','puertoSalida',
-  'etd','eta','etaCaldas','awb','arriboWh','paletizado',
+  'soPrincipal','soSecundario','drive','fotos',
 ] as const
 
 type ColKey = typeof ALL_COLS[number]
@@ -26,8 +25,6 @@ const COL_LABELS: Record<ColKey, string> = {
   plSO: '∑ PL/SO', qGso: 'Q GSO', dif: 'Dif',
   wxlxh: 'W×L×H (cm)', gwKg: 'GW kg', cbm: 'CBM', cbmBulto: 'CBM/Bulto', uniBulto: 'Uni/Bulto', dg: 'DG',
   soPrincipal: 'SO Principal', soSecundario: 'SO Secund.', drive: 'Drive', fotos: 'Fotos',
-  incoterm: 'Incoterm', puertoSalida: 'Puerto Salida',
-  etd: 'ETD', eta: 'ETA', etaCaldas: 'ETA Caldas', awb: 'AWB', arriboWh: 'Arribo WH', paletizado: 'Paletizado',
 }
 
 type ColGroup = {
@@ -39,12 +36,11 @@ type ColGroup = {
 }
 
 const GROUPS: ColGroup[] = [
-  { label: 'Identificación', textColor: 'text-amber-500', accentColor: '#f59e0b', borderClass: '', cols: ['tipo','cargado','category','asn','date'] },
-  { label: 'Producto',       textColor: 'text-amber-500', accentColor: '#f59e0b', borderClass: 'border-l-2 border-l-amber-100', cols: ['piNo','cajaBultos','ean','descripcion','qty'] },
-  { label: 'PL vs GSO',     textColor: 'text-blue-500',  accentColor: '#3b82f6', borderClass: 'border-l-2 border-l-blue-100', cols: ['plSO','qGso','dif'] },
-  { label: 'Dimensiones',   textColor: 'text-zinc-500',  accentColor: '#71717a', borderClass: 'border-l-2 border-l-zinc-200', cols: ['wxlxh','gwKg','cbm','cbmBulto','uniBulto','dg'] },
-  { label: 'Comercial',     textColor: 'text-violet-500',accentColor: '#8b5cf6', borderClass: 'border-l-2 border-l-violet-100', cols: ['soPrincipal','soSecundario','drive','fotos','incoterm','puertoSalida'] },
-  { label: 'Comex / Tracking', textColor: 'text-cyan-500', accentColor: '#06b6d4', borderClass: 'border-l-2 border-l-cyan-100', cols: ['etd','eta','etaCaldas','awb','arriboWh','paletizado'] },
+  { label: 'Identificación', textColor: 'text-amber-400', accentColor: '#f59e0b', borderClass: '', cols: ['tipo','cargado','category','asn','date'] },
+  { label: 'Producto',       textColor: 'text-amber-400', accentColor: '#f59e0b', borderClass: 'border-l-2 border-l-amber-500/20', cols: ['piNo','cajaBultos','ean','descripcion','qty'] },
+  { label: 'PL vs GSO',     textColor: 'text-blue-400',  accentColor: '#3b82f6', borderClass: 'border-l-2 border-l-blue-500/20', cols: ['plSO','qGso','dif'] },
+  { label: 'Dimensiones',   textColor: 'text-white/40',  accentColor: '#71717a', borderClass: 'border-l-2 border-l-white/10', cols: ['wxlxh','gwKg','cbm','cbmBulto','uniBulto','dg'] },
+  { label: 'Comercial',     textColor: 'text-violet-400',accentColor: '#8b5cf6', borderClass: 'border-l-2 border-l-violet-500/20', cols: ['soPrincipal','soSecundario','drive','fotos'] },
 ]
 
 const PRESET_ESENCIALES: ColKey[] = [
@@ -55,7 +51,6 @@ const PRESET_ESENCIALES: ColKey[] = [
   'soPrincipal','soSecundario','drive','fotos',
 ]
 const PRESET_DIMENSIONES: ColKey[] = [...PRESET_ESENCIALES, 'cbmBulto','uniBulto']
-const PRESET_COMEX: ColKey[]       = [...PRESET_ESENCIALES, 'etd','eta','etaCaldas','awb','arriboWh','paletizado']
 
 /** Count visible columns in a group */
 function groupSpan(group: ColGroup, vis: Set<ColKey>): number {
@@ -92,14 +87,6 @@ const COL_TH: Record<ColKey, { align: 'left' | 'right' | 'center'; width: string
   soSecundario: { align: 'left',   width: 'w-28'          },
   drive:        { align: 'left',   width: 'w-20'          },
   fotos:        { align: 'center', width: 'w-16'          },
-  incoterm:     { align: 'left',   width: 'w-24'          },
-  puertoSalida: { align: 'left',   width: 'w-28'          },
-  etd:          { align: 'left',   width: 'w-24'          },
-  eta:          { align: 'left',   width: 'w-24'          },
-  etaCaldas:    { align: 'left',   width: 'w-24'          },
-  awb:          { align: 'left',   width: 'w-28'          },
-  arriboWh:     { align: 'left',   width: 'w-24'          },
-  paletizado:   { align: 'left',   width: 'w-24'          },
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -113,12 +100,7 @@ type Item = {
   isDangerousGood: boolean; soPrincipal: string | null; soSecundario: string | null
   photoCount: number
   linkMsds: string | null; sku: string | null; pa: string | null; modelo: string | null
-  qPi: number | null; diferenciaPiPl: number | null; incoterm: string | null
-  puertoSalida: string | null; fobUnit: number | null; fobTotal: number | null
-  avisoAgente: string | null; avisoConfirmacion: string | null; arriboWh: Date | null
-  fotosAgente: string | null; paletizado: string | null; fechaInstruccion: Date | null
-  confirmacionOk: string | null; etd: Date | null; eta: Date | null
-  etaCaldas: Date | null; awb: string | null
+  qPi: number | null; diferenciaPiPl: number | null
   driveLinkExcel: string | null; driveLinkCi: string | null; driveLinkPl: string | null
 }
 
@@ -203,11 +185,28 @@ function expandToDisplayRows(items: Item[]): DisplayRow[] {
 
 // ─── Live data helpers ────────────────────────────────────────────────────────
 
-// Returns live value for a field keyed by the row's active SO
-function getLive(so: string | null | undefined, fieldKey: string, liveData: LiveDataMap): string | null {
-  const soKey = so?.trim().toUpperCase()
-  if (!soKey) return null
-  return liveData[soKey]?.[fieldKey] ?? null
+function getLive(item: DisplayRow, fieldKey: string, liveData: LiveDataMap): string | null {
+  const nativeKeys = [
+    item._displaySO ? `so:${item._displaySO.trim().toUpperCase()}`  : null,
+    item.asn        ? `asn:${item.asn.trim().toUpperCase()}`        : null,
+    item.piNo       ? `piNo:${item.piNo.trim().toUpperCase()}`      : null,
+  ].filter((k): k is string => !!k)
+
+  for (const k of nativeKeys) {
+    const v = liveData[k]?.[fieldKey]
+    if (v != null) return v
+  }
+
+  // Secondary pass: resolve live-only join fields (e.g. embarqueNo) via native keys
+  for (const k of nativeKeys) {
+    const embarqueNo = liveData[k]?.['embarqueNo']?.trim().toUpperCase()
+    if (embarqueNo) {
+      const v = liveData[`embarqueNo:${embarqueNo}`]?.[fieldKey]
+      if (v != null) return v
+    }
+  }
+
+  return null
 }
 
 // ─── Column selector popover ──────────────────────────────────────────────────
@@ -260,7 +259,7 @@ function ColumnSelectorPopover({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(p => !p)}
-        className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+        className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-white/[0.08] text-xs font-medium text-white/50 hover:bg-white/[0.04] transition-colors"
       >
         ⊞ Columnas
         {hiddenCount > 0 && (
@@ -271,19 +270,18 @@ function ColumnSelectorPopover({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 bg-white border border-zinc-200 rounded-xl shadow-2xl p-4 z-50 w-[480px]">
+        <div className="absolute right-0 top-11 bg-[#111] border border-white/[0.08] rounded-xl shadow-2xl p-4 z-50 w-[480px]">
           {/* Preset buttons */}
           <div className="flex gap-2 mb-3">
             {([
               { label: 'Esenciales',  cols: PRESET_ESENCIALES },
               { label: 'Todos',       cols: ALL_COLS },
               { label: 'Dimensiones', cols: PRESET_DIMENSIONES },
-              { label: 'Comex',       cols: PRESET_COMEX },
             ] as const).map(p => (
               <button
                 key={p.label}
                 onClick={() => applyPreset(p.cols)}
-                className="px-3 py-1 rounded-lg text-[10px] font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors"
+                className="px-3 py-1 rounded-lg text-[10px] font-semibold bg-white/[0.06] hover:bg-white/[0.10] text-white/50 transition-colors"
               >
                 {p.label}
               </button>
@@ -300,7 +298,7 @@ function ColumnSelectorPopover({
                 {group.cols.map(col => (
                   <label
                     key={col}
-                    className="flex items-center gap-2 text-[11px] text-zinc-700 cursor-pointer select-none py-0.5"
+                    className="flex items-center gap-2 text-[11px] text-white/60 cursor-pointer select-none py-0.5"
                   >
                     <input
                       type="checkbox"
@@ -318,13 +316,13 @@ function ColumnSelectorPopover({
             {/* Extra columns from sources */}
             {extraColumns.length > 0 && (
               <>
-                <div className="col-span-2 text-[9px] font-bold uppercase tracking-wider mt-3 mb-1 text-violet-500">
+                <div className="col-span-2 text-[9px] font-bold uppercase tracking-wider mt-3 mb-1 text-violet-400">
                   Fuentes
                 </div>
                 {extraColumns.map(c => (
                   <label
                     key={c.fieldKey}
-                    className="flex items-center gap-2 text-[11px] text-zinc-700 cursor-pointer select-none py-0.5"
+                    className="flex items-center gap-2 text-[11px] text-white/60 cursor-pointer select-none py-0.5"
                   >
                     <input
                       type="checkbox"
@@ -410,16 +408,16 @@ function PhotoModal({
           <img src={lightbox} className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain" onClick={e => e.stopPropagation()} alt="foto" />
         </div>
       )}
-      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+      <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-[#111] border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
             <div className="flex items-center gap-2">
-              <Camera className="w-4 h-4 text-amber-500" />
+              <Camera className="w-4 h-4 text-amber-400" />
               <div>
-                <span className="font-semibold text-sm text-zinc-800">Fotos de inspección</span>
-                <span className="ml-2 text-xs text-zinc-400">{label}</span>
+                <span className="font-semibold text-sm text-white">Fotos de inspección</span>
+                <span className="ml-2 text-xs text-white/30">{label}</span>
               </div>
-              {photos && <span className="text-xs text-zinc-400 ml-1">· {photos.length} foto{photos.length !== 1 ? 's' : ''}</span>}
+              {photos && <span className="text-xs text-white/30 ml-1">· {photos.length} foto{photos.length !== 1 ? 's' : ''}</span>}
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -438,7 +436,7 @@ function PhotoModal({
                 {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                 Agregar fotos
               </button>
-              <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-400">
+              <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/[0.06] text-white/30">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -450,11 +448,11 @@ function PhotoModal({
               </div>
             ) : photos.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16 text-center">
-                <Camera className="w-8 h-8 text-zinc-200" />
-                <p className="text-zinc-400 text-sm">Sin fotos asignadas</p>
+                <Camera className="w-8 h-8 text-white/10" />
+                <p className="text-white/30 text-sm">Sin fotos asignadas</p>
                 <button
                   onClick={() => fileRef.current?.click()}
-                  className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold transition-colors"
+                  className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 text-xs font-semibold transition-colors"
                 >
                   <Plus className="w-3 h-3" /> Agregar fotos
                 </button>
@@ -466,7 +464,7 @@ function PhotoModal({
                     <img
                       src={p.dataUrl}
                       onClick={() => setLightbox(p.dataUrl)}
-                      className="w-full aspect-square object-cover rounded-xl border border-zinc-100 cursor-zoom-in hover:opacity-80 transition-opacity"
+                      className="w-full aspect-square object-cover rounded-xl border border-white/[0.06] cursor-zoom-in hover:opacity-80 transition-opacity"
                       alt={`foto ${p.colIndex + 1}`}
                     />
                     <button
@@ -495,21 +493,10 @@ function EditDrawer({
   item: Item; soList: string[]; onClose: () => void; onSaved: (id: string, fields: Record<string, string>) => void
 }) {
   const [fields, setFields] = useState<Record<string, string>>({
-    categoryName:     item.categoryName     ?? '',
-    soPrincipal:      item.soPrincipal      ?? '',
-    soSecundario:     item.soSecundario     ?? '',
-    linkMsds:         item.linkMsds         ?? '',
-    avisoAgente:      item.avisoAgente      ?? '',
-    avisoConfirmacion:item.avisoConfirmacion?? '',
-    arriboWh:         isoDate(item.arriboWh),
-    fotosAgente:      item.fotosAgente      ?? '',
-    paletizado:       item.paletizado       ?? '',
-    fechaInstruccion: isoDate(item.fechaInstruccion),
-    confirmacionOk:   item.confirmacionOk   ?? '',
-    etd:              isoDate(item.etd),
-    eta:              isoDate(item.eta),
-    etaCaldas:        isoDate(item.etaCaldas),
-    awb:              item.awb              ?? '',
+    categoryName: item.categoryName ?? '',
+    soPrincipal:  item.soPrincipal  ?? '',
+    soSecundario: item.soSecundario ?? '',
+    linkMsds:     item.linkMsds     ?? '',
   })
   const [pending, start] = useTransition()
   const [saved, setSaved] = useState(false)
@@ -550,16 +537,16 @@ function EditDrawer({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-[420px] bg-white shadow-2xl z-50 flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div className="fixed right-0 top-0 h-full w-[420px] bg-[#0f0f0f] border-l border-white/[0.06] shadow-2xl z-50 flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
           <div>
-            <p className="text-xs text-zinc-400">{item.tipoCarga} · {item.categoryName ?? '—'}</p>
-            <p className="text-sm font-semibold text-zinc-900 mt-0.5 font-mono truncate max-w-[280px]">
+            <p className="text-xs text-white/30">{item.tipoCarga} · {item.categoryName ?? '—'}</p>
+            <p className="text-sm font-semibold text-white mt-0.5 font-mono truncate max-w-[280px]">
               {item.description ?? item.caseNo ?? item.id}
             </p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-400">
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/[0.06] text-white/30">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -568,7 +555,7 @@ function EditDrawer({
           {/* Drive links */}
           {(item.driveLinkExcel || item.driveLinkCi || item.driveLinkPl) && (
             <section>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">Archivos Drive</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-2">Archivos Drive</p>
               <div className="flex flex-wrap gap-2">
                 {[
                   { label: 'Excel', href: item.driveLinkExcel },
@@ -576,7 +563,7 @@ function EditDrawer({
                   { label: 'PL',    href: item.driveLinkPl },
                 ].filter(l => l.href).map(({ label, href }) => (
                   <a key={label} href={href!} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-50 border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-100 transition-colors">
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-medium text-white/50 hover:bg-white/[0.08] transition-colors">
                     <ExternalLink className="w-3 h-3" />
                     {label}
                   </a>
@@ -588,11 +575,11 @@ function EditDrawer({
           {/* Comercial */}
           <section>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500">Comercial</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Comercial</p>
               <button
                 onClick={handleSuggestSO}
                 disabled={suggesting}
-                className="flex items-center gap-1.5 h-7 px-3 rounded-lg bg-violet-50 hover:bg-violet-100 disabled:opacity-50 text-violet-700 text-[10px] font-bold transition-colors"
+                className="flex items-center gap-1.5 h-7 px-3 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 disabled:opacity-50 text-violet-400 text-[10px] font-bold transition-colors"
               >
                 {suggesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                 Sugerir SO
@@ -600,12 +587,12 @@ function EditDrawer({
             </div>
 
             {suggestion && (
-              <div className="mb-3 p-3 rounded-xl border border-violet-200 bg-violet-50">
+              <div className="mb-3 p-3 rounded-xl border border-violet-500/20 bg-violet-500/10">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
                     <p className="text-[10px] text-violet-400 uppercase tracking-wide font-bold mb-1">Sugerencia IA</p>
-                    <p className="font-mono text-sm font-bold text-violet-800">{suggestion.so}</p>
-                    <p className="text-[11px] text-violet-600 mt-1">{suggestion.reason}</p>
+                    <p className="font-mono text-sm font-bold text-violet-200">{suggestion.so}</p>
+                    <p className="text-[11px] text-violet-300 mt-1">{suggestion.reason}</p>
                   </div>
                   <button
                     onClick={() => { setFields(p => ({ ...p, soPrincipal: suggestion.so })); setSuggestion(null) }}
@@ -641,47 +628,30 @@ function EditDrawer({
           {/* GSO V4 read-only */}
           {(item.sku || item.pa || item.modelo) && (
             <section>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 mb-3">GSO V4</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-3">GSO V4</p>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {[
                   ['SKU', item.sku], ['PA', item.pa], ['Modelo', item.modelo],
-                  ['Q PI', item.qPi], ['Incoterm', item.incoterm],
-                  ['Puerto', item.puertoSalida],
-                  ['FOB Unit', item.fobUnit != null ? fmtNum(item.fobUnit) : null],
-                  ['FOB Total', item.fobTotal != null ? fmtNum(item.fobTotal) : null],
+                  ['Q PI', item.qPi],
                 ].map(([lbl, val]) => (
-                  <div key={String(lbl)} className="bg-zinc-50 rounded-lg px-2.5 py-2">
-                    <p className="text-[10px] text-zinc-400 uppercase tracking-wide">{lbl}</p>
-                    <p className="font-mono text-zinc-700 mt-0.5">{val ?? '—'}</p>
+                  <div key={String(lbl)} className="bg-white/[0.04] rounded-lg px-2.5 py-2">
+                    <p className="text-[10px] text-white/30 uppercase tracking-wide">{lbl}</p>
+                    <p className="font-mono text-white/60 mt-0.5">{val ?? '—'}</p>
                   </div>
                 ))}
               </div>
             </section>
           )}
 
-          {/* Comex */}
+          {/* Comex info */}
           <section>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500 mb-3">Comex Tracking</p>
-            <div className="space-y-3">
-              <Field label="Aviso Agente"><input value={fields.avisoAgente} onChange={set('avisoAgente')} className="input-base" /></Field>
-              <Field label="Confirmación Agente"><input value={fields.avisoConfirmacion} onChange={set('avisoConfirmacion')} className="input-base" /></Field>
-              <Field label="Arribo WH Airsea"><input type="date" value={fields.arriboWh} onChange={set('arriboWh')} className="input-base" /></Field>
-              <Field label="Fotos Agente"><input value={fields.fotosAgente} onChange={set('fotosAgente')} className="input-base" /></Field>
-              <Field label="Paletizado"><input value={fields.paletizado} onChange={set('paletizado')} className="input-base" /></Field>
-              <Field label="Fecha Instrucción"><input type="date" value={fields.fechaInstruccion} onChange={set('fechaInstruccion')} className="input-base" /></Field>
-              <Field label="Confirmación OK"><input value={fields.confirmacionOk} onChange={set('confirmacionOk')} className="input-base" /></Field>
-              <div className="grid grid-cols-3 gap-2">
-                <Field label="ETD"><input type="date" value={fields.etd} onChange={set('etd')} className="input-base" /></Field>
-                <Field label="ETA"><input type="date" value={fields.eta} onChange={set('eta')} className="input-base" /></Field>
-                <Field label="ETA Caldas"><input type="date" value={fields.etaCaldas} onChange={set('etaCaldas')} className="input-base" /></Field>
-              </div>
-              <Field label="AWB"><input value={fields.awb} onChange={set('awb')} className="input-base font-mono" /></Field>
-            </div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-2">Comex Tracking</p>
+            <p className="text-[11px] text-white/30 leading-relaxed">Los datos de tracking se alimentan desde las fuentes configuradas en Operaciones.</p>
           </section>
         </div>
 
-        <div className="border-t border-zinc-100 px-5 py-4 flex items-center gap-3">
-          {saved && <span className="flex items-center gap-1.5 text-xs text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" />Guardado</span>}
+        <div className="border-t border-white/[0.06] px-5 py-4 flex items-center gap-3">
+          {saved && <span className="flex items-center gap-1.5 text-xs text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" />Guardado</span>}
           <button onClick={handleSave} disabled={pending}
             className="ml-auto h-9 px-5 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:opacity-50 text-zinc-900 font-semibold text-sm flex items-center gap-2">
             {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
@@ -696,7 +666,7 @@ function EditDrawer({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide block mb-1">{label}</label>
+      <label className="text-[10px] font-semibold text-white/30 uppercase tracking-wide block mb-1">{label}</label>
       {children}
     </div>
   )
@@ -738,7 +708,7 @@ function exportXLSX(rows: DisplayRow[], extraColumns: ExtraColumn[], liveData: L
     'SO Principal': i.soPrincipal ?? '',
     'SO Secundario':i.soSecundario ?? '',
     ...Object.fromEntries(
-      extraColumns.map(c => [c.label, getLive(i._displaySO, c.fieldKey, liveData) ?? ''])
+      extraColumns.map(c => [c.label, getLive(i, c.fieldKey, liveData) ?? ''])
     ),
   }))
 
@@ -879,7 +849,7 @@ export default function PanelGeneralClient({
   const filteredIds = [...new Set(filteredItems.map(i => i.id))]
   const allFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selected.has(id))
 
-  const gl = (item: DisplayRow, key: string) => getLive(item._displaySO, key, liveData)
+  const gl = (item: DisplayRow, key: string) => getLive(item, key, liveData)
   const { spanMap, skipSet, dimsForKey } = buildDimGroups(filtered)
 
   const asnGroups = useMemo(() => {
@@ -970,14 +940,9 @@ export default function PanelGeneralClient({
   }
 
   const handleSaved = useCallback((id: string, fields: Record<string, string>) => {
-    setItems(prev => prev.map(item => {
-      if (item.id !== id) return item
-      const next = { ...item, ...fields }
-      for (const k of ['arriboWh', 'fechaInstruccion', 'etd', 'eta', 'etaCaldas'] as const) {
-        (next as Record<string, unknown>)[k] = fields[k] ? new Date(fields[k]) : null
-      }
-      return next as Item
-    }))
+    setItems(prev => prev.map(item =>
+      item.id !== id ? item : { ...item, ...fields } as Item
+    ))
     setEditing(prev => prev?.id === id ? ({ ...prev, ...fields } as Item) : prev)
   }, [])
 
@@ -1008,10 +973,8 @@ export default function PanelGeneralClient({
       const align  = cfg.align === 'right' ? 'text-right' : cfg.align === 'center' ? 'text-center' : 'text-left'
       const color  = ['plSO','qGso','dif'].includes(col)
         ? 'text-blue-500'
-        : ['soPrincipal','soSecundario','drive','fotos','incoterm','puertoSalida'].includes(col)
+        : ['soPrincipal','soSecundario','drive','fotos'].includes(col)
         ? 'text-violet-400'
-        : ['etd','eta','etaCaldas','awb','arriboWh','paletizado'].includes(col)
-        ? 'text-cyan-500'
         : 'text-zinc-400'
       return (
         <th
@@ -1020,7 +983,7 @@ export default function PanelGeneralClient({
           onDragStart={e => onColDragStart(group.label, col, e)}
           onDragOver={e  => onColDragOver(group.label, col, e)}
           onDragEnd={onColDragEnd}
-          className={`px-2 py-2 ${align} text-[10px] font-bold uppercase tracking-widest ${color} ${cfg.width} ${border} cursor-grab select-none hover:bg-zinc-100/60 transition-colors`}
+          className={`px-2 py-2 ${align} text-[10px] font-bold uppercase tracking-widest ${color} ${cfg.width} ${border} cursor-grab select-none hover:bg-white/[0.04] transition-colors`}
           title="Arrastrá para reordenar"
         >
           {COL_LABELS[col]}
@@ -1036,13 +999,13 @@ export default function PanelGeneralClient({
     const isRep     = item.tipoCarga === 'Repuesto'
 
     let soTotal: number | null = null, qGsoVal: number | null = null, diff: number | null = null
-    let diffColor = 'text-zinc-300'
+    let diffColor = 'text-white/20'
     if (group.label === 'PL vs GSO') {
       soTotal  = item._displaySO ? (soQtyMap.get(item._displaySO) ?? null) : null
       const rq = gl(item, 'qPi')
       qGsoVal  = rq != null ? (Number.isFinite(Number(rq)) ? Number(rq) : null) : (item._isPrimary ? item.qPi : null)
       diff     = soTotal != null && qGsoVal != null ? soTotal - qGsoVal : null
-      diffColor = diff == null ? 'text-zinc-300' : diff === 0 ? 'text-emerald-600 font-bold' : diff > 0 ? 'text-amber-600 font-bold' : 'text-red-600 font-bold'
+      diffColor = diff == null ? 'text-white/20' : diff === 0 ? 'text-emerald-400 font-bold' : diff > 0 ? 'text-amber-400 font-bold' : 'text-red-400 font-bold'
     }
 
     return ordered.filter(c => vis.has(c)).map(col => {
@@ -1050,104 +1013,96 @@ export default function PanelGeneralClient({
       switch (col) {
         case 'tipo': return (
           <td key={col} className="pl-5 pr-2 py-2.5">
-            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${isRep ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${isRep ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-400/10 text-red-400'}`}>
               {isRep ? <FileSpreadsheet className="w-2.5 h-2.5" /> : <FileText className="w-2.5 h-2.5" />}
               {item.tipoCarga}
             </span>
           </td>
         )
-        case 'cargado':  return <td key={col} className="px-2 py-2.5 text-zinc-400 whitespace-nowrap">{fmtDate(item.createdAt)}</td>
-        case 'category': return <td key={col} className="px-2 py-2.5 text-zinc-500">{item.categoryName ?? '—'}</td>
-        case 'asn':      return <td key={col} className="px-2 py-2.5 font-mono text-zinc-600">{item.asn ?? '—'}</td>
-        case 'date':     return <td key={col} className="px-2 py-2.5 text-zinc-500 whitespace-nowrap">{fmtDate(item.date)}</td>
-        case 'piNo':     return <td key={col} className={`px-2 py-2.5 font-mono text-zinc-600 ${border}`}>{item.piNo ?? '—'}</td>
+        case 'cargado':  return <td key={col} className="px-2 py-2.5 text-white/30 whitespace-nowrap">{fmtDate(item.createdAt)}</td>
+        case 'category': return <td key={col} className="px-2 py-2.5 text-white/40">{item.categoryName ?? '—'}</td>
+        case 'asn':      return <td key={col} className="px-2 py-2.5 font-mono text-white/50">{item.asn ?? '—'}</td>
+        case 'date':     return <td key={col} className="px-2 py-2.5 text-white/40 whitespace-nowrap">{fmtDate(item.date)}</td>
+        case 'piNo':     return <td key={col} className={`px-2 py-2.5 font-mono text-white/50 ${border}`}>{item.piNo ?? '—'}</td>
         case 'cajaBultos': return (
-          <td key={col} className={`px-2 py-2.5 font-mono text-zinc-600 ${border}`}>
+          <td key={col} className={`px-2 py-2.5 font-mono text-white/50 ${border}`}>
             {isRep ? (item.caseNo ?? '—') : (item.qBultos != null ? `${item.qBultos} bultos` : '—')}
           </td>
         )
-        case 'ean':      return <td key={col} className={`px-2 py-2.5 font-mono text-zinc-600 ${border}`}>{item.codeEan ?? '—'}</td>
+        case 'ean':      return <td key={col} className={`px-2 py-2.5 font-mono text-white/50 ${border}`}>{item.codeEan ?? '—'}</td>
         case 'descripcion': return (
           <td key={col} className={`px-2 py-2.5 max-w-[180px] ${border}`}>
-            <span className="line-clamp-2 text-zinc-700" title={item.description ?? ''}>{item.description ?? '—'}</span>
+            <span className="line-clamp-2 text-white/70" title={item.description ?? ''}>{item.description ?? '—'}</span>
           </td>
         )
-        case 'qty':  return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-600 ${border}`}>{item.qty ?? '—'}</td>
-        case 'plSO': return <td key={col} className={`px-2 py-2.5 text-right font-mono text-blue-700 ${border}`}>{soTotal != null ? soTotal.toLocaleString('es-AR') : '—'}</td>
-        case 'qGso': return <td key={col} className={`px-2 py-2.5 text-right font-mono text-blue-500 ${border}`}>{qGsoVal != null ? qGsoVal.toLocaleString('es-AR') : '—'}</td>
+        case 'qty':  return <td key={col} className={`px-2 py-2.5 text-right font-mono text-white/50 ${border}`}>{item.qty ?? '—'}</td>
+        case 'plSO': return <td key={col} className={`px-2 py-2.5 text-right font-mono text-blue-400 ${border}`}>{soTotal != null ? soTotal.toLocaleString('es-AR') : '—'}</td>
+        case 'qGso': return <td key={col} className={`px-2 py-2.5 text-right font-mono text-blue-300 ${border}`}>{qGsoVal != null ? qGsoVal.toLocaleString('es-AR') : '—'}</td>
         case 'dif':  return <td key={col} className={`px-2 py-2.5 text-right font-mono ${diffColor} ${border}`}>{diff == null ? '—' : diff > 0 ? `+${diff.toLocaleString('es-AR')}` : diff.toLocaleString('es-AR')}</td>
         case 'wxlxh': {
           if (skipSet.has(rowKey)) return null
-          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-500 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{dims}</td>
+          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-white/40 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{dims}</td>
         }
         case 'gwKg': {
           if (skipSet.has(rowKey)) return null
-          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-600 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{fmtNum(dimSource.gwKg, 2)}</td>
+          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-white/50 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{fmtNum(dimSource.gwKg, 2)}</td>
         }
         case 'cbm': {
           if (skipSet.has(rowKey)) return null
-          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-600 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{fmtNum(dimSource.cbm, 5)}</td>
+          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-white/50 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{fmtNum(dimSource.cbm, 5)}</td>
         }
         case 'cbmBulto': {
           if (skipSet.has(rowKey)) return null
-          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-500 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{fmtNum(dimSource.cbmXBulto, 5)}</td>
+          return <td key={col} className={`px-2 py-2.5 text-right font-mono text-white/40 align-middle ${border}`} rowSpan={spanMap.get(rowKey) ?? 1}>{fmtNum(dimSource.cbmXBulto, 5)}</td>
         }
-        case 'uniBulto': return <td key={col} className={`px-2 py-2.5 text-right font-mono text-zinc-500 ${border}`}>{fmtNum(item.uniXBulto, 4)}</td>
+        case 'uniBulto': return <td key={col} className={`px-2 py-2.5 text-right font-mono text-white/40 ${border}`}>{fmtNum(item.uniXBulto, 4)}</td>
         case 'dg': return (
           <td key={col} className={`px-2 py-2.5 text-center ${border}`}>
-            {item.isDangerousGood ? <AlertTriangle className="w-3.5 h-3.5 text-orange-500 mx-auto" /> : <span className="text-zinc-200">—</span>}
+            {item.isDangerousGood ? <AlertTriangle className="w-3.5 h-3.5 text-orange-400 mx-auto" /> : <span className="text-white/10">—</span>}
           </td>
         )
         case 'soPrincipal': return (
           <td key={col} className={`px-2 py-2.5 ${border}`}>
             {item._displaySO ? (
               <div className="flex items-center gap-1 flex-wrap">
-                <span className="font-mono text-[11px] bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded">{item._displaySO}</span>
+                <span className="font-mono text-[11px] bg-amber-400/15 text-amber-300 px-1.5 py-0.5 rounded">{item._displaySO}</span>
                 {item._isSplit && (
-                  <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${item._isPrimary ? 'bg-amber-100 text-amber-600' : 'bg-sky-50 text-sky-500'}`}>
+                  <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${item._isPrimary ? 'bg-amber-400/20 text-amber-400' : 'bg-sky-400/15 text-sky-400'}`}>
                     {item._isPrimary ? '1°' : '2°'}
                   </span>
                 )}
               </div>
-            ) : <span className="text-zinc-300 italic text-[10px]">sin SO</span>}
+            ) : <span className="text-white/20 italic text-[10px]">sin SO</span>}
           </td>
         )
         case 'soSecundario': return (
           <td key={col} className={`px-2 py-2.5 ${border}`}>
             {item._isSplit
-              ? <span className="font-mono text-[10px] text-zinc-300">{item._isPrimary ? (item.soSecundario ?? '—') : (item.soPrincipal ?? '—')}</span>
+              ? <span className="font-mono text-[10px] text-white/20">{item._isPrimary ? (item.soSecundario ?? '—') : (item.soPrincipal ?? '—')}</span>
               : item.soSecundario
-                ? <span className="font-mono text-[11px] bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded">{item.soSecundario}</span>
-                : <span className="text-zinc-200">—</span>}
+                ? <span className="font-mono text-[11px] bg-white/[0.06] text-white/50 px-1.5 py-0.5 rounded">{item.soSecundario}</span>
+                : <span className="text-white/10">—</span>}
           </td>
         )
         case 'drive': return (
           <td key={col} className={`px-2 py-2.5 ${border}`}>
             <div className="flex items-center gap-0.5">
-              {item.driveLinkExcel ? <a href={item.driveLinkExcel} target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100" title="Excel CIPL">XLS</a> : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">XLS</span>}
-              {item.driveLinkCi    ? <a href={item.driveLinkCi}    target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100"   title="Commercial Invoice">CI</a>  : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">CI</span>}
-              {item.driveLinkPl    ? <a href={item.driveLinkPl}    target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 hover:bg-violet-100" title="Packing List">PL</a>    : <span className="text-[9px] px-1.5 py-0.5 rounded text-zinc-200">PL</span>}
+              {item.driveLinkExcel ? <a href={item.driveLinkExcel} target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20" title="Excel CIPL">XLS</a> : <span className="text-[9px] px-1.5 py-0.5 rounded text-white/10">XLS</span>}
+              {item.driveLinkCi    ? <a href={item.driveLinkCi}    target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-400/10 text-blue-400 hover:bg-blue-400/20"     title="Commercial Invoice">CI</a>  : <span className="text-[9px] px-1.5 py-0.5 rounded text-white/10">CI</span>}
+              {item.driveLinkPl    ? <a href={item.driveLinkPl}    target="_blank" rel="noopener noreferrer" className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-400/10 text-violet-400 hover:bg-violet-400/20" title="Packing List">PL</a>    : <span className="text-[9px] px-1.5 py-0.5 rounded text-white/10">PL</span>}
             </div>
           </td>
         )
         case 'fotos': return (
           <td key={col} className={`px-2 py-2.5 text-center ${border}`}>
             {item._isPrimary && (
-              <button onClick={() => setViewingPhotosFor(item)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors text-[10px] font-bold ${item.photoCount > 0 ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-zinc-50 text-zinc-300 hover:bg-zinc-100 hover:text-zinc-500'}`}>
+              <button onClick={() => setViewingPhotosFor(item)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors text-[10px] font-bold ${item.photoCount > 0 ? 'bg-amber-400/15 text-amber-300 hover:bg-amber-400/25' : 'bg-white/[0.04] text-white/20 hover:bg-white/[0.08] hover:text-white/40'}`}>
                 <Camera className="w-3 h-3" />
                 {item.photoCount > 0 ? item.photoCount : '+'}
               </button>
             )}
           </td>
         )
-        case 'incoterm':     return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] ${border}`}>{item.incoterm ?? <span className="text-zinc-200">—</span>}</td>
-        case 'puertoSalida': return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] ${border}`}>{item.puertoSalida ?? <span className="text-zinc-200">—</span>}</td>
-        case 'etd':      return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${border}`}>{fmtDate(item.etd)}</td>
-        case 'eta':      return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${border}`}>{fmtDate(item.eta)}</td>
-        case 'etaCaldas':return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${border}`}>{fmtDate(item.etaCaldas)}</td>
-        case 'awb':      return <td key={col} className={`px-2 py-2.5 font-mono text-zinc-600 text-[11px] ${border}`}>{item.awb ?? <span className="text-zinc-200">—</span>}</td>
-        case 'arriboWh': return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] whitespace-nowrap ${border}`}>{fmtDate(item.arriboWh)}</td>
-        case 'paletizado':return <td key={col} className={`px-2 py-2.5 text-zinc-600 text-[11px] ${border}`}>{item.paletizado ?? <span className="text-zinc-200">—</span>}</td>
         default: return null
       }
     })
@@ -1157,11 +1112,11 @@ export default function PanelGeneralClient({
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex gap-1 bg-zinc-100 rounded-xl p-1">
+        <div className="flex gap-1 bg-white/[0.05] rounded-xl p-1">
           {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                tab === t.key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+                tab === t.key ? 'bg-white/[0.08] text-white shadow-sm' : 'text-white/35 hover:text-white/60'
               }`}>
               {t.label}
             </button>
@@ -1169,22 +1124,22 @@ export default function PanelGeneralClient({
         </div>
 
         <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-300 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 pointer-events-none" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por ASN, SO, descripción, PI No…"
-            className="w-full h-9 pl-8 pr-3 text-xs rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-zinc-300"
+            className="w-full h-9 pl-8 pr-3 text-xs rounded-xl border border-white/[0.08] bg-white/[0.04] text-white focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-white/20"
           />
         </div>
 
         {search && (
-          <span className="text-xs text-zinc-400">{filteredItems.length} resultado{filteredItems.length !== 1 ? 's' : ''}</span>
+          <span className="text-xs text-white/30">{filteredItems.length} resultado{filteredItems.length !== 1 ? 's' : ''}</span>
         )}
 
         {/* Selection action bar */}
         {selected.size > 0 && (
-          <div className="flex items-center gap-2 ml-auto bg-zinc-900 text-white rounded-xl px-3 py-1.5">
+          <div className="flex items-center gap-2 ml-auto bg-black/40 border border-white/[0.08] text-white rounded-xl px-3 py-1.5">
             <CheckSquare className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <span className="text-xs font-semibold">{selected.size} seleccionado{selected.size !== 1 ? 's' : ''}</span>
             <button
@@ -1219,8 +1174,8 @@ export default function PanelGeneralClient({
             title={groupByAsn ? 'Quitar agrupación' : 'Agrupar por ASN'}
             className={`flex items-center gap-1.5 h-9 px-3 rounded-xl border text-xs font-medium transition-colors ${
               groupByAsn
-                ? 'border-amber-400 bg-amber-50 text-amber-700'
-                : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+                ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                : 'border-white/[0.08] text-white/50 hover:bg-white/[0.04]'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
@@ -1235,7 +1190,7 @@ export default function PanelGeneralClient({
           />
           <button
             onClick={() => exportXLSX(exportRows, extraColumns, liveData)}
-            className="flex items-center gap-1.5 h-9 px-4 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+            className="flex items-center gap-1.5 h-9 px-4 rounded-xl border border-white/[0.08] text-xs font-medium text-white/50 hover:bg-white/[0.04] transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             {selected.size > 0 ? `Exportar ${selected.size} sel.` : 'Exportar Excel'}
@@ -1250,21 +1205,21 @@ export default function PanelGeneralClient({
             const exp = expandedAsns.has(asn)
             const isRep = tipo === 'Repuesto'
             return (
-              <div key={asn} className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
-                <div className="flex items-center gap-4 px-5 py-3 cursor-pointer hover:bg-zinc-50/60 transition-colors"
+              <div key={asn} className="bg-white/[0.03] rounded-xl border border-white/[0.06] overflow-hidden">
+                <div className="flex items-center gap-4 px-5 py-3 cursor-pointer hover:bg-white/[0.03] transition-colors"
                   onClick={() => setExpandedAsns(prev => { const s = new Set(prev); s.has(asn) ? s.delete(asn) : s.add(asn); return s })}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-sm font-bold text-zinc-800">{asn}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isRep ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{tipo}</span>
-                      <span className="text-[11px] text-zinc-400">{grpItems.length} ítem{grpItems.length !== 1 ? 's' : ''}</span>
-                      {sos.length > 0 && <span className="text-[11px] text-zinc-400">{sos.length} SO{sos.length !== 1 ? 's' : ''}</span>}
-                      {categories.length > 0 && <span className="text-[11px] text-zinc-400">{categories.join(', ')}</span>}
+                      <span className="font-mono text-sm font-bold text-white">{asn}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isRep ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-400/10 text-red-400'}`}>{tipo}</span>
+                      <span className="text-[11px] text-white/30">{grpItems.length} ítem{grpItems.length !== 1 ? 's' : ''}</span>
+                      {sos.length > 0 && <span className="text-[11px] text-white/30">{sos.length} SO{sos.length !== 1 ? 's' : ''}</span>}
+                      {categories.length > 0 && <span className="text-[11px] text-white/30">{categories.join(', ')}</span>}
                     </div>
                     {(piNos.length > 0 || grpItems.some(i => i.driveLinkExcel || i.driveLinkCi || i.driveLinkPl)) && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {piNos.map(pi => (
-                          <span key={pi} className="font-mono text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">{pi}</span>
+                          <span key={pi} className="font-mono text-[10px] bg-amber-400/15 text-amber-300 px-1.5 py-0.5 rounded">{pi}</span>
                         ))}
                         {/* Drive links from first item that has them */}
                         {(() => {
@@ -1272,27 +1227,27 @@ export default function PanelGeneralClient({
                           if (!d) return null
                           return (
                             <>
-                              {d.driveLinkExcel && <a href={d.driveLinkExcel} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100">XLS</a>}
-                              {d.driveLinkCi    && <a href={d.driveLinkCi}    target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100">CI</a>}
-                              {d.driveLinkPl    && <a href={d.driveLinkPl}    target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-100">PL</a>}
+                              {d.driveLinkExcel && <a href={d.driveLinkExcel} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20 border border-emerald-400/20">XLS</a>}
+                              {d.driveLinkCi    && <a href={d.driveLinkCi}    target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-400/10 text-blue-400 hover:bg-blue-400/20 border border-blue-400/20">CI</a>}
+                              {d.driveLinkPl    && <a href={d.driveLinkPl}    target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-400/10 text-violet-400 hover:bg-violet-400/20 border border-violet-400/20">PL</a>}
                             </>
                           )
                         })()}
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-6 shrink-0 text-xs text-zinc-600">
-                    {totalQty   > 0 && <div className="text-right"><div className="text-[9px] text-zinc-400 uppercase tracking-widest">Qty</div><div className="font-semibold">{totalQty.toLocaleString('es-AR')}</div></div>}
-                    {totalBultos > 0 && <div className="text-right"><div className="text-[9px] text-zinc-400 uppercase tracking-widest">Bultos</div><div className="font-semibold">{totalBultos.toLocaleString('es-AR')}</div></div>}
-                    {totalCbm   > 0 && <div className="text-right"><div className="text-[9px] text-zinc-400 uppercase tracking-widest">CBM</div><div className="font-semibold">{totalCbm.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</div></div>}
-                    {totalGw    > 0 && <div className="text-right"><div className="text-[9px] text-zinc-400 uppercase tracking-widest">GW kg</div><div className="font-semibold">{totalGw.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div></div>}
+                  <div className="flex items-center gap-6 shrink-0 text-xs text-white/50">
+                    {totalQty   > 0 && <div className="text-right"><div className="text-[9px] text-white/25 uppercase tracking-widest">Qty</div><div className="font-semibold">{totalQty.toLocaleString('es-AR')}</div></div>}
+                    {totalBultos > 0 && <div className="text-right"><div className="text-[9px] text-white/25 uppercase tracking-widest">Bultos</div><div className="font-semibold">{totalBultos.toLocaleString('es-AR')}</div></div>}
+                    {totalCbm   > 0 && <div className="text-right"><div className="text-[9px] text-white/25 uppercase tracking-widest">CBM</div><div className="font-semibold">{totalCbm.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</div></div>}
+                    {totalGw    > 0 && <div className="text-right"><div className="text-[9px] text-white/25 uppercase tracking-widest">GW kg</div><div className="font-semibold">{totalGw.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div></div>}
                   </div>
-                  <div className="text-zinc-400 shrink-0">
+                  <div className="text-white/30 shrink-0">
                     {exp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </div>
                 </div>
                 {exp && (
-                  <div className="border-t border-zinc-50 divide-y divide-zinc-50">
+                  <div className="border-t border-white/[0.04] divide-y divide-white/[0.04]">
                     {(() => {
                       // Group items by caseNo → one row per bulto
                       const bultosMap = new Map<string, typeof grpItems>()
@@ -1315,70 +1270,70 @@ export default function PanelGeneralClient({
                           <div key={key}>
                             {/* Bulto header row */}
                             <div
-                              className="flex items-center gap-4 px-5 py-2.5 hover:bg-zinc-50/80 cursor-pointer transition-colors"
+                              className="flex items-center gap-4 px-5 py-2.5 hover:bg-white/[0.03] cursor-pointer transition-colors"
                               onClick={() => toggleBulto(bultoKey, bultoItems.map(i => i.id))}
                             >
-                              <div className="text-zinc-300 shrink-0">
+                              <div className="text-white/20 shrink-0">
                                 {bExp ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <span className="font-mono text-xs font-semibold text-zinc-700">{caseLabel}</span>
+                                <span className="font-mono text-xs font-semibold text-white/60">{caseLabel}</span>
                               </div>
                               <div className="flex items-center gap-5 shrink-0 text-xs">
                                 <div className="text-right">
-                                  <div className="text-[9px] text-zinc-400 uppercase tracking-widest">Ítems</div>
-                                  <div className="font-semibold text-zinc-600">{cantItems}</div>
+                                  <div className="text-[9px] text-white/25 uppercase tracking-widest">Ítems</div>
+                                  <div className="font-semibold text-white/50">{cantItems}</div>
                                 </div>
                                 {cantProductos > 0 && (
                                   <div className="text-right">
-                                    <div className="text-[9px] text-zinc-400 uppercase tracking-widest">Productos</div>
-                                    <div className="font-semibold text-zinc-600">{cantProductos.toLocaleString('es-AR')}</div>
+                                    <div className="text-[9px] text-white/25 uppercase tracking-widest">Productos</div>
+                                    <div className="font-semibold text-white/50">{cantProductos.toLocaleString('es-AR')}</div>
                                   </div>
                                 )}
                                 {cbmBulto != null && (
                                   <div className="text-right">
-                                    <div className="text-[9px] text-zinc-400 uppercase tracking-widest">CBM/Bulto</div>
-                                    <div className="font-semibold text-zinc-600">{cbmBulto.toFixed(4)}</div>
+                                    <div className="text-[9px] text-white/25 uppercase tracking-widest">CBM/Bulto</div>
+                                    <div className="font-semibold text-white/50">{cbmBulto.toFixed(4)}</div>
                                   </div>
                                 )}
                                 {pesoBulto != null && (
                                   <div className="text-right">
-                                    <div className="text-[9px] text-zinc-400 uppercase tracking-widest">GW kg</div>
-                                    <div className="font-semibold text-zinc-600">{pesoBulto.toFixed(1)}</div>
+                                    <div className="text-[9px] text-white/25 uppercase tracking-widest">GW kg</div>
+                                    <div className="font-semibold text-white/50">{pesoBulto.toFixed(1)}</div>
                                   </div>
                                 )}
                               </div>
                             </div>
                             {/* Expanded product list */}
                             {bExp && (
-                              <div className="border-t border-zinc-50 bg-zinc-50/40">
+                              <div className="border-t border-white/[0.04] bg-white/[0.02]">
                                 {bLoading ? (
-                                  <div className="flex items-center gap-2 px-10 py-3 text-xs text-zinc-400">
+                                  <div className="flex items-center gap-2 px-10 py-3 text-xs text-white/30">
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando…
                                   </div>
                                 ) : bultoItems.map(item => {
                                   const photos = bultoPhotos.get(item.id) ?? []
                                   return (
-                                    <div key={item.id} className="flex items-center gap-4 px-10 py-2.5 border-b border-zinc-100/60 last:border-0 hover:bg-white/60 transition-colors">
+                                    <div key={item.id} className="flex items-center gap-4 px-10 py-2.5 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.03] transition-colors">
                                       {/* Thumbnail */}
-                                      <div className="w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-zinc-100 border border-zinc-200 flex items-center justify-center">
+                                      <div className="w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">
                                         {photos[0]
                                           ? <img src={photos[0]} alt="" className="w-full h-full object-cover" />
-                                          : <Camera className="w-4 h-4 text-zinc-300" />
+                                          : <Camera className="w-4 h-4 text-white/20" />
                                         }
                                       </div>
                                       {/* SKU + description */}
                                       <div className="flex-1 min-w-0">
                                         {item.codeEan && (
-                                          <div className="font-mono text-[10px] text-zinc-400 leading-none mb-0.5">{item.codeEan}</div>
+                                          <div className="font-mono text-[10px] text-white/30 leading-none mb-0.5">{item.codeEan}</div>
                                         )}
-                                        <div className="text-xs text-zinc-700 truncate">{item.description ?? '—'}</div>
+                                        <div className="text-xs text-white/60 truncate">{item.description ?? '—'}</div>
                                       </div>
                                       {/* Qty */}
                                       {item.qty != null && (
                                         <div className="shrink-0 text-right">
-                                          <div className="text-[9px] text-zinc-400 uppercase tracking-widest">Qty</div>
-                                          <div className="text-xs font-semibold text-zinc-700">{item.qty.toLocaleString('es-AR')}</div>
+                                          <div className="text-[9px] text-white/25 uppercase tracking-widest">Qty</div>
+                                          <div className="text-xs font-semibold text-white/60">{item.qty.toLocaleString('es-AR')}</div>
                                         </div>
                                       )}
                                     </div>
@@ -1396,18 +1351,18 @@ export default function PanelGeneralClient({
             )
           })}
           {asnGroups.length === 0 && (
-            <div className="flex items-center justify-center py-16 text-zinc-300 text-sm">Sin resultados</div>
+            <div className="flex items-center justify-center py-16 text-white/20 text-sm">Sin resultados</div>
           )}
         </div>
       )}
 
       {/* Table */}
-      {!groupByAsn && <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
+      {!groupByAsn && <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] overflow-hidden">
         <div className="overflow-auto max-h-[640px]">
           <table className="w-full text-xs border-collapse" style={{ minWidth: `${1600 + extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).length * 120}px` }}>
-            <thead className="sticky top-0 z-10 bg-zinc-50">
+            <thead className="sticky top-0 z-10 bg-[#0f0f0f]">
               {/* Row 1 — group labels */}
-              <tr className="border-b border-zinc-100/60">
+              <tr className="border-b border-white/[0.06]">
                 <th className="w-8 pl-3" />
                 {GROUPS.map(group => {
                   const span = groupSpan(group, vis)
@@ -1425,15 +1380,15 @@ export default function PanelGeneralClient({
                   )
                 })}
                 {extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).length > 0 && (
-                  <th colSpan={extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).length} className="px-2 pt-2 pb-0.5 text-left border-l-2 border-l-violet-100">
-                    <span className="text-[9px] font-bold uppercase tracking-widest px-0.5 text-violet-500">Fuentes</span>
+                  <th colSpan={extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).length} className="px-2 pt-2 pb-0.5 text-left border-l-2 border-l-violet-500/20">
+                    <span className="text-[9px] font-bold uppercase tracking-widest px-0.5 text-violet-400">Fuentes</span>
                   </th>
                 )}
                 <th />
               </tr>
 
               {/* Row 2 — column names (draggable within group) */}
-              <tr className="border-b border-zinc-100">
+              <tr className="border-b border-white/[0.06]">
                 <th className="w-8 pl-3 py-2">
                   <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll}
                     className="w-3.5 h-3.5 rounded accent-amber-400 cursor-pointer" />
@@ -1441,7 +1396,7 @@ export default function PanelGeneralClient({
                 {GROUPS.map(group => renderGroupTh(group))}
                 {extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).map((c, ci) => (
                   <th key={c.fieldKey}
-                    className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-500 w-28 ${ci === 0 ? 'border-l-2 border-l-violet-100' : ''}`}>
+                    className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-violet-400 w-28 ${ci === 0 ? 'border-l-2 border-l-violet-500/20' : ''}`}>
                     {c.label}
                   </th>
                 ))}
@@ -1453,11 +1408,11 @@ export default function PanelGeneralClient({
                 const rowKey = `${item.id}-${item._isPrimary ? 'p' : 's'}`
                 const isSelected = selected.has(item.id)
                 return (
-                  <tr key={rowKey} className={`border-b border-zinc-50 transition-colors ${isSelected ? 'bg-amber-50/60' : 'hover:bg-zinc-50/60'} ${
+                  <tr key={rowKey} className={`border-b border-white/[0.04] transition-colors ${isSelected ? 'bg-amber-400/[0.06]' : 'hover:bg-white/[0.02]'} ${
                     item._isSplit
                       ? item._isPrimary
-                        ? 'border-l-2 border-l-amber-300'
-                        : 'border-l-2 border-l-sky-300'
+                        ? 'border-l-2 border-l-amber-400/40'
+                        : 'border-l-2 border-l-sky-400/40'
                       : ''
                   }`}>
 
@@ -1472,8 +1427,8 @@ export default function PanelGeneralClient({
 
                     {/* Extra columns from live sources */}
                     {extraColumns.filter(c => visibleExtraCols.has(c.fieldKey)).map(c => (
-                      <td key={c.fieldKey} className="px-2 py-2.5 text-violet-600">
-                        {gl(item, c.fieldKey) ?? <span className="text-zinc-200">—</span>}
+                      <td key={c.fieldKey} className="px-2 py-2.5 text-violet-400">
+                        {gl(item, c.fieldKey) ?? <span className="text-white/10">—</span>}
                       </td>
                     ))}
 
@@ -1481,11 +1436,11 @@ export default function PanelGeneralClient({
                     <td className="px-2 py-2.5 text-center">
                       <div className="flex items-center gap-1 justify-center">
                         <button onClick={() => setEditing(item)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 text-zinc-300 hover:text-amber-500 transition-colors">
+                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-400/10 text-white/20 hover:text-amber-400 transition-colors">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => handleDelete(item.id, item.description?.slice(0, 40) ?? item.caseNo ?? item.id.slice(0, 8))}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-zinc-300 hover:text-red-500 transition-colors">
+                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-400/10 text-white/20 hover:text-red-400 transition-colors">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -1515,7 +1470,7 @@ export default function PanelGeneralClient({
         />
       )}
 
-      <style>{`.input-base { width: 100%; height: 32px; padding: 0 10px; font-size: 12px; border-radius: 8px; border: 1px solid #e4e4e7; outline: none; background: white; } .input-base:focus { ring: 2px; border-color: #fbbf24; box-shadow: 0 0 0 2px #fef3c7; }`}</style>
+      <style>{`.input-base { width: 100%; height: 32px; padding: 0 10px; font-size: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); outline: none; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.8); } .input-base:focus { border-color: #fbbf24; box-shadow: 0 0 0 2px rgba(251,191,36,0.15); } .input-base::placeholder { color: rgba(255,255,255,0.2); }`}</style>
     </div>
   )
 }

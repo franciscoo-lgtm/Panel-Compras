@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/lib/prisma'
 import {
-  Package, Truck, AlertTriangle, ArrowUpRight,
+  Package, AlertTriangle, ArrowUpRight,
   FileSpreadsheet, FileText, LayoutDashboard, Upload, Anchor,
-  CheckCircle2, Clock, MapPin, ShoppingCart,
+  Clock, MapPin, ShoppingCart,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -14,9 +14,6 @@ export default async function HomePage() {
       tipoCarga: true,
       isDangerousGood: true,
       soPrincipal: true,
-      etd: true,
-      arriboWh: true,
-      etaCaldas: true,
       createdAt: true,
       categoryName: true,
       description: true,
@@ -27,15 +24,13 @@ export default async function HomePage() {
     take: 500,
   })
 
-  const total      = items.length
-  const repuestos  = items.filter(i => i.tipoCarga === 'Repuesto').length
-  const mercs      = items.filter(i => i.tipoCarga === 'Mercaderia').length
-  const conSO      = items.filter(i => i.soPrincipal).length
-  const dgs        = items.filter(i => i.isDangerousGood).length
-  const enTransito = items.filter(i => i.etd && !i.arriboWh).length
-  const entregados = items.filter(i => i.etaCaldas).length
-  const sinSO      = total - conSO
-  const recent     = items.slice(0, 8)
+  const total     = items.length
+  const repuestos = items.filter(i => i.tipoCarga === 'Repuesto').length
+  const mercs     = items.filter(i => i.tipoCarga === 'Mercaderia').length
+  const conSO     = items.filter(i => i.soPrincipal).length
+  const dgs       = items.filter(i => i.isDangerousGood).length
+  const sinSO     = total - conSO
+  const recent    = items.slice(0, 8)
 
   // Compras KPIs
   const compras = await prisma.compra.findMany({
@@ -111,18 +106,18 @@ export default async function HomePage() {
               bg: 'bg-[#0A0A0A]', textColor: 'text-white', subColor: 'text-white/30',
             },
             {
-              label: 'En tránsito', value: enTransito, sub: 'shipments activos',
-              icon: Truck, accent: '#3B82F6',
-              bg: 'bg-white', textColor: 'text-zinc-900', subColor: 'text-zinc-400',
-            },
-            {
               label: 'Sin SO asig.', value: sinSO, sub: sinSO > 0 ? 'requieren acción' : 'todo asignado',
               icon: AlertTriangle, accent: sinSO > 0 ? '#F59E0B' : '#10B981',
               bg: 'bg-white', textColor: 'text-zinc-900', subColor: 'text-zinc-400',
             },
             {
-              label: 'Entregados', value: entregados, sub: 'en Caldas',
-              icon: CheckCircle2, accent: '#10B981',
+              label: 'Repuestos', value: repuestos, sub: `${mercs} mercadería`,
+              icon: Package, accent: '#8B5CF6',
+              bg: 'bg-white', textColor: 'text-zinc-900', subColor: 'text-zinc-400',
+            },
+            {
+              label: 'DG', value: dgs, sub: 'dangerous goods',
+              icon: AlertTriangle, accent: '#EF4444',
               bg: 'bg-white', textColor: 'text-zinc-900', subColor: 'text-zinc-400',
             },
           ].map(({ label, value, sub, icon: Icon, accent, bg, textColor, subColor }) => (

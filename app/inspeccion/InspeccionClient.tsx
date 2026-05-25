@@ -414,23 +414,33 @@ export default function InspeccionClient() {
         const rowPhotoCounts: Record<number, number> = {}
         rowIndices.forEach(ri => { rowPhotoCounts[ri] = photosByRow.get(ri)!.length })
 
-        const body: {
-          photos: typeof allPhotos
-          rowPhotoCounts: typeof rowPhotoCounts
-          plItems?: PLItemForInspection[]
-        } = { photos: allPhotos, rowPhotoCounts }
-        if (plItems?.length) body.plItems = plItems
+        // Split into chunks of 4 to stay under Vercel's 4MB body limit
+        const CLIENT_BATCH = 4
+        const chunks: (typeof allPhotos)[] = []
+        for (let i = 0; i < allPhotos.length; i += CLIENT_BATCH)
+          chunks.push(allPhotos.slice(i, i + CLIENT_BATCH))
 
-        const labelRes = await fetch('/api/inspeccion/analizar', {
-          method:  'POST',
-          headers: { 'content-type': 'application/json' },
-          body:    JSON.stringify(body),
-        })
-        if (!labelRes.ok) { setError(`Error ${labelRes.status} al llamar a Claude`); return }
-        const labelData: { ok: boolean; labels?: LabelResult[]; error?: string } = await labelRes.json()
-        if (!labelData.ok || !labelData.labels) { setError(labelData.error ?? 'Error desconocido'); return }
+        const allLabels: LabelResult[] = []
+        for (const chunk of chunks) {
+          const body: {
+            photos: typeof allPhotos
+            rowPhotoCounts: typeof rowPhotoCounts
+            plItems?: PLItemForInspection[]
+          } = { photos: chunk, rowPhotoCounts }
+          if (plItems?.length) body.plItems = plItems
 
-        const matchRes = await matchLabelsToDB(labelData.labels)
+          const labelRes = await fetch('/api/inspeccion/analizar', {
+            method:  'POST',
+            headers: { 'content-type': 'application/json' },
+            body:    JSON.stringify(body),
+          })
+          if (!labelRes.ok) { setError(`Error ${labelRes.status} al llamar a Claude`); return }
+          const labelData: { ok: boolean; labels?: LabelResult[]; error?: string } = await labelRes.json()
+          if (!labelData.ok || !labelData.labels) { setError(labelData.error ?? 'Error desconocido'); return }
+          allLabels.push(...labelData.labels)
+        }
+
+        const matchRes = await matchLabelsToDB(allLabels)
         if (!matchRes.ok) { setError(matchRes.error); return }
 
         setRows(matchRes.rows)

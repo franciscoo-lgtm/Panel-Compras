@@ -6,7 +6,8 @@ import {
   upsertComexSource, toggleComexSource, deleteComexSource, previewSheetColumns,
 } from '@/app/lib/comex-sources'
 import type { ComexSource, ColumnMapping, PanelId } from '@/app/lib/comex-sources'
-import { KNOWN_MAPPABLE_FIELDS, COMPRA_COMEX_MILESTONE_FIELDS } from '@/app/lib/comex-fields'
+import { KNOWN_MAPPABLE_FIELDS, COMPRA_COMEX_MILESTONE_FIELDS, JOINABLE_FIELDS } from '@/app/lib/comex-fields'
+import type { JoinField } from '@/app/lib/comex-fields'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ type DraftColumn = {
   header: string     // original column name from sheet
   selected: boolean
   label: string      // display label in panel (editable)
+  fieldKey?: string  // if set, maps to a known field; otherwise slugify is used
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -39,6 +41,7 @@ function AddSourceForm({ onSaved, onCancel }: { onSaved: (s: ComexSource) => voi
   const [sheetName, setSheetName] = useState('')
   const [columns, setColumns]     = useState<DraftColumn[] | null>(null)
   const [matchCol, setMatchCol]   = useState('')   // join column header
+  const [joinOn, setJoinOn]       = useState<JoinField>('so')
   const [panels, setPanels]       = useState<PanelId[]>(['panel-general', 'comex'])
   const [error, setError]         = useState('')
   const [loadPending, startLoad]  = useTransition()
@@ -69,6 +72,10 @@ function AddSourceForm({ onSaved, onCancel }: { onSaved: (s: ComexSource) => voi
     setColumns(prev => prev!.map((c, i) => i === idx ? { ...c, label } : c))
   }
 
+  function setFieldKey(idx: number, fieldKey: string) {
+    setColumns(prev => prev!.map((c, i) => i === idx ? { ...c, fieldKey: fieldKey || undefined } : c))
+  }
+
   function selectAll(v: boolean) {
     setColumns(prev => prev!.map(c => ({ ...c, selected: c.header === matchCol ? c.selected : v })))
   }
@@ -85,7 +92,7 @@ function AddSourceForm({ onSaved, onCancel }: { onSaved: (s: ComexSource) => voi
       { sheetHeader: matchCol, fieldKey: '_join_', label: 'SO', isJoin: true },
       ...selected.map(c => ({
         sheetHeader: c.header,
-        fieldKey: slugify(c.label || c.header),
+        fieldKey: c.fieldKey ?? slugify(c.label || c.header),
         label: (c.label || c.header).trim(),
         isJoin: false,
       })),
@@ -98,6 +105,7 @@ function AddSourceForm({ onSaved, onCancel }: { onSaved: (s: ComexSource) => voi
       sheetName: sheetName.trim() || undefined,
       enabled: true,
       panels,
+      joinOn,
       mappings,
     }
 
@@ -182,20 +190,32 @@ function AddSourceForm({ onSaved, onCancel }: { onSaved: (s: ComexSource) => voi
             {/* ③ Columna de match */}
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">
-                ③ Columna de match (SO)
+                ③ Columna de match
               </label>
               <p className="text-[11px] text-zinc-400 mb-2">
-                ¿Qué columna contiene el número de SO para cruzar con los ítems del panel?
+                Elegí qué columna de la planilla contiene el identificador y a qué campo del panel corresponde.
               </p>
-              <select
-                value={matchCol}
-                onChange={e => setMatchCol(e.target.value)}
-                className="h-9 px-3 text-sm rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 max-w-xs"
-              >
-                {columns.map((c, i) => (
-                  <option key={`match-${i}`} value={c.header}>{c.header}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={matchCol}
+                  onChange={e => setMatchCol(e.target.value)}
+                  className="h-9 px-3 text-sm rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                >
+                  {columns.map((c, i) => (
+                    <option key={`match-${i}`} value={c.header}>{c.header}</option>
+                  ))}
+                </select>
+                <span className="text-xs text-zinc-400">corresponde a</span>
+                <select
+                  value={joinOn}
+                  onChange={e => setJoinOn(e.target.value as JoinField)}
+                  className="h-9 px-3 text-sm rounded-lg border border-amber-300 bg-amber-50 text-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                >
+                  {JOINABLE_FIELDS.map(f => (
+                    <option key={f.key} value={f.key}>{f.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* ④ Columnas a agregar */}
@@ -240,12 +260,29 @@ function AddSourceForm({ onSaved, onCancel }: { onSaved: (s: ComexSource) => voi
                         {isMatch && <span className="ml-1.5 text-[10px] text-amber-500 font-normal">← match SO</span>}
                       </span>
                       {!isMatch && c.selected && (
-                        <input
-                          value={c.label}
-                          onChange={e => setLabel(i, e.target.value)}
-                          placeholder="Label en panel"
-                          className="h-6 px-2 text-[11px] rounded border border-zinc-200 w-36 focus:outline-none focus:ring-1 focus:ring-amber-400 text-zinc-500"
-                        />
+                        <>
+                          <input
+                            value={c.label}
+                            onChange={e => setLabel(i, e.target.value)}
+                            placeholder="Label en panel"
+                            className="h-6 px-2 text-[11px] rounded border border-zinc-200 w-28 focus:outline-none focus:ring-1 focus:ring-amber-400 text-zinc-500"
+                          />
+                          <select
+                            value={c.fieldKey ?? ''}
+                            onChange={e => setFieldKey(i, e.target.value)}
+                            title="Mapear a campo conocido"
+                            className={`h-6 px-1.5 text-[11px] rounded border focus:outline-none focus:ring-1 focus:ring-amber-400 ${
+                              c.fieldKey
+                                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                                : 'border-zinc-200 bg-white text-zinc-400'
+                            }`}
+                          >
+                            <option value="">— extra —</option>
+                            {KNOWN_MAPPABLE_FIELDS.map(f => (
+                              <option key={f.key} value={f.key}>{f.label}</option>
+                            ))}
+                          </select>
+                        </>
                       )}
                     </div>
                   )
@@ -315,7 +352,7 @@ function SourceCard({
   onDelete: (id: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const nonJoin = source.mappings.filter(m => !m.isJoin)
+  const nonJoin = source.mappings.filter(m => !m.isJoin && m.fieldKey !== '_join_')
   const knownCount = nonJoin.filter(m => !m.fieldKey.startsWith('extra_')).length
   const extraCount = nonJoin.filter(m => m.fieldKey.startsWith('extra_')).length
 
@@ -384,6 +421,11 @@ function SourceCard({
       {/* Expanded: column detail */}
       {expanded && (
         <div className="border-t border-zinc-50 px-4 py-3">
+          {source.joinOn && source.joinOn !== 'so' && (
+            <p className="text-[11px] text-amber-600 mb-2">
+              Match por: <span className="font-semibold">{JOINABLE_FIELDS.find(f => f.key === source.joinOn)?.label ?? source.joinOn}</span>
+            </p>
+          )}
           <table className="w-full text-[11px]">
             <thead>
               <tr className="text-zinc-400">
@@ -522,7 +564,7 @@ export default function ComexSourcesClient({ initialSources }: { initialSources:
         </div>
         <div className="px-5 py-3 border-t border-zinc-100 bg-zinc-50/30">
           <p className="text-[11px] text-zinc-400">
-            Para activar un hito, editá la fuente Comex correspondiente → agregá una columna → asignale el fieldKey exacto.
+            Para activar un hito: agregá una fuente Comex → en el paso ④ elegí el campo conocido en el selector (derecha de cada columna).
           </p>
         </div>
       </div>

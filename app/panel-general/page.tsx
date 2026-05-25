@@ -25,14 +25,14 @@ export default async function PanelGeneralPage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <LayoutDashboard className="w-5 h-5 text-amber-500 shrink-0" />
-        <h1 className="text-xl font-semibold text-zinc-900">Panel General</h1>
-        <span className="text-xs text-zinc-400 font-mono">{total} ítems</span>
+        <h1 className="text-xl font-semibold text-white">Panel General</h1>
+        <span className="text-xs text-white/30 font-mono">{total} ítems</span>
       </div>
 
       {total === 0 ? (
         <div className="flex flex-col items-center gap-3 py-24 text-center">
-          <LayoutDashboard className="w-10 h-10 text-zinc-200" />
-          <p className="text-sm text-zinc-400">Sin datos todavía. Cargá tu primer CIPL desde Comercial.</p>
+          <LayoutDashboard className="w-10 h-10 text-white/10" />
+          <p className="text-sm text-white/30">Sin datos todavía. Cargá tu primer CIPL desde Comercial.</p>
         </div>
       ) : (
         <PanelGeneralClient initialItems={items} liveData={liveData} extraColumns={extraColumns} />

@@ -20,7 +20,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen overflow-hidden">
       <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main
-        className="flex-1 overflow-y-auto bg-gray-50 transition-all duration-200"
+        className="flex-1 overflow-y-auto bg-[#050505] transition-all duration-200"
         style={{ marginLeft: collapsed ? 56 : 240 }}
       >
         {children}

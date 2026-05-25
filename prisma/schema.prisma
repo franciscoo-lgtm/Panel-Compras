@@ -107,10 +107,6 @@ model CIPLItem {
   modelo         String?
   qPi            Int?
   diferenciaPiPl Int?
-  incoterm       String?
-  puertoSalida   String?
-  fobUnit        Float?
-  fobTotal       Float?
 
   // ── Fotos inspección ────────────────────────────────────────────────────────
   photos     CIPLPhoto[]
@@ -118,19 +114,6 @@ model CIPLItem {
   // ── Orden de Compra ─────────────────────────────────────────────────────────
   compraId  String?
   compra    Compra?  @relation(fields: [compraId], references: [id])
-
-  // ── Comex tracking ──────────────────────────────────────────────────────────
-  avisoAgente       String?   // fecha / estado aviso al agente
-  avisoConfirmacion String?   // confirmación del agente
-  arriboWh          DateTime? // arribo al WH de Airsea
-  fotosAgente       String?   // link fotos o fecha de envío
-  paletizado        String?   // estado paletizado
-  fechaInstruccion  DateTime? // fecha instrucción de despacho
-  confirmacionOk    String?   // OK Despachante + Her
-  etd               DateTime? // Estimated Time of Departure
-  eta               DateTime? // Estimated Time of Arrival
-  etaCaldas         DateTime? // ETA en Caldas 1535
-  awb               String?   // Airway Bill Number
 }
 
 // ─── Órdenes de Compra ────────────────────────────────────────────────────────

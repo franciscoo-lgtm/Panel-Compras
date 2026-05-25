@@ -30,12 +30,6 @@ export default async function ReportesPage() {
     qBultos:      item.qBultos,
     cbm:          item.cbm,
     gwKg:         item.gwKg,
-    etd:          item.etd?.toISOString().split('T')[0] ?? null,
-    eta:          item.eta?.toISOString().split('T')[0] ?? null,
-    arriboWh:     item.arriboWh?.toISOString().split('T')[0] ?? null,
-    etaCaldas:    item.etaCaldas?.toISOString().split('T')[0] ?? null,
-    awb:          item.awb,
-    avisoAgente:  item.avisoAgente,
   }))
 
   return (
