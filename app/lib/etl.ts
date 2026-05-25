@@ -34,7 +34,7 @@ export type SaveResult =
   | { success: true;  count: number }
   | { success: false; error: string }
 
-export type SOSuggestion = { so: string; reason: string } | null
+export type SOSuggestion = { so: string; reason: string; confidence?: 'high' | 'medium' | 'low' } | null
 export type SOSuggestionResult = { suggestions: SOSuggestion[]; error?: string; soCount: number }
 
 export async function guardarCIPL(formData: FormData): Promise<SaveResult> {

@@ -8,6 +8,7 @@ import {
   FileSpreadsheet, FileText, Loader2,
   Save, CheckCircle2, AlertTriangle, Sparkles, ExternalLink, FolderOpen,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,14 +29,15 @@ export function Step2AssignSOs({
   onBack: () => void
   onSaved: (count: number, sos: string[]) => void
 }) {
-  const [sos,         setSos]         = useState<string[]>(() => Array(items.length).fill(''))
-  const [sos2,        setSos2]        = useState<string[]>(() => Array(items.length).fill(''))
-  const [soList,      setSoList]      = useState<string[]>([])
-  const [suggestions,   setSuggestions]   = useState<SOSuggestion[]>([])
-  const [suggesting,    setSuggesting]    = useState(false)
-  const [suggestResult, setSuggestResult] = useState<{ ok: boolean; msg: string } | null>(null)
-  const [error,         setError]         = useState<string | null>(null)
-  const [pending,       start]            = useTransition()
+  const [sos,            setSos]            = useState<string[]>(() => Array(items.length).fill(''))
+  const [sos2,           setSos2]           = useState<string[]>(() => Array(items.length).fill(''))
+  const [soList,         setSoList]         = useState<string[]>([])
+  const [suggestions,    setSuggestions]    = useState<SOSuggestion[]>([])
+  const [suggesting,     setSuggesting]     = useState(false)
+  const [suggestResult,  setSuggestResult]  = useState<{ ok: boolean; msg: string } | null>(null)
+  const [error,          setError]          = useState<string | null>(null)
+  const [autoAcceptHigh, setAutoAcceptHigh] = useState(false)
+  const [pending,        start]             = useTransition()
 
   useEffect(() => {
     fetchSalesOrders()
@@ -57,7 +59,10 @@ export function Step2AssignSOs({
       setSuggestions(res.suggestions)
       setSos(prev => prev.map((v, i) => {
         if (v.trim()) return v
-        return res.suggestions[i]?.so ?? ''
+        const s = res.suggestions[i]
+        if (!s) return ''
+        if (autoAcceptHigh && s.confidence !== 'high') return ''
+        return s.so
       }))
       if (res.error) {
         setSuggestResult({ ok: false, msg: res.error })
@@ -164,6 +169,15 @@ export function Step2AssignSOs({
               ? <><Loader2 className="w-4 h-4 animate-spin" />Analizando con IA…</>
               : <><Sparkles className="w-4 h-4" />Sugerir SOs</>}
           </button>
+          <label className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 cursor-pointer ml-3">
+            <input
+              type="checkbox"
+              checked={autoAcceptHigh}
+              onChange={e => setAutoAcceptHigh(e.target.checked)}
+              className="rounded"
+            />
+            Solo aplicar sugerencias high confidence
+          </label>
           <button type="button" onClick={handleSave} disabled={pending}
             className="h-10 px-5 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:bg-white/[0.06] disabled:text-zinc-500 text-zinc-900 font-semibold text-sm flex items-center gap-2 transition-all">
             {pending
@@ -263,9 +277,19 @@ export function Step2AssignSOs({
                   </td>
 
                   <td className="px-2 py-1.5">
-                    <input list="so-opts" value={sos[i]} onChange={e => setSo(i, e.target.value)}
-                      placeholder="Buscar o escribir SO…"
-                      className="w-full h-7 px-2 text-xs font-mono rounded-lg border border-white/[0.08] focus:outline-none focus:ring-1 focus:ring-amber-400 placeholder:font-sans placeholder:text-zinc-600 bg-[#0d0d0d] text-zinc-200" />
+                    <div className="flex items-center gap-1">
+                      <input list="so-opts" value={sos[i]} onChange={e => setSo(i, e.target.value)}
+                        placeholder="Buscar o escribir SO…"
+                        className="w-full h-7 px-2 text-xs font-mono rounded-lg border border-white/[0.08] focus:outline-none focus:ring-1 focus:ring-amber-400 placeholder:font-sans placeholder:text-zinc-600 bg-[#0d0d0d] text-zinc-200" />
+                      {suggestions[i]?.confidence && (
+                        <span className={cn(
+                          'ml-1 px-1 py-0.5 rounded text-[8px] font-bold uppercase shrink-0',
+                          suggestions[i]!.confidence === 'high'   && 'bg-emerald-500/15 text-emerald-400',
+                          suggestions[i]!.confidence === 'medium' && 'bg-amber-500/15 text-amber-400',
+                          suggestions[i]!.confidence === 'low'    && 'bg-red-500/15 text-red-400',
+                        )}>{suggestions[i]!.confidence}</span>
+                      )}
+                    </div>
                     {suggestions[i] && (
                       <p className="text-[9px] text-violet-500 mt-0.5 leading-tight">
                         ✨ {suggestions[i]!.reason}

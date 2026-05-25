@@ -13,7 +13,7 @@ type ExtractedItem = {
   qty:         number | null
 }
 
-type SOSuggestion = { so: string; reason: string } | null
+type SOSuggestion = { so: string; reason: string; confidence?: 'high' | 'medium' | 'low' } | null
 
 type RouteResult = {
   suggestions: SOSuggestion[]
@@ -158,16 +158,16 @@ async function getHistoricalMappings(
 
 // ─── Robust JSON extraction ───────────────────────────────────────────────────
 
-function extractSOArray(text: string): Array<{ so: string; reason: string }> | null {
+function extractSOArray(text: string): Array<{ so: string; reason: string; confidence?: 'high' | 'medium' | 'low' }> | null {
   const start = text.indexOf('[')
   const end   = text.lastIndexOf(']')
   if (start !== -1 && end > start) {
     try { return JSON.parse(text.slice(start, end + 1)) } catch { /* fall through */ }
   }
-  const hits: Array<{ so: string; reason: string }> = []
-  const re = /\{\s*"so"\s*:\s*"([^"]+)"\s*,\s*"reason"\s*:\s*"([^"]+)"\s*\}/g
+  const hits: Array<{ so: string; reason: string; confidence?: 'high' | 'medium' | 'low' }> = []
+  const re = /\{\s*"so"\s*:\s*"([^"]+)"\s*,\s*"reason"\s*:\s*"([^"]+)"(?:\s*,\s*"confidence"\s*:\s*"(high|medium|low)")?\s*\}/g
   let m: RegExpExecArray | null
-  while ((m = re.exec(text)) !== null) hits.push({ so: m[1]!, reason: m[2]! })
+  while ((m = re.exec(text)) !== null) hits.push({ so: m[1]!, reason: m[2]!, confidence: m[3] as 'high' | 'medium' | 'low' | undefined })
   return hits.length > 0 ? hits : null
 }
 
@@ -240,7 +240,7 @@ export async function POST(req: Request): Promise<Response> {
         : `NOTA: no se encontró PI "${piLabel}" — usando todos los SOs.\n${soList}`
 
       const prompt = `Asigná el SO correcto a cada ítem. Respondé ÚNICAMENTE con un array JSON de exactamente ${unmatchedItems.length} elementos, sin markdown:
-[{"so":"SO-XXXX","reason":"<15 palabras máx>"},...]
+[{"so":"SO-XXXX","reason":"<máx 15 palabras>","confidence":"high|medium|low"},...]
 
 ASN: ${items[0]?.asn ?? 'N/A'} | PI: ${piLabel}
 
