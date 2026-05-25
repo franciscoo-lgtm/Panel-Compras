@@ -6,7 +6,7 @@ import { fetchSalesOrders } from '@/app/lib/sheets'
 import type { ExtractedItem, DriveLinks, SOSuggestion, SOSuggestionResult } from '@/app/lib/etl'
 import {
   FileSpreadsheet, FileText, Loader2,
-  Save, CheckCircle2, AlertTriangle, Sparkles, ExternalLink, FolderOpen,
+  Save, AlertTriangle, Sparkles, ExternalLink, FolderOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
