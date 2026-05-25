@@ -61,7 +61,21 @@ Rules:
 - Apply fill-down for caseNo: if a sub-row has no case number, inherit the last known case number
 - gwKg, w, l, h: set ONLY on the first sub-row of each physical carton (the "primary" row). Leave them NULL on subsequent rows within the same carton — do NOT fill down these values
 - CRITICAL: output items in EXACTLY the same top-to-bottom order as they appear in the Packing List document. Do not reorder items.
-- piNo = CAS No. from Commercial Invoice (applies to ALL rows)`
+- piNo = CAS No. from Commercial Invoice (applies to ALL rows)
+
+NOTAS DE TOLERANCIA:
+- Los headers pueden variar: "ASN" puede aparecer como "Shipment No", "Reference", "ASN Number", "ASN#".
+- "Qty" puede aparecer como "Quantity", "Total Qty", "Units", "CTNS x QTY".
+- "Description" puede aparecer como "Item Description", "Product", "Goods Description".
+- "EAN" puede aparecer como "Barcode", "Code EAN", "EAN-13".
+- Si encontrás una columna sin header pero con datos que parecen códigos ASN (formato 3 letras + 6 dígitos + sufijo), asumí que es el ASN.
+- Si una celda tiene un valor que es claramente un código de producto (formato CP.XX.NNNNNNN.NN), usalo como SKU aunque el header diga otra cosa.
+
+DETECCIÓN DE PI MIXTO:
+Si encontrás dos PI Numbers distintos en la misma planilla, separá los ítems en grupos por PI y mencionalo en el campo "warnings" si existe, o en el primer item.
+
+DANGEROUS GOODS:
+Marcá isDangerousGood = true si la descripción contiene "battery", "lithium", "lipo", "lifepo4" o "energía portátil".`
 
 // ─── Anthropic call (raw fetch, edge-compatible) ──────────────────────────────
 
@@ -173,7 +187,13 @@ One object per row using these abbreviated keys (omit null/blank fields entirely
 - "w","l","h": numbers from SIZE field (split "59*57*27" or "59x57x27" on * or x)
 - "cbm": Volume(CBM) — first row per cn only
 - "gw": GW(KG) — first row per cn only
-- "dg": true only if description mentions lithium battery, flammable, aerosol, or explosive
+- "dg": true only if description mentions lithium battery, flammable, aerosol, or explosive; también marcá true si la descripción contiene "battery", "lithium", "lipo", "lifepo4" o "energía portátil"
+
+NOTAS DE TOLERANCIA:
+- Los headers pueden variar: "ASN" puede aparecer como "Shipment No", "Reference", "ASN Number", "ASN#".
+- "Qty" puede aparecer como "Quantity", "Total Qty", "Units", "CTNS x QTY".
+- "Description" puede aparecer como "Item Description", "Product", "Goods Description".
+- Si una celda tiene un valor que es claramente un código de producto (formato CP.XX.NNNNNNN.NN), usalo como "c" aunque el header diga otra cosa.
 
 Output MINIFIED JSON only — single line, no spaces between keys/values.`
 
