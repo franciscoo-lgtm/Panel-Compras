@@ -161,7 +161,7 @@ export async function fetchComexData(): Promise<ComexData> {
       return empty
     }
     const text = await res.text()
-    const lines = text.split('\n')
+    const lines = text.replace(/\r\n/g, '\n').split('\n')
     const headers = parseCSVRow(lines[0] ?? '').map(h => h.trim())
 
     const joinIdx = headers.findIndex(h => h.toLowerCase() === cfg.joinCol.toLowerCase())
@@ -176,17 +176,19 @@ export async function fetchComexData(): Promise<ComexData> {
       return empty
     }
 
-    const extraCols = cfg.extraCols
-      .map(c => ({
-        fieldKey: c.header,
-        label: c.label,
-        colIdx: headers.findIndex(h => h.toLowerCase() === c.header.toLowerCase()),
-      }))
-      .filter(c => c.colIdx >= 0)
+    const extraCols: { fieldKey: string; label: string; colIdx: number }[] = []
+    const errors: string[] = []
+    for (const c of cfg.extraCols) {
+      const colIdx = headers.findIndex(h => h.toLowerCase() === c.header.toLowerCase())
+      if (colIdx < 0) {
+        errors.push(`Columna extra "${c.header}" no encontrada en la planilla`)
+        continue
+      }
+      extraCols.push({ fieldKey: c.header, label: c.label, colIdx })
+    }
 
     const bySO = new Map<string, ComexSORow>()
     const byEmbarque = new Map<string, Set<string>>()
-    const errors: string[] = []
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i]
@@ -203,7 +205,12 @@ export async function fetchComexData(): Promise<ComexData> {
       )
       if (shipments.length === 0) continue
 
-      bySO.set(so, { so, shipments })
+      const existing = bySO.get(so)
+      if (existing) {
+        bySO.set(so, { so, shipments: [...existing.shipments, ...shipments] })
+      } else {
+        bySO.set(so, { so, shipments })
+      }
       for (const ship of shipments) {
         const emb = ship.embarqueNo.toUpperCase()
         if (!byEmbarque.has(emb)) byEmbarque.set(emb, new Set())
