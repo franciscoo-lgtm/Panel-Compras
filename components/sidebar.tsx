@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, LayoutDashboard, Upload, Anchor, Database, ChevronLeft, ChevronRight, Camera, Send, BarChart2, ShoppingCart, Settings } from 'lucide-react'
+import { Home, LayoutDashboard, Upload, Anchor, Database, ChevronLeft, ChevronRight, Send, BarChart2, ShoppingCart, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const nav = [
@@ -12,7 +12,6 @@ const nav = [
   { href: '/comercial',     label: 'Carga CIPL',       icon: Upload,          legacy: false, badge: null    },
   { href: '/panel-general', label: 'Panel General',    icon: LayoutDashboard, legacy: true,  badge: null    },
   { href: '/comex',         label: 'Comex Tracking',   icon: Database,        legacy: true,  badge: null    },
-  { href: '/inspeccion',    label: 'Inspección Fotos', icon: Camera,          legacy: true,  badge: null    },
   { href: '/reportes',      label: 'Reportes',         icon: BarChart2,       legacy: true,  badge: null    },
   { href: '/operaciones',   label: 'Fuentes',          icon: Settings,        legacy: true,  badge: null    },
 ]
