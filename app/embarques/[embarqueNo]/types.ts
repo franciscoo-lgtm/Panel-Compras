@@ -14,6 +14,12 @@ export type EmbarqueItem = {
   cbm: number | null
   gwKg: number | null
   photos: { id: string; dataUrl: string }[]
+  // ── Control (Fase 2) ──────────────────────────────────────────────────────
+  controlReviewed: boolean
+  controlReviewedAt: string | null   // ISO string after JSON.parse(JSON.stringify(...))
+  controlReviewedBy: string | null
+  controlNota: string | null
+  controlManualQty: number | null
 }
 
 export type EmbarqueCompra = {
