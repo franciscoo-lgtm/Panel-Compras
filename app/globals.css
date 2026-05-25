@@ -13,6 +13,17 @@
   --font-display: var(--font-display);
   --color-dji-red: #E30613;
   --color-dji-dark: #0A0A0A;
+  --color-status-ok: #10b981;
+  --color-status-warn: #f59e0b;
+  --color-status-error: #ef4444;
+  --color-status-info: #3b82f6;
+  --color-status-purple: #8b5cf6;
+  --color-surface-0: #050505;
+  --color-surface-1: #0a0a0a;
+  --color-surface-2: #0d0d0d;
+  --color-surface-3: #111111;
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.12);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

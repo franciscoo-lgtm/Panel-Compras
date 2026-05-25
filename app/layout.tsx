@@ -1,25 +1,26 @@
 import type { Metadata } from 'next'
-import { IBM_Plex_Sans, IBM_Plex_Mono, Barlow_Condensed } from 'next/font/google'
+import { Inter, Inter_Tight, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import { LayoutShell } from '@/components/layout-shell'
 import { Toaster } from '@/components/ui/sonner'
 
-const ibmPlexSans = IBM_Plex_Sans({
+const interBody = Inter({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
   variable: '--font-sans',
+  display: 'swap',
+})
+
+const interDisplay = Inter_Tight({
+  subsets: ['latin'],
+  variable: '--font-display',
+  display: 'swap',
+  weight: ['500', '600', '700'],
 })
 
 const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
   weight: ['400', '500', '600'],
   variable: '--font-geist-mono',
-})
-
-const barlowCondensed = Barlow_Condensed({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-display',
 })
 
 export const metadata: Metadata = {
@@ -31,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="es"
-      className={`${ibmPlexSans.variable} ${ibmPlexMono.variable} ${barlowCondensed.variable} h-full antialiased`}
+      className={`${interBody.variable} ${interDisplay.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
       <body className="h-full">
         <LayoutShell>{children}</LayoutShell>
