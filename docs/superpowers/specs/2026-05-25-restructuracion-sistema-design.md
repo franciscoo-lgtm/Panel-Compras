@@ -169,18 +169,42 @@ Sin acciones manuales. Si Comex actualiza la planilla, el estado cambia en el pr
 
 ## 5. Detalle de cada módulo
 
-### 5.1 Home
+### 5.1 Home — Tablero ejecutivo
 
 **Ruta:** `/`
 
-**Contenido:**
-- Barra de búsqueda global (cmd+k) — encuentra SO, ASN, embarque, EAN, descripción
-- Bandeja de alertas (top 10):
-  - "Embarque EMB-045 llega en N días" (cuando ETA < 7 días)
-  - "PL ASN-7 tiene N ítems sin foto"
-  - "Compra X: pago vence el dd/mm"
-  - "Embarque EMB-Y arribó WH hace N días sin cierre"
-- KPIs básicos: total embarques activos, ítems en tránsito, compras abiertas
+**Audiencia:** directorio + operación. Tiene que servir tanto para tomar decisiones desde lo alto como para ver pendientes del día.
+
+**Layout (top-to-bottom):**
+
+1. **Header con búsqueda global (cmd+k)** — encuentra SO, ASN, embarque, EAN, descripción, compra.
+
+2. **Fila de KPIs ejecutivos** (4 cards grandes con número + delta vs mes anterior):
+   - **Valor en tránsito** (USD): suma de FOB total de SOs en embarques con estado "en-tránsito" o "pendiente"
+   - **Embarques activos**: count de embarques no arribados
+   - **Unidades arribadas (mes)**: suma `qty` de items en embarques con `arribó WH` este mes
+   - **SLA cumplimiento**: % de embarques que arribaron dentro de los 21 días desde ETD (configurable)
+
+3. **Fila de gráficos** (2 columnas):
+   - **Embarques por mes** (bar chart): últimos 12 meses, segmentados por estado
+   - **Top proveedores** (horizontal bars): top 5 por FOB acumulado YTD
+   - **Tendencia de discrepancias** (line chart): % de ítems con qty mismatch por mes
+   - **Distribución por tipo de carga**: donut chart (Mercadería / Repuesto)
+
+4. **Bandeja de alertas operativas** (lista priorizada):
+   - 🔴 Críticas: "Embarque EMB-045 ETA pasada hace N días sin arribo confirmado"
+   - 🟡 Atención: "PL ASN-7 tiene N ítems sin foto", "Compra X: pago vence en 3 días"
+   - 🔵 Info: "Embarque EMB-Y llega en 2 días" (cuando ETA < 7 días)
+   - Click en alerta → navega al detalle correspondiente
+
+5. **Resumen de actividad reciente**:
+   - Últimos 5 PLs cargados
+   - Últimos 5 embarques con cambio de estado
+
+**Notas de implementación:**
+- Los KPIs se calculan server-side cada request (DB query + fetch Comex)
+- Los gráficos usan una librería ligera (recharts o equivalente, sin Chart.js pesado)
+- El estado "SLA" es configurable en `AppConfig` (default: 21 días)
 
 ### 5.2 Embarques
 
@@ -268,6 +292,54 @@ Detalles:
 
 ---
 
+## 5bis. Inteligencia (IA aplicada)
+
+Tres puntos donde el sistema usa IA para que el equipo no tenga que hacer trabajo manual:
+
+### 5bis.1 Sugerencia automática de SOs (`/api/suggest-sos`)
+
+Ya existe parcialmente (`app/api/suggest-sos/route.ts`). Mejoras a integrar:
+
+- **Estrategia two-step (ya implementada parcialmente)**:
+  1. Filtrar GSO V4 por columna "N Invoice" para acotar a SOs del invoice actual
+  2. Match individual contra ese set acotado
+- **Confidence score**: cada sugerencia viene con score `high`/`medium`/`low`
+- **Aprendizaje histórico**: usar `CIPLItem` históricos como guía (si EAN X siempre fue SO-1234, sugerir eso)
+- **UX**: mostrar sugerencia con badge de confianza + razón ("código CP.MA…91 coincide con SO-1001")
+- **Auto-aceptar high confidence**: opt-in en Configuración. Si el admin activa la opción, las sugerencias high se aplican solas
+
+### 5bis.2 Extracción inteligente desde fotos
+
+Ya existe en módulo de inspección (`app/inspeccion/`). Migrar al stepper de Carga CIPL como paso 3:
+
+- Lee imágenes embebidas en el Excel de inspección (anchors xdr en `xl/drawings/drawing1.xml`)
+- Para cada foto, llama a Claude (vision) con prompt: "identificá ASN/Carton/Case/SO visibles en esta etiqueta"
+- Returns: `{ asn, cartonNo, caseNo, soNo, confidence }`
+- Auto-asigna fotos a CIPLItems cuando el match es high confidence
+- Para low confidence: muestra dropdown manual
+
+**Mejora propuesta:** además de etiquetas, extraer:
+- Modelo visible en la caja (si difiere de descripción del PL → flag)
+- Cantidad visible en etiqueta (si difiere de qty del PL → flag)
+
+### 5bis.3 Extracción inteligente desde el CIPL (Excel DJI)
+
+Parser actual (`app/api/cipl-parse/`) extrae filas tabulares. Mejoras:
+
+- **Tolerancia a layout**: DJI a veces cambia headers ("ASN" vs "Shipment No" vs "Reference"). Usar IA para mapear headers no estándar
+- **Detección de PIs mixtos**: si el Excel mezcla 2 PIs, separarlos automáticamente y crear 2 grupos
+- **Categorización automática de tipoCarga** (Repuesto vs Mercadería) basado en descripción
+- **Detección de dangerous goods**: flag automático si la descripción contiene "battery", "lithium", etc.
+
+### 5bis.4 Detección de discrepancias
+
+Al cargar un PL, IA compara automáticamente:
+- `qty PL` vs `qty PI` (de Compra) → flag si difieren
+- `modelo PL` vs `modelo GSO V4` → flag si difieren
+- Genera alertas visibles en home y en Control
+
+---
+
 ## 6. Exportar CIPL consolidado
 
 **Trigger:** botón en detalle de Embarque → `GET /api/embarques/[embarqueNo]/export`
@@ -298,6 +370,48 @@ Detalles:
 | Acceso a logs/historial | — | ✓ | ✓ |
 
 Implementación: middleware Next.js + helper `requireRole(req, ['admin', 'comercial'])`.
+
+---
+
+## 7bis. Lenguaje de diseño (premium / profesional)
+
+El sistema tiene que tener calidad de producto comercial, no de tool interno casero. Referencia visual: **dji.bidcomagro.com.ar** (sitio público del concesionario).
+
+### Principios visuales
+
+- **Dark theme único** en todo el sistema (no toggle a light). Fondo `#0a0a0a` / `#0d0d0d`, cards `#111` / `#141414`, bordes sutiles `#222` / `#333`
+- **Acento DJI red** `#E30613` para CTAs principales, links activos, estado crítico
+- **Colores semánticos de estado**: emerald `#10b981` (OK/arribado), amber `#f59e0b` (atención/pendiente), red `#ef4444` (problema/atrasado), blue `#3b82f6` (info/en tránsito), purple `#8b5cf6` (compras)
+- **Tipografía**: una tipografía display + una sans serif para body. Candidatas: **Inter Tight** o **Geist** (display) + **Inter** (body). No usar fuentes genéricas (Arial, Roboto).
+- **Numeric tabular**: todas las cantidades, FOB y fechas en `font-variant-numeric: tabular-nums` para alinear bien en tablas
+- **Iconografía consistente**: Lucide React, weight 1.5, tamaños 14/16/20px según contexto
+
+### Densidad y composición
+
+- **Whitespace generoso pero controlado**: padding `12px`/`16px`/`24px` consistentes. Nunca cards apretadas.
+- **Headlines tight**: títulos con `line-height: 1.1`, body `line-height: 1.5`
+- **Tablas profesionales**: filas de 36-40px de alto, hover state sutil, headers en mayúsculas pequeñas con letter-spacing
+- **Cards con borde + sombra mínima**: `border: 1px solid #222`, `border-radius: 10px`, sin drop shadow agresivo
+- **Status pills**: bordes redondeados `8px`, padding `2px 8px`, texto `9-10px` bold
+
+### Microinteracciones
+
+- **Transiciones**: 150-200ms ease-out en hover/focus, nunca más largo
+- **Loading states**: skeleton placeholders, no spinners genéricos
+- **Empty states**: ilustración sutil + CTA claro
+- **Form validation**: inline, errors en rojo con icono, success silencioso
+
+### Componentes clave a desarrollar
+
+- `<StatusPill estado="en-transito" />` — pill con color por estado de embarque
+- `<KPICard valor delta="-3%" />` — card grande del dashboard
+- `<DataTable />` — tabla densa con sticky headers, hover, sortable
+- `<DateRange etd eta />` — formato consistente `15/06 → 28/06`
+- `<MoneyValue usd={1234} />` — formato consistente USD con separadores
+- `<SearchInput />` — input con icono, autocompletar, atajo cmd+k
+- `<AlertItem priority="critical" />` — item de bandeja de alertas con icono semántico
+
+Aplicar el `frontend-design` skill durante la implementación de cada página.
 
 ---
 
@@ -436,17 +550,19 @@ components/                             # compartidos
 
 Tarea | Estimación
 ---|---
+Sistema de diseño (tipografías, colores, componentes base) | 1 día
 Construcción del Embarque computed (parser split + join) | 1 día
 Detalle del Embarque (tabs: resumen, items, control, fotos, compras, historial) | 2 días
-Carga CIPL stepper (fusión con inspección) | 2 días
+Tablero ejecutivo (KPIs + gráficos + alertas) | 2 días
+Carga CIPL stepper (fusión con inspección + IA mejorada) | 3 días
 Configuración simplificada | 1 día
-Búsqueda global + bandeja alertas + home | 1 día
+Búsqueda global cmd+k | 1 día
 Export consolidado | 0.5 día
 Roles & middleware | 0.5 día
-Mobile responsive | 0.5 día
+Mobile responsive | 1 día
 Cleanup de módulos viejos | 0.5 día
 Migración config | 0.5 día
-**Total estimado** | **~10 días de trabajo**
+**Total estimado** | **~14 días de trabajo**
 
 ---
 
