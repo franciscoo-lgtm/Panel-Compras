@@ -51,11 +51,10 @@ export function Sidebar({ collapsed, onToggle }: Props) {
           </p>
         )}
         {(() => {
-          let legacyHeaderShown = false
-          return nav.map(({ href, label, icon: Icon, legacy, badge }) => {
+          const firstLegacyIdx = nav.findIndex(n => n.legacy)
+          return nav.map(({ href, label, icon: Icon, legacy, badge }, idx) => {
             const active = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
-            const showLegacyHeader = legacy && !legacyHeaderShown
-            if (showLegacyHeader) legacyHeaderShown = true
+            const showLegacyHeader = idx === firstLegacyIdx
             return (
               <div key={href}>
                 {showLegacyHeader && !collapsed && (
