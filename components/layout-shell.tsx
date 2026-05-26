@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Sidebar } from './sidebar'
+import { CmdK } from './shared/CmdK'
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
@@ -25,6 +26,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
       >
         {children}
       </main>
+      <CmdK />
     </div>
   )
 }
