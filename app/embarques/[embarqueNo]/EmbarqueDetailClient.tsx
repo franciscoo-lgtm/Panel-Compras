@@ -7,6 +7,7 @@ import { ItemsTab } from './tabs/ItemsTab'
 import { ControlTab } from './tabs/ControlTab'
 import { FotosTab } from './tabs/FotosTab'
 import { ComprasTab } from './tabs/ComprasTab'
+import { HistorialTab } from './tabs/HistorialTab'
 import type { EmbarqueItem, EmbarqueCompra } from './types'
 
 export type DetailProp = {
@@ -25,7 +26,7 @@ export type DetailProp = {
   extraColumns: { fieldKey: string; label: string }[]
 }
 
-type TabId = 'resumen' | 'items' | 'control' | 'fotos' | 'compras'
+type TabId = 'resumen' | 'items' | 'control' | 'fotos' | 'compras' | 'historial'
 
 export function EmbarqueDetailClient({ detail }: { detail: DetailProp }) {
   const [tab, setTab] = useState<TabId>('resumen')
@@ -40,7 +41,8 @@ export function EmbarqueDetailClient({ detail }: { detail: DetailProp }) {
     { id: 'items',   label: 'Ítems',   count: detail.items.length },
     { id: 'control', label: 'Control', count: controlIssues, badge: controlIssues > 0 },
     { id: 'fotos',   label: 'Fotos',   count: photoCount },
-    { id: 'compras', label: 'Compras', count: detail.compras.length },
+    { id: 'compras',   label: 'Compras',  count: detail.compras.length },
+    { id: 'historial', label: 'Historial' },
   ]
 
   return (
@@ -73,7 +75,8 @@ export function EmbarqueDetailClient({ detail }: { detail: DetailProp }) {
       {tab === 'items'   && <ItemsTab items={detail.items} />}
       {tab === 'control' && <ControlTab items={detail.items} />}
       {tab === 'fotos'   && <FotosTab items={detail.items} />}
-      {tab === 'compras' && <ComprasTab compras={detail.compras} sos={detail.sos} />}
+      {tab === 'compras'   && <ComprasTab compras={detail.compras} sos={detail.sos} />}
+      {tab === 'historial' && <HistorialTab items={detail.items} />}
     </div>
   )
 }
