@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { fetchComexData, type ComexShipment } from '@/app/lib/comex'
+import { parseDateLoose, pickField, deriveStatus, ESTADO_PRIORITY } from '@/app/lib/comex-internals'
 import type { CIPLItemModel as CIPLItem, CompraModel as Compra, CIPLPhotoModel as CIPLPhoto } from '@/app/generated/prisma/models'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -31,49 +32,8 @@ export type EmbarqueDetail = EmbarqueSummary & {
   errors: string[]
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function parseDateLoose(raw: string | null | undefined): Date | null {
-  if (!raw) return null
-  const iso = new Date(raw)
-  if (!isNaN(iso.getTime())) return iso
-  const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/)
-  if (m) {
-    const dd = parseInt(m[1], 10)
-    const mm = parseInt(m[2], 10) - 1
-    let yyyy = parseInt(m[3], 10)
-    if (yyyy < 100) yyyy += 2000
-    const d = new Date(yyyy, mm, dd)
-    return isNaN(d.getTime()) ? null : d
-  }
-  return null
-}
-
-function pickField(shipment: ComexShipment, candidates: string[]): string | null {
-  for (const key of Object.keys(shipment.extras)) {
-    const lower = key.toLowerCase()
-    if (candidates.some(c => lower.includes(c))) {
-      const v = shipment.extras[key]
-      if (v) return v
-    }
-  }
-  return null
-}
-
-function deriveStatus(shipment: ComexShipment): EmbarqueEstado {
-  const arribo = parseDateLoose(pickField(shipment, ['arribo']))
-  if (arribo) return 'arribado'
-  const etd = parseDateLoose(pickField(shipment, ['etd']))
-  if (!etd) return 'desconocido'
-  return etd <= new Date() ? 'en-transito' : 'pendiente'
-}
-
-const ESTADO_PRIORITY: Record<EmbarqueEstado, number> = {
-  desconocido:   0,
-  pendiente:     1,
-  'en-transito': 2,
-  arribado:      3,
-}
+// Helpers (parseDateLoose, pickField, deriveStatus, ESTADO_PRIORITY) live in comex-internals.ts
+// so they can be unit-tested without the 'use server' constraint.
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 

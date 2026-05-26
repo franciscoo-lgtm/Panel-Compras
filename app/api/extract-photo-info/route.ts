@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { callClaudeWithCache, logCacheStats } from '@/app/lib/anthropic'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -38,22 +38,28 @@ export async function POST(req: Request) {
     const { base64, mediaType } = await req.json() as { base64: string; mediaType: string }
     if (!base64) return NextResponse.json({ ok: false, error: 'base64 requerido' }, { status: 400 })
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-    const msg = await client.messages.create({
+    const { text, usage } = await callClaudeWithCache({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: base64 } },
-          { type: 'text', text: PROMPT },
-        ],
-      }],
+      systemPrompt: PROMPT,
+      userMessage: [
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+            data: base64,
+          },
+        },
+        { type: 'text', text: 'Analizá esta etiqueta y devolveme el JSON.' },
+      ],
+      maxTokens: 256,
     })
 
-    const text = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : ''
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) return NextResponse.json({ ok: false, error: 'sin JSON en respuesta', raw: text })
+    logCacheStats('extract-photo-info', usage)
+
+    const trimmed = text.trim()
+    const jsonMatch = trimmed.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return NextResponse.json({ ok: false, error: 'sin JSON en respuesta', raw: trimmed })
 
     let info: Record<string, unknown> = {}
     try {

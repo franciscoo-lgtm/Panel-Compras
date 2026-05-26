@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { listEmbarques, type EmbarqueSummary } from '@/app/lib/embarques'
+import { parseDateLoose } from '@/app/lib/comex-internals'
 
 export type ExecutiveKPIs = {
   valorEnTransitoUSD: number
@@ -16,22 +17,6 @@ export type ExecutiveKPIs = {
 
 function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-function parseDateLoose(raw: string | null | undefined): Date | null {
-  if (!raw) return null
-  const iso = new Date(raw)
-  if (!isNaN(iso.getTime())) return iso
-  const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/)
-  if (m) {
-    const dd = parseInt(m[1], 10)
-    const mm = parseInt(m[2], 10) - 1
-    let yyyy = parseInt(m[3], 10)
-    if (yyyy < 100) yyyy += 2000
-    const d = new Date(yyyy, mm, dd)
-    return isNaN(d.getTime()) ? null : d
-  }
-  return null
 }
 
 export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
