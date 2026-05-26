@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { CheckCircle2, AlertTriangle, Save, Loader2, Camera, Sparkles } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Save, Loader2, Sparkles, X } from 'lucide-react'
 import { InspectionPhotoUploader, type PhotoExtractionResult } from '@/components/shared/InspectionPhotoUploader'
 import { matchPhotosToItems, saveCIPLPhotos, type MatchedPhoto, type PhotoMatchCandidateLight } from '@/app/lib/photo-actions'
 import { cn } from '@/lib/utils'
@@ -19,6 +19,7 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
   const [matching, startMatching] = useTransition()
   const [saving, startSave] = useTransition()
   const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [lightbox, setLightbox] = useState<string | null>(null)
 
   async function handleAIComplete(photos: PhotoExtractionResult[]) {
     setSaveResult(null)
@@ -155,10 +156,14 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
                   {matched.map((m, idx) => (
                     <tr key={`${m.rowIndex}-${m.colIndex}`} className="border-b border-white/[0.04] last:border-0">
                       <td className="px-3 py-2">
-                        <div className="w-16 h-16 rounded overflow-hidden bg-black">
+                        <button
+                          onClick={() => setLightbox(`data:${m.mediaType};base64,${m.base64}`)}
+                          className="w-16 h-16 rounded overflow-hidden bg-black border border-white/[0.04] hover:border-[#E30613]/40 cursor-zoom-in transition-colors group block"
+                          title="Click para agrandar"
+                        >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={`data:${m.mediaType};base64,${m.base64}`} className="w-full h-full object-cover" alt="" />
-                        </div>
+                          <img src={`data:${m.mediaType};base64,${m.base64}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" />
+                        </button>
                       </td>
                       <td className="px-3 py-2 text-[10px] text-zinc-400 font-mono">
                         {m.ai ? (
@@ -214,6 +219,28 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
         <div className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] p-6 text-center text-[12px] text-zinc-500">
           <Sparkles className="w-6 h-6 mx-auto text-zinc-700 mb-2" />
           Subí un Excel arriba para empezar. La IA va a analizar cada foto y matchearla automáticamente.
+        </div>
+      )}
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightbox}
+            className="max-h-[92vh] max-w-[92vw] object-contain rounded-lg"
+            alt=""
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 text-white/70 hover:text-white"
+            aria-label="Cerrar"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
       )}
     </div>
