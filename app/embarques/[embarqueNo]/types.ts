@@ -20,6 +20,10 @@ export type EmbarqueItem = {
   controlReviewedBy: string | null
   controlNota: string | null
   controlManualQty: number | null
+  // ── Drive links (cargados en /comercial) ──────────────────────────────────
+  driveLinkExcel: string | null
+  driveLinkCi:    string | null
+  driveLinkPl:    string | null
 }
 
 export type EmbarqueCompra = {

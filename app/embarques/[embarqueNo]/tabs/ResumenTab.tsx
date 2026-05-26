@@ -1,7 +1,14 @@
 'use client'
 
+import { FileSpreadsheet, FileText, FolderOpen, ExternalLink } from 'lucide-react'
 import { KPICard } from '@/components/shared/KPICard'
 import type { DetailProp } from '../EmbarqueDetailClient'
+
+type DriveLinkEntry = {
+  asn: string | null
+  url: string
+  type: 'excel' | 'ci' | 'pl'
+}
 
 export function ResumenTab({ detail }: { detail: DetailProp }) {
   const photoCount = detail.items.reduce((s, i) => s + (i.photos?.length ?? 0), 0)
@@ -13,6 +20,31 @@ export function ResumenTab({ detail }: { detail: DetailProp }) {
 
   const firstShipment = detail.shipmentsBySO[0]?.[1]
   const extras = firstShipment?.extras ?? {}
+
+  // Recolectar Drive links únicos por ASN (cada PL típicamente tiene los mismos
+  // 3 links repetidos en todos sus items).
+  const seen = new Set<string>()
+  const driveLinks: DriveLinkEntry[] = []
+  for (const it of detail.items) {
+    const key = `${it.asn ?? ''}|${it.driveLinkExcel}|${it.driveLinkCi}|${it.driveLinkPl}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    if (it.driveLinkExcel) driveLinks.push({ asn: it.asn, url: it.driveLinkExcel, type: 'excel' })
+    if (it.driveLinkCi)    driveLinks.push({ asn: it.asn, url: it.driveLinkCi,    type: 'ci'    })
+    if (it.driveLinkPl)    driveLinks.push({ asn: it.asn, url: it.driveLinkPl,    type: 'pl'    })
+  }
+  const linksByAsn = new Map<string, DriveLinkEntry[]>()
+  for (const l of driveLinks) {
+    const k = l.asn ?? '(sin ASN)'
+    if (!linksByAsn.has(k)) linksByAsn.set(k, [])
+    linksByAsn.get(k)!.push(l)
+  }
+
+  const LINK_META: Record<DriveLinkEntry['type'], { label: string; icon: React.ElementType; color: string }> = {
+    excel: { label: 'Excel original',     icon: FileSpreadsheet, color: 'text-emerald-400' },
+    ci:    { label: 'Commercial Invoice', icon: FileText,        color: 'text-amber-400'   },
+    pl:    { label: 'Packing List',       icon: FileText,        color: 'text-blue-400'    },
+  }
 
   return (
     <div className="space-y-5">
@@ -56,6 +88,44 @@ export function ResumenTab({ detail }: { detail: DetailProp }) {
               </div>
             ))}
           </dl>
+        </div>
+      )}
+
+      {linksByAsn.size > 0 && (
+        <div className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] p-4">
+          <h3 className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-3 flex items-center gap-1.5">
+            <FolderOpen className="w-3.5 h-3.5" />
+            Archivos en Drive
+          </h3>
+          <div className="space-y-3">
+            {Array.from(linksByAsn.entries()).map(([asn, links]) => (
+              <div key={asn} className="border-l-2 border-white/[0.06] pl-3">
+                <p className="font-mono text-[10px] text-zinc-400 mb-1.5">{asn}</p>
+                <div className="flex flex-wrap gap-2">
+                  {links.map((l, i) => {
+                    const meta = LINK_META[l.type]
+                    const Icon = meta.icon
+                    return (
+                      <a
+                        key={i}
+                        href={l.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition-colors"
+                      >
+                        <Icon className={`w-3.5 h-3.5 ${meta.color}`} />
+                        <span className="text-zinc-300">{meta.label}</span>
+                        <ExternalLink className="w-3 h-3 text-zinc-600" />
+                      </a>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[10px] text-zinc-600">
+            Los links se guardan cuando subís el CIPL en <span className="font-mono">/comercial</span>. Si no aparecen, ese PL se cargó sin upload a Drive.
+          </p>
         </div>
       )}
     </div>
