@@ -83,7 +83,42 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
         </div>
       </div>
 
-      <div className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] overflow-hidden">
+      {/* Mobile: cards stackeadas */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <p className="px-4 py-10 text-center text-zinc-500 text-[12px] rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
+            No hay embarques que coincidan con el filtro.
+          </p>
+        ) : filtered.map(s => (
+          <Link
+            key={s.embarqueNo}
+            href={`/embarques/${encodeURIComponent(s.embarqueNo)}`}
+            className="block rounded-lg border border-white/[0.06] bg-[#0a0a0a] p-3 hover:bg-white/[0.02] transition-colors"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="font-mono font-semibold text-white text-[13px]">{s.embarqueNo}</span>
+              <StatusPill estado={s.estado} className="ml-auto" />
+            </div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <DateRange etd={s.etd} eta={s.eta} />
+              {s.awb && <span className="font-mono text-[10px] text-zinc-500">· {s.awb}</span>}
+            </div>
+            <div className="flex flex-wrap gap-1 mb-2">
+              {s.sos.slice(0, 4).map(so => (
+                <span key={so} className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-white/[0.04] text-zinc-400">{so}</span>
+              ))}
+              {s.sos.length > 4 && <span className="text-[9px] text-zinc-500">+{s.sos.length - 4}</span>}
+            </div>
+            <div className="flex items-center gap-3 text-[10px] text-zinc-500 pt-2 border-t border-white/[0.04]">
+              <span>{s.totalQty.toLocaleString()} unidades</span>
+              <span>{s.totalCbm.toFixed(2)} CBM</span>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block rounded-lg border border-white/[0.06] bg-[#0a0a0a] overflow-hidden">
         <div className="overflow-x-auto -mx-2 px-2">
         <table className="w-full min-w-[640px] text-[12px]">
           <thead>
