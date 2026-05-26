@@ -8,7 +8,7 @@ import { marcarHito, editarCompra } from '@/app/compras/actions'
 import { generarConsolidado } from '@/app/compras/consolidado'
 import { getStatusBadgeClass } from '@/app/compras/lib'
 import type { CompraManualField } from '@/app/compras/actions'
-import type { LiveDataMap } from '@/app/lib/comex-sources'
+import type { ComexSORow } from '@/app/lib/comex'
 
 // ─── Types (serialised — all dates are ISO strings) ───────────────────────────
 
@@ -69,22 +69,22 @@ const fmtUSD = (n: number | null) =>
 
 function getMilestoneDate(
   key: string, compra: CompraSerial, ciplItems: CIPLSerial[],
-  sos: SOSerial[], liveData: LiveDataMap, comexFieldKey?: string
+  sos: SOSerial[], bySO: Record<string, ComexSORow>, comexFieldKey?: string
 ): string | null {
   if (key === '_plCargado') return ciplItems.length > 0 ? ciplItems[0]!.createdAt : null
   if (key === 'fechaOrden') return compra.fechaOrden
   if (key in compra) return (compra as Record<string, unknown>)[key] as string | null
   if (comexFieldKey) {
     for (const so of sos) {
-      const val = liveData[so.soNumber.toUpperCase()]?.[comexFieldKey]
+      const val = bySO[so.soNumber.toUpperCase()]?.shipments[0]?.extras[comexFieldKey] ?? null
       if (val) return val
     }
   }
   return null
 }
 
-function deriveStatus(compra: CompraSerial, ciplItems: CIPLSerial[], sos: SOSerial[], liveData: LiveDataMap): string {
-  const getDate = (key: string, cfk?: string) => getMilestoneDate(key, compra, ciplItems, sos, liveData, cfk)
+function deriveStatus(compra: CompraSerial, ciplItems: CIPLSerial[], sos: SOSerial[], bySO: Record<string, ComexSORow>): string {
+  const getDate = (key: string, cfk?: string) => getMilestoneDate(key, compra, ciplItems, sos, bySO, cfk)
   if (getDate('_arriboDeposito', 'fechaArriboDeposito')) return 'Completada'
   if (getDate('_arriboAduana',   'fechaArriboAduana'))   return 'En Aduana'
   if (getDate('_eta',            'eta'))                  return 'En tránsito'
@@ -137,14 +137,14 @@ function DateEditor({ compraId, field, current, onClose }: {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function CompraDetail({ compra, liveData }: { compra: CompraSerial; liveData: LiveDataMap }) {
+export function CompraDetail({ compra, bySO }: { compra: CompraSerial; bySO: Record<string, ComexSORow> }) {
   const router = useRouter()
   const [editingMilestone, setEditingMilestone] = useState<string | null>(null)
   const [expandedSOs, setExpandedSOs]           = useState<Set<string>>(new Set())
   const [dlPending, startDl]                     = useTransition()
   const [dlError, setDlError]                    = useState<string | null>(null)
 
-  const status    = deriveStatus(compra, compra.ciplItems, compra.sos, liveData)
+  const status    = deriveStatus(compra, compra.ciplItems, compra.sos, bySO)
   const qPedida   = compra.sos.reduce((s, so) => s + (so.qPi ?? 0), 0)
   const qRecibida = compra.ciplItems.reduce((s, c) => s + (c.qty ?? 0), 0)
   const fobTotal  = compra.sos.reduce((s, so) => s + (so.fobTotal ?? 0), 0)
@@ -157,7 +157,9 @@ export function CompraDetail({ compra, liveData }: { compra: CompraSerial; liveD
   }, {})
 
   const embarques = [...new Set(
-    compra.sos.map(so => liveData[so.soNumber.toUpperCase()]?.['embarqueNo']).filter(Boolean) as string[]
+    compra.sos.flatMap(so =>
+      bySO[so.soNumber.toUpperCase()]?.shipments.map(s => s.embarqueNo) ?? []
+    ).filter(Boolean) as string[]
   )]
 
   function toggleSO(soNumber: string) {
@@ -243,7 +245,7 @@ export function CompraDetail({ compra, liveData }: { compra: CompraSerial; liveD
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/25 mb-5">Hitos del proceso</p>
           <div className="flex items-start gap-0 overflow-x-auto pb-2">
             {MILESTONES.map((m, idx) => {
-              const date     = getMilestoneDate(m.key, compra, compra.ciplItems, compra.sos, liveData, m.comexFieldKey)
+              const date     = getMilestoneDate(m.key, compra, compra.ciplItems, compra.sos, bySO, m.comexFieldKey)
               const isDone   = !!date
               const isEditing= editingMilestone === m.key
               const canEdit  = m.source === 'manual' && EDITABLE_MANUAL.has(m.key)
@@ -328,7 +330,7 @@ export function CompraDetail({ compra, liveData }: { compra: CompraSerial; liveD
             const asnGroups  = soItems.reduce<Record<string, CIPLSerial[]>>((acc, c) => {
               const key = c.asn ?? 'Sin ASN'; acc[key] = [...(acc[key] ?? []), c]; return acc
             }, {})
-            const embarqueLabel = liveData[so.soNumber.toUpperCase()]?.['embarqueNo'] ?? null
+            const embarqueLabel = bySO[so.soNumber.toUpperCase()]?.shipments[0]?.embarqueNo ?? null
 
             return (
               <div key={so.id} className="bg-white/[0.02] border border-white/[0.06] rounded-xl mb-3 overflow-hidden">

@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { getComexSources, fetchAllSourcesData } from '@/app/lib/comex-sources'
+import { fetchComexData } from '@/app/lib/comex'
 import { CompraDetail } from './CompraDetail'
 
 export default async function CompraDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,8 +20,8 @@ export default async function CompraDetailPage({ params }: { params: Promise<{ i
   })
   if (!compra) notFound()
 
-  const sources = await getComexSources()
-  const { liveData } = await fetchAllSourcesData(sources)
+  const { bySO } = await fetchComexData()
+  const bySOSerial = Object.fromEntries(bySO)
 
   const compraSerial = {
     ...compra,
@@ -39,5 +39,5 @@ export default async function CompraDetailPage({ params }: { params: Promise<{ i
     })),
   }
 
-  return <CompraDetail compra={compraSerial} liveData={liveData} />
+  return <CompraDetail compra={compraSerial} bySO={bySOSerial} />
 }

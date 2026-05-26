@@ -2,7 +2,7 @@
 
 import * as XLSX from 'xlsx'
 import { prisma } from '@/lib/prisma'
-import { getComexSources, fetchAllSourcesData } from '@/app/lib/comex-sources'
+import { fetchComexData } from '@/app/lib/comex'
 
 export async function generarConsolidado(
   compraId: string,
@@ -15,12 +15,11 @@ export async function generarConsolidado(
     })
     if (!compra) return { error: 'Compra no encontrada.' }
 
-    const sources   = await getComexSources()
-    const { liveData } = await fetchAllSourcesData(sources)
+    const { bySO } = await fetchComexData()
 
     const matchingSOs = new Set(
       compra.sos
-        .filter(so => liveData[so.soNumber.toUpperCase()]?.['embarqueNo'] === embarqueNo)
+        .filter(so => bySO.get(so.soNumber.toUpperCase())?.shipments.some(s => s.embarqueNo === embarqueNo))
         .map(so => so.soNumber.toUpperCase())
     )
 
