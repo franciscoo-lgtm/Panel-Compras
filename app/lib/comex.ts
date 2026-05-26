@@ -74,6 +74,27 @@ export async function saveComexConfig(cfg: ComexConfig): Promise<void> {
   })
 }
 
+// ─── Preview de columnas para la UI de Configuración ──────────────────────────
+
+export async function previewSheetHeaders(
+  url: string,
+  sheetName?: string,
+): Promise<{ ok: true; headers: string[] } | { ok: false; error: string }> {
+  if (!url.trim()) return { ok: false, error: 'URL vacía' }
+  try {
+    const csvUrl = buildCsvUrl(url, sheetName)
+    const res = await fetch(csvUrl, { cache: 'no-store' })
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status} al leer la planilla` }
+    const text = await res.text()
+    const firstLine = text.replace(/\r\n/g, '\n').split('\n')[0] ?? ''
+    const headers = parseCSVRow(firstLine).map(h => h.trim()).filter(h => h.length > 0)
+    if (headers.length === 0) return { ok: false, error: 'Sin headers detectados' }
+    return { ok: true, headers }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 // ─── CSV helpers ──────────────────────────────────────────────────────────────
 
 function parseCSVRow(line: string): string[] {
