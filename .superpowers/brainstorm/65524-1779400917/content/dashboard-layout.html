@@ -1,0 +1,160 @@
+<h2>Layout del Panel de Reportes</h2>
+<p class="subtitle">Cada reporte es una tarjeta que queda fija. ¿Cómo las organizamos?</p>
+
+<div class="cards">
+
+  <!-- OPCIÓN A: Stack vertical full-width -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px; background:#0f0f0f; border-radius:8px;">
+      <div style="height:200px; overflow:hidden; display:flex; flex-direction:column; gap:6px;">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:.1em;">Panel de Reportes</span>
+          <div style="background:#E30613; border-radius:4px; padding:4px 8px; font-size:9px; color:#fff; font-weight:600;">+ Agregar reporte</div>
+        </div>
+        <!-- Report card 1 -->
+        <div style="background:#1a1a1a; border-radius:6px; padding:8px; border:1px solid #2a2a2a;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; gap:5px; align-items:center;">
+              <span style="font-size:10px; color:#fff; font-weight:600;">Agrupado por ASN</span>
+              <span style="background:#252525; border-radius:3px; padding:2px 5px; font-size:8px; color:#888;">may–hoy · Todos</span>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="font-size:9px; color:#555; cursor:pointer;">⚙</span>
+              <span style="font-size:9px; color:#555; cursor:pointer;">↓</span>
+              <span style="font-size:9px; color:#E30613; cursor:pointer;">✕</span>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:4px; margin-bottom:6px;">
+            <div style="background:#1e2a1e; border-radius:3px; padding:4px; text-align:center; font-size:9px; color:#5cb85c;">1.240 qty</div>
+            <div style="background:#1a1e2a; border-radius:3px; padding:4px; text-align:center; font-size:9px; color:#5b8dd9;">86 bultos</div>
+            <div style="background:#2a1a1e; border-radius:3px; padding:4px; text-align:center; font-size:9px; color:#d9855b;">12.4 cbm</div>
+            <div style="background:#2a261a; border-radius:3px; padding:4px; text-align:center; font-size:9px; color:#d9c55b;">380 kg</div>
+          </div>
+          <div style="background:#111; border-radius:4px; padding:4px 8px; font-size:8px; color:#555; display:flex; gap:12px;">
+            <span style="flex:2">ASN</span><span>Qty</span><span>Bultos</span><span>CBM</span><span>GW</span>
+          </div>
+        </div>
+        <!-- Report card 2 -->
+        <div style="background:#1a1a1a; border-radius:6px; padding:8px; border:1px solid #2a2a2a;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; gap:5px; align-items:center;">
+              <span style="font-size:10px; color:#fff; font-weight:600;">Agrupado por SO</span>
+              <span style="background:#252525; border-radius:3px; padding:2px 5px; font-size:8px; color:#888;">abr–hoy · Repuesto</span>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="font-size:9px; color:#555;">⚙</span>
+              <span style="font-size:9px; color:#555;">↓</span>
+              <span style="font-size:9px; color:#E30613;">✕</span>
+            </div>
+          </div>
+          <div style="background:#111; border-radius:4px; padding:4px 8px; font-size:8px; color:#555; display:flex; gap:12px;">
+            <span style="flex:2">SO</span><span>Qty</span><span>Bultos</span><span>CBM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Stack vertical (full ancho)</h3>
+      <p>Cada reporte ocupa todo el ancho. Scrolleás hacia abajo para ver más reportes. Máximo espacio horizontal para tablas anchas.</p>
+    </div>
+  </div>
+
+  <!-- OPCIÓN B: Grid 2 columnas -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px; background:#0f0f0f; border-radius:8px;">
+      <div style="height:200px; overflow:hidden; display:flex; flex-direction:column; gap:6px;">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:.1em;">Panel de Reportes</span>
+          <div style="background:#E30613; border-radius:4px; padding:4px 8px; font-size:9px; color:#fff; font-weight:600;">+ Agregar reporte</div>
+        </div>
+        <!-- Grid 2 cols -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; flex:1;">
+          <!-- Card 1 -->
+          <div style="background:#1a1a1a; border-radius:6px; padding:8px; border:1px solid #2a2a2a; display:flex; flex-direction:column; gap:5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:9px; color:#fff; font-weight:600;">Por ASN</span>
+              <div style="display:flex; gap:3px; font-size:9px; color:#555;"><span>⚙</span><span>↓</span><span style="color:#E30613;">✕</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:3px;">
+              <div style="background:#1e2a1e; border-radius:3px; padding:3px; text-align:center; font-size:8px; color:#5cb85c;">1.240 qty</div>
+              <div style="background:#1a1e2a; border-radius:3px; padding:3px; text-align:center; font-size:8px; color:#5b8dd9;">86 bultos</div>
+            </div>
+            <div style="background:#111; border-radius:3px; padding:3px 6px; font-size:8px; color:#555;">ASN · Qty · Bultos · CBM</div>
+            <div style="background:#111; border-radius:3px; padding:3px 6px; font-size:8px; color:#777;">STS2605...</div>
+            <div style="background:#111; border-radius:3px; padding:3px 6px; font-size:8px; color:#777;">HYS2604...</div>
+          </div>
+          <!-- Card 2 -->
+          <div style="background:#1a1a1a; border-radius:6px; padding:8px; border:1px solid #2a2a2a; display:flex; flex-direction:column; gap:5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:9px; color:#fff; font-weight:600;">Por SO Principal</span>
+              <div style="display:flex; gap:3px; font-size:9px; color:#555;"><span>⚙</span><span>↓</span><span style="color:#E30613;">✕</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:3px;">
+              <div style="background:#2a1a1e; border-radius:3px; padding:3px; text-align:center; font-size:8px; color:#d9855b;">12.4 cbm</div>
+              <div style="background:#2a261a; border-radius:3px; padding:3px; text-align:center; font-size:8px; color:#d9c55b;">380 kg</div>
+            </div>
+            <div style="background:#111; border-radius:3px; padding:3px 6px; font-size:8px; color:#555;">SO · Qty · GW · CBM</div>
+            <div style="background:#111; border-radius:3px; padding:3px 6px; font-size:8px; color:#777;">SO-1234</div>
+            <div style="background:#111; border-radius:3px; padding:3px 6px; font-size:8px; color:#777;">SO-5678</div>
+          </div>
+          <!-- Card 3: add new -->
+          <div style="background:#111; border-radius:6px; padding:8px; border:1px dashed #2a2a2a; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px; grid-column:span 2; min-height:40px; cursor:pointer;">
+            <span style="font-size:16px; color:#333;">+</span>
+            <span style="font-size:8px; color:#444; text-transform:uppercase; letter-spacing:.1em;">Agregar reporte</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Grid de 2 columnas <span style="background:#E30613;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;">Recomendado</span></h3>
+      <p>Reportes en pares, lado a lado. Ves más a la vez. Reportes con muchas columnas pueden quedar apretados pero son expandibles.</p>
+    </div>
+  </div>
+
+  <!-- OPCIÓN C: Full-width con collapsible -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px; background:#0f0f0f; border-radius:8px;">
+      <div style="height:200px; overflow:hidden; display:flex; flex-direction:column; gap:6px;">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:.1em;">Panel de Reportes</span>
+          <div style="background:#E30613; border-radius:4px; padding:4px 8px; font-size:9px; color:#fff; font-weight:600;">+ Agregar reporte</div>
+        </div>
+        <!-- Reporte expandido -->
+        <div style="background:#1a1a1a; border-radius:6px; padding:8px; border:1px solid #E30613;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; gap:5px; align-items:center;">
+              <span style="color:#E30613; font-size:9px;">▼</span>
+              <span style="font-size:10px; color:#fff; font-weight:600;">Por ASN — 3 grupos</span>
+            </div>
+            <div style="display:flex; gap:4px; font-size:9px;">
+              <span style="color:#555;">⚙</span><span style="color:#555;">↓ Excel</span><span style="color:#555;">↓ PDF</span><span style="color:#E30613;">✕</span>
+            </div>
+          </div>
+          <div style="background:#111; border-radius:4px; height:50px; display:flex; flex-direction:column; gap:0;">
+            <div style="padding:3px 8px; font-size:8px; color:#555; display:flex; gap:12px; border-bottom:1px solid #1a1a1a;"><span style="flex:2">ASN</span><span>Qty</span><span>Bultos</span><span>CBM</span><span>GW</span></div>
+            <div style="padding:3px 8px; font-size:8px; color:#ccc; display:flex; gap:12px;"><span style="flex:2">STS260506...</span><span>480</span><span>32</span><span>4.8</span><span>142</span></div>
+          </div>
+        </div>
+        <!-- Reporte colapsado -->
+        <div style="background:#1a1a1a; border-radius:6px; padding:8px; border:1px solid #2a2a2a;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; gap:5px; align-items:center;">
+              <span style="color:#555; font-size:9px;">▶</span>
+              <span style="font-size:10px; color:#888; font-weight:600;">Por SO Principal — 12 grupos</span>
+              <span style="background:#252525; border-radius:3px; padding:2px 5px; font-size:8px; color:#555;">Repuesto · abr–hoy</span>
+            </div>
+            <div style="display:flex; gap:4px; font-size:9px;"><span style="color:#555;">⚙</span><span style="color:#555;">↓</span><span style="color:#E30613;">✕</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Stack full-ancho colapsables</h3>
+      <p>Igual que A pero cada reporte se puede colapsar a una sola línea para ahorrar espacio. Ideal si tenés muchos reportes.</p>
+    </div>
+  </div>
+
+</div>

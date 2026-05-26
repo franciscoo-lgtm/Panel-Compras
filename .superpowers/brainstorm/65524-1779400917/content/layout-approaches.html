@@ -1,0 +1,132 @@
+<h2>¿Cómo armamos el Panel de Reportes?</h2>
+<p class="subtitle">Tres enfoques distintos — hacé click para seleccionar el que preferís</p>
+
+<div class="cards">
+
+  <!-- OPCIÓN A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px; background:#0f0f0f; border-radius:8px;">
+      <div style="display:flex; gap:8px; height:180px;">
+        <!-- Sidebar -->
+        <div style="width:34%; background:#1a1a1a; border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+          <div style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px;">Configuración</div>
+          <div style="background:#252525; border-radius:4px; padding:6px 8px; font-size:9px; color:#aaa;">📅 Fecha: may 2025 – hoy</div>
+          <div style="background:#252525; border-radius:4px; padding:6px 8px; font-size:9px; color:#aaa;">📦 Tipo: Todos</div>
+          <div style="background:#E30613; border-radius:4px; padding:6px 8px; font-size:9px; color:#fff; font-weight:600;">Agrupar por: ASN</div>
+          <div style="font-size:9px; color:#555; margin-top:4px;">Columnas visibles</div>
+          <div style="background:#252525; border-radius:4px; padding:5px 8px; font-size:9px; color:#888;">✓ Qty  ✓ Bultos  ✓ CBM</div>
+          <div style="background:#252525; border-radius:4px; padding:5px 8px; font-size:9px; color:#888;">✓ GW  ✗ Fecha  ✗ Flete</div>
+        </div>
+        <!-- Reporte live -->
+        <div style="flex:1; background:#1a1a1a; border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:5px;">
+          <div style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:.1em;">Reporte · 3 grupos</div>
+          <div style="background:#252525; border-radius:4px; padding:6px 8px; display:flex; justify-content:space-between; font-size:9px; color:#ccc;">
+            <span>STS260506...</span><span style="color:#E30613">▼</span>
+          </div>
+          <div style="background:#252525; border-radius:4px; padding:6px 8px; display:flex; justify-content:space-between; font-size:9px; color:#ccc;">
+            <span>HYS260413...</span><span style="color:#E30613">▼</span>
+          </div>
+          <div style="background:#252525; border-radius:4px; padding:6px 8px; display:flex; justify-content:space-between; font-size:9px; color:#ccc;">
+            <span>DJI260301...</span><span style="color:#E30613">▼</span>
+          </div>
+          <div style="margin-top:auto; display:flex; gap:5px;">
+            <div style="flex:1; background:#E30613; border-radius:4px; padding:5px; text-align:center; font-size:9px; color:#fff; font-weight:600;">Excel</div>
+            <div style="flex:1; background:#333; border-radius:4px; padding:5px; text-align:center; font-size:9px; color:#aaa;">PDF</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Sidebar + reporte en vivo</h3>
+      <p>Configuración a la izquierda, reporte se actualiza en tiempo real a la derecha. Todo en una pantalla.</p>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Todo visible a la vez</li><li>Muy rápido de iterar</li></ul></div>
+        <div class="cons"><h4>Contras</h4><ul><li>Sidebar ocupa espacio del reporte</li><li>Más complejo de implementar</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPCIÓN B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px; background:#0f0f0f; border-radius:8px;">
+      <div style="height:180px; background:#1a1a1a; border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+        <!-- Barra top -->
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <div style="background:#252525; border-radius:4px; padding:5px 10px; font-size:9px; color:#aaa; display:flex; align-items:center; gap:4px;">📅 <span>may–hoy</span></div>
+          <div style="background:#252525; border-radius:4px; padding:5px 10px; font-size:9px; color:#aaa;">Tipo ▾</div>
+          <div style="background:#E30613; border-radius:4px; padding:5px 10px; font-size:9px; color:#fff; font-weight:600;">Agrupar: ASN ▾</div>
+          <div style="background:#252525; border-radius:4px; padding:5px 10px; font-size:9px; color:#aaa;">Columnas ▾</div>
+          <div style="margin-left:auto; background:#E30613; border-radius:4px; padding:5px 10px; font-size:9px; color:#fff; font-weight:600;">↓ Exportar</div>
+        </div>
+        <!-- Totales strip -->
+        <div style="display:flex; gap:6px;">
+          <div style="flex:1; background:#1e2a1e; border-radius:4px; padding:5px 8px; text-align:center; font-size:9px; color:#5cb85c;">1.240 <span style="color:#555">qty</span></div>
+          <div style="flex:1; background:#1a1e2a; border-radius:4px; padding:5px 8px; text-align:center; font-size:9px; color:#5b8dd9;">86 <span style="color:#555">bultos</span></div>
+          <div style="flex:1; background:#2a1a1e; border-radius:4px; padding:5px 8px; text-align:center; font-size:9px; color:#d9855b;">12.4 <span style="color:#555">cbm</span></div>
+          <div style="flex:1; background:#2a261a; border-radius:4px; padding:5px 8px; text-align:center; font-size:9px; color:#d9c55b;">380 <span style="color:#555">kg</span></div>
+        </div>
+        <!-- Tabla -->
+        <div style="flex:1; background:#111; border-radius:4px; overflow:hidden;">
+          <div style="display:flex; background:#222; padding:4px 8px; font-size:8px; color:#555; text-transform:uppercase; gap:12px;">
+            <span style="flex:2">Grupo</span><span style="flex:1">Qty</span><span style="flex:1">Bultos</span><span style="flex:1">CBM</span>
+          </div>
+          <div style="display:flex; padding:4px 8px; font-size:9px; color:#ccc; gap:12px; border-bottom:1px solid #1a1a1a;">
+            <span style="flex:2">STS260506...</span><span style="flex:1">480</span><span style="flex:1">32</span><span style="flex:1">4.8</span>
+          </div>
+          <div style="display:flex; padding:4px 8px; font-size:9px; color:#ccc; gap:12px; border-bottom:1px solid #1a1a1a;">
+            <span style="flex:2">HYS260413...</span><span style="flex:1">380</span><span style="flex:1">28</span><span style="flex:1">3.9</span>
+          </div>
+          <div style="display:flex; padding:4px 8px; font-size:9px; color:#ccc; gap:12px;">
+            <span style="flex:2">DJI260301...</span><span style="flex:1">380</span><span style="flex:1">26</span><span style="flex:1">3.7</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Barra de controles arriba + reporte abajo <span style="background:#E30613;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;">Recomendado</span></h3>
+      <p>Filtros, agrupación y columnas en una barra horizontal compacta. Todo el espacio restante para el reporte. Totales generales siempre visibles.</p>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Máximo espacio para el reporte</li><li>Consistente con el resto del panel</li><li>Más simple de implementar</li></ul></div>
+        <div class="cons"><h4>Contras</h4><ul><li>Sidebar tiene más superficie visual para filtros</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPCIÓN C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px; background:#0f0f0f; border-radius:8px;">
+      <div style="height:180px; background:#1a1a1a; border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+        <!-- Wizard steps -->
+        <div style="display:flex; gap:0; align-items:center;">
+          <div style="flex:1; background:#E30613; border-radius:4px 0 0 4px; padding:6px; text-align:center; font-size:9px; color:#fff; font-weight:600;">① Filtros</div>
+          <div style="flex:1; background:#333; padding:6px; text-align:center; font-size:9px; color:#666;">② Agrupación</div>
+          <div style="flex:1; background:#333; border-radius:0 4px 4px 0; padding:6px; text-align:center; font-size:9px; color:#666;">③ Columnas</div>
+        </div>
+        <!-- Step content -->
+        <div style="flex:1; background:#111; border-radius:4px; padding:10px; display:flex; flex-direction:column; gap:5px;">
+          <div style="font-size:9px; color:#888; margin-bottom:4px;">Seleccioná el rango de fechas</div>
+          <div style="display:flex; gap:5px;">
+            <div style="flex:1; background:#252525; border-radius:4px; padding:5px 8px; font-size:9px; color:#aaa;">Desde: 01/04/2025</div>
+            <div style="flex:1; background:#252525; border-radius:4px; padding:5px 8px; font-size:9px; color:#aaa;">Hasta: hoy</div>
+          </div>
+          <div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:4px;">
+            <div style="background:#E30613; border-radius:3px; padding:3px 7px; font-size:8px; color:#fff;">Mercadería</div>
+            <div style="background:#333; border-radius:3px; padding:3px 7px; font-size:8px; color:#666;">Repuesto</div>
+          </div>
+          <div style="margin-top:auto; display:flex; justify-content:flex-end;">
+            <div style="background:#E30613; border-radius:4px; padding:5px 12px; font-size:9px; color:#fff; font-weight:600;">Siguiente →</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Wizard en 3 pasos</h3>
+      <p>Primero configurás filtros, luego agrupación, luego columnas. Al final ves el reporte generado.</p>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Guía paso a paso</li></ul></div>
+        <div class="cons"><h4>Contras</h4><ul><li>Lento para uso frecuente</li><li>No ves el reporte mientras configurás</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>

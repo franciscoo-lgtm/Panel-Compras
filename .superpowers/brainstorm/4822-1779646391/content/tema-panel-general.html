@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel General — Dirección de diseño</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f4f5; padding: 24px; }
+  h1 { font-size: 18px; font-weight: 700; color: #18181b; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: #71717a; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card { border-radius: 16px; overflow: hidden; cursor: pointer; border: 3px solid transparent; transition: all .2s; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,.12); }
+  .card.selected { border-color: #E30613; box-shadow: 0 0 0 2px rgba(227,6,19,.2); }
+  .card-label { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; padding: 10px 16px 0; }
+  .card-title { font-size: 16px; font-weight: 700; padding: 4px 16px 12px; }
+  .card-desc { font-size: 12px; padding: 0 16px 14px; opacity: .7; line-height: 1.5; }
+
+  /* ── DARK mockup ── */
+  .dark-preview { background: #0A0A0A; padding: 16px; }
+  .dark-header { background: #111; border-bottom: 1px solid rgba(255,255,255,.06); padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; border-radius: 8px 8px 0 0; }
+  .dark-header-title { color: #fff; font-size: 13px; font-weight: 600; }
+  .dark-badge { background: rgba(227,6,19,.15); color: #fb9ca2; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-left: auto; }
+  .dark-search { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 7px 12px; color: rgba(255,255,255,.3); font-size: 12px; margin-bottom: 8px; }
+  .dark-row { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.05); border-radius: 8px; padding: 9px 12px; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }
+  .dark-tag { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+  .dark-tag.rep { background: rgba(16,185,129,.15); color: #34d399; }
+  .dark-tag.merc { background: rgba(227,6,19,.12); color: #fb9ca2; }
+  .dark-text { color: rgba(255,255,255,.6); font-size: 11px; flex: 1; }
+  .dark-pill { background: rgba(59,130,246,.15); color: #60a5fa; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; }
+  .dark-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-bottom: 10px; }
+  .dark-kpi { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: 8px; padding: 8px 10px; }
+  .dark-kpi-num { color: #fff; font-size: 18px; font-weight: 700; font-family: monospace; }
+  .dark-kpi-label { color: rgba(255,255,255,.3); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
+
+  /* ── LIGHT mockup ── */
+  .light-preview { background: #f9fafb; padding: 16px; }
+  .light-header { background: #fff; border-bottom: 1px solid #f0f0f0; padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; border-radius: 8px 8px 0 0; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .light-header-title { color: #18181b; font-size: 13px; font-weight: 600; }
+  .light-badge { background: #fee2e2; color: #991b1b; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-left: auto; }
+  .light-search { background: #fff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 7px 12px; color: #a1a1aa; font-size: 12px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .light-row { background: #fff; border: 1px solid #f0f0f0; border-radius: 8px; padding: 9px 12px; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .light-tag { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+  .light-tag.rep { background: #dcfce7; color: #166534; }
+  .light-tag.merc { background: #fee2e2; color: #991b1b; }
+  .light-text { color: #52525b; font-size: 11px; flex: 1; }
+  .light-pill { background: #dbeafe; color: #1d4ed8; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; }
+  .light-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-bottom: 10px; }
+  .light-kpi { background: #fff; border: 1px solid #f0f0f0; border-radius: 8px; padding: 8px 10px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .light-kpi-num { color: #18181b; font-size: 18px; font-weight: 700; font-family: monospace; }
+  .light-kpi-label { color: #a1a1aa; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
+
+  .choice-btn { width: 100%; margin-top: 14px; padding: 10px; border: 2px solid rgba(255,255,255,.1); border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all .15s; text-transform: uppercase; letter-spacing: .08em; }
+  .dark .choice-btn { background: rgba(255,255,255,.05); color: rgba(255,255,255,.6); }
+  .dark .choice-btn:hover { background: rgba(227,6,19,.15); color: #fb9ca2; border-color: rgba(227,6,19,.3); }
+  .light .choice-btn { background: rgba(0,0,0,.04); color: #52525b; border-color: #e4e4e7; }
+  .light .choice-btn:hover { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+  .selected .choice-btn { background: rgba(227,6,19,.15) !important; color: #E30613 !important; border-color: #E30613 !important; }
+</style>
+</head>
+<body>
+<h1>Panel General — ¿Qué dirección de diseño?</h1>
+<p class="sub">Elegí el tema visual para el Panel General (y luego Comex). El resto del sistema ya usa el tema oscuro.</p>
+
+<div class="grid">
+
+  <!-- DARK -->
+  <div class="card dark" onclick="this.classList.toggle('selected'); document.querySelectorAll('.card').forEach(c=>c!==this&&c.classList.remove('selected'))">
+    <div style="background:#0A0A0A;">
+      <div class="card-label" style="color:#E30613;">A — Unificar en oscuro</div>
+      <div class="card-title" style="color:#fff;">Dark Theme</div>
+      <div class="card-desc" style="color:rgba(255,255,255,.4);">Mismo sistema visual que Compras y Home. Coherencia total.</div>
+      <div class="dark-preview">
+        <div class="dark-kpis">
+          <div class="dark-kpi"><div class="dark-kpi-num">487</div><div class="dark-kpi-label">Ítems</div></div>
+          <div class="dark-kpi"><div class="dark-kpi-num">12</div><div class="dark-kpi-label">ASNs</div></div>
+          <div class="dark-kpi"><div class="dark-kpi-num">34</div><div class="dark-kpi-label">Sin SO</div></div>
+          <div class="dark-kpi"><div class="dark-kpi-num">8</div><div class="dark-kpi-label">En tráns.</div></div>
+        </div>
+        <div class="dark-search">🔍  Buscar ASN, descripción, SO...</div>
+        <div class="dark-row">
+          <div class="dark-tag rep">REP</div>
+          <div class="dark-text">DJI Mini 4 Pro — Propeller Guard</div>
+          <div style="color:rgba(255,255,255,.3);font-size:11px;margin-right:6px;">SO-40094</div>
+          <div class="dark-pill">En tránsito</div>
+        </div>
+        <div class="dark-row">
+          <div class="dark-tag merc">MERC</div>
+          <div class="dark-text">DJI Osmo Action 4 — Standard Combo</div>
+          <div style="color:rgba(255,255,255,.3);font-size:11px;margin-right:6px;">SO-40095</div>
+          <div style="background:rgba(16,185,129,.15);color:#34d399;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;">Entregado</div>
+        </div>
+        <div class="dark-row" style="opacity:.6">
+          <div class="dark-tag rep">REP</div>
+          <div class="dark-text">Mavic 3 Pro — Battery</div>
+          <div style="color:rgba(255,255,255,.3);font-size:11px;margin-right:6px;">—</div>
+          <div style="background:rgba(245,158,11,.12);color:#fbbf24;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;">Sin SO</div>
+        </div>
+      </div>
+    </div>
+    <div class="choice-btn">Seleccionar →</div>
+  </div>
+
+  <!-- LIGHT REFINED -->
+  <div class="card light" onclick="this.classList.toggle('selected'); document.querySelectorAll('.card').forEach(c=>c!==this&&c.classList.remove('selected'))">
+    <div style="background:#f9fafb;">
+      <div class="card-label" style="color:#E30613;">B — Mantener claro (mejorado)</div>
+      <div class="card-title" style="color:#18181b;">Light Theme Refinado</div>
+      <div class="card-desc" style="color:#71717a;">Más legible para tablas densas de datos. Mejorar el diseño sin cambiar el tema.</div>
+      <div class="light-preview">
+        <div class="light-kpis">
+          <div class="light-kpi"><div class="light-kpi-num">487</div><div class="light-kpi-label">Ítems</div></div>
+          <div class="light-kpi"><div class="light-kpi-num">12</div><div class="light-kpi-label">ASNs</div></div>
+          <div class="light-kpi"><div class="light-kpi-num">34</div><div class="light-kpi-label">Sin SO</div></div>
+          <div class="light-kpi"><div class="light-kpi-num">8</div><div class="light-kpi-label">En tráns.</div></div>
+        </div>
+        <div class="light-search">🔍  Buscar ASN, descripción, SO...</div>
+        <div class="light-row">
+          <div class="light-tag rep">REP</div>
+          <div class="light-text">DJI Mini 4 Pro — Propeller Guard</div>
+          <div style="color:#a1a1aa;font-size:11px;margin-right:6px;">SO-40094</div>
+          <div class="light-pill">En tránsito</div>
+        </div>
+        <div class="light-row">
+          <div class="light-tag merc">MERC</div>
+          <div class="light-text">DJI Osmo Action 4 — Standard Combo</div>
+          <div style="color:#a1a1aa;font-size:11px;margin-right:6px;">SO-40095</div>
+          <div style="background:#dcfce7;color:#166534;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;">Entregado</div>
+        </div>
+        <div class="light-row" style="opacity:.7">
+          <div class="light-tag rep">REP</div>
+          <div class="light-text">Mavic 3 Pro — Battery</div>
+          <div style="color:#a1a1aa;font-size:11px;margin-right:6px;">—</div>
+          <div style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;">Sin SO</div>
+        </div>
+      </div>
+    </div>
+    <div class="choice-btn">Seleccionar →</div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px;background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:14px 18px;">
+  <div style="font-size:12px;font-weight:700;color:#18181b;margin-bottom:6px;">Mi recomendación: <span style="color:#E30613">A — Dark</span></div>
+  <div style="font-size:12px;color:#52525b;line-height:1.6;">El Panel General tiene tablas densas, pero hoy ya usás el sistema oscuro para todo lo nuevo. La inconsistencia actual (oscuro/claro) genera fricción cognitiva. Las tablas de datos funcionan igual de bien en dark con el contraste correcto — y ganas coherencia en toda la app.</div>
+</div>
+
+<script>
+document.querySelectorAll('.card').forEach(card => {
+  card.addEventListener('click', () => {
+    const choice = card.classList.contains('dark') ? 'dark' : 'light';
+    if (window.recordSelection) window.recordSelection(choice, card.querySelector('.card-title').textContent);
+  });
+});
+</script>
+</body>
+</html>

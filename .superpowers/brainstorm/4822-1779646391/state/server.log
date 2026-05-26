@@ -1,0 +1,3 @@
+{"type":"server-started","port":53149,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:53149","screen_dir":"/workspaces/Panel-Compras/.superpowers/brainstorm/4822-1779646391/content","state_dir":"/workspaces/Panel-Compras/.superpowers/brainstorm/4822-1779646391/state"}
+{"type":"screen-added","file":"/workspaces/Panel-Compras/.superpowers/brainstorm/4822-1779646391/content/tema-panel-general.html"}
+{"type":"server-stopped","reason":"idle timeout"}

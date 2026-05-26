@@ -1,0 +1,128 @@
+<h2>¿Cómo organizamos el sistema?</h2>
+<p class="subtitle">El problema actual: módulos que se superponen, sin un centro claro. Elegí la estructura que mejor refleje cómo trabajás.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="A" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a0a;padding:16px;min-height:220px">
+      <div style="display:flex;gap:12px;height:100%">
+        <!-- Sidebar -->
+        <div style="width:130px;background:#141414;border-radius:8px;padding:10px 8px;display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;padding:0 4px">DJI Importaciones</div>
+          <div style="background:#E30613;color:white;border-radius:6px;padding:5px 8px;font-size:10px;font-weight:700">📦 Embarques</div>
+          <div style="color:#555;padding:5px 8px;font-size:10px">🛒 Compras</div>
+          <div style="color:#555;padding:5px 8px;font-size:10px">📤 Carga CIPL</div>
+          <div style="color:#555;padding:5px 8px;font-size:10px">⚙️ Configuración</div>
+        </div>
+        <!-- Content preview -->
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div style="background:#141414;border-radius:8px;padding:10px">
+            <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Embarques activos</div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="display:flex;align-items:center;gap:6px;background:#1a1a1a;border-radius:4px;padding:5px 8px">
+                <span style="width:6px;height:6px;border-radius:50%;background:#3b82f6;flex-shrink:0"></span>
+                <span style="font-size:9px;color:#888;flex:1">ASN-2024-001 · 3 SOs</span>
+                <span style="font-size:8px;color:#3b82f6">En tránsito</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;background:#1a1a1a;border-radius:4px;padding:5px 8px">
+                <span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;flex-shrink:0"></span>
+                <span style="font-size:9px;color:#888;flex:1">ASN-2024-002 · 1 SO</span>
+                <span style="font-size:8px;color:#f59e0b">Avisado</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;background:#1a1a1a;border-radius:4px;padding:5px 8px">
+                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;flex-shrink:0"></span>
+                <span style="font-size:9px;color:#888;flex:1">ASN-2024-003 · 2 SOs</span>
+                <span style="font-size:8px;color:#10b981">Llegado WH</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Embarque-centrado</h3>
+      <p>El <strong>embarque (ASN)</strong> es el centro. Todo gira alrededor de él: el PL, el tracking, la compra vinculada. 4 módulos simples.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="B" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a0a;padding:16px;min-height:220px">
+      <div style="display:flex;gap:12px;height:100%">
+        <!-- Sidebar -->
+        <div style="width:130px;background:#141414;border-radius:8px;padding:10px 8px;display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;padding:0 4px">DJI Importaciones</div>
+          <div style="background:#E30613;color:white;border-radius:6px;padding:5px 8px;font-size:10px;font-weight:700">🏠 Inicio</div>
+          <div style="color:#555;padding:5px 8px;font-size:10px">🚢 Seguimiento</div>
+          <div style="color:#555;padding:5px 8px;font-size:10px">🛒 Compras</div>
+          <div style="color:#555;padding:5px 8px;font-size:10px">📤 Carga</div>
+        </div>
+        <!-- Content preview -->
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div style="background:#141414;border-radius:8px;padding:10px">
+            <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Seguimiento unificado</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+              <div style="background:#1a1a1a;border-radius:4px;padding:6px">
+                <div style="font-size:8px;color:#666">En tránsito</div>
+                <div style="font-size:16px;font-weight:700;color:#3b82f6">4</div>
+              </div>
+              <div style="background:#1a1a1a;border-radius:4px;padding:6px">
+                <div style="font-size:8px;color:#666">En aduana</div>
+                <div style="font-size:16px;font-weight:700;color:#f59e0b">2</div>
+              </div>
+              <div style="background:#1a1a1a;border-radius:4px;padding:6px">
+                <div style="font-size:8px;color:#666">Llegados</div>
+                <div style="font-size:16px;font-weight:700;color:#10b981">7</div>
+              </div>
+              <div style="background:#1a1a1a;border-radius:4px;padding:6px">
+                <div style="font-size:8px;color:#666">Demorados</div>
+                <div style="font-size:16px;font-weight:700;color:#ef4444">1</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Dashboard + Seguimiento</h3>
+      <p>Un <strong>dashboard operativo</strong> con KPIs y un módulo de seguimiento que muestra PL + tracking juntos en una sola pantalla.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="C" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a0a;padding:16px;min-height:220px">
+      <div style="display:flex;gap:12px;height:100%">
+        <!-- Sidebar -->
+        <div style="width:130px;background:#141414;border-radius:8px;padding:10px 8px;display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;padding:0 4px">DJI Importaciones</div>
+          <div style="background:#E30613;color:white;border-radius:6px;padding:5px 8px;font-size:10px;font-weight:700">🚢 Mis Embarques</div>
+          <div style="color:#555;padding:5px 8px;font-size:10px">🛒 Compras</div>
+          <div style="color:#555;padding:5px 8px;font-size:10px">📤 Nuevo CIPL</div>
+        </div>
+        <!-- Content preview: single page detail -->
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+          <div style="background:#141414;border-radius:8px;padding:10px;flex:1">
+            <div style="font-size:9px;color:#E30613;font-weight:700;margin-bottom:6px">ASN-2024-001 — En tránsito</div>
+            <div style="display:flex;gap:6px;margin-bottom:6px">
+              <div style="background:#1a1a1a;border-radius:4px;padding:4px 6px;font-size:8px;color:#555">ETD: 12/05</div>
+              <div style="background:#1a1a1a;border-radius:4px;padding:4px 6px;font-size:8px;color:#555">ETA: 28/05</div>
+              <div style="background:#1a1a1a;border-radius:4px;padding:4px 6px;font-size:8px;color:#555">AWB: 123456</div>
+            </div>
+            <div style="border-top:1px solid #222;padding-top:6px">
+              <div style="font-size:8px;color:#444;margin-bottom:4px">Productos (42 ítems)</div>
+              <div style="background:#1a1a1a;height:3px;border-radius:2px;margin-bottom:2px"></div>
+              <div style="background:#1a1a1a;height:3px;border-radius:2px;width:80%;margin-bottom:2px"></div>
+              <div style="background:#1a1a1a;height:3px;border-radius:2px;width:60%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Ultra simplificado</h3>
+      <p><strong>3 módulos nada más.</strong> Mis Embarques (todo junto), Compras, Nuevo CIPL. Sin Comex separado, sin Panel General, sin Operaciones.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;text-align:center">Hacé click en la opción que más te guste, o decime en el chat</p>

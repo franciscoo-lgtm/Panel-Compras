@@ -1,0 +1,207 @@
+<h2>Diseño del Panel de Reportes</h2>
+<p class="subtitle">Revisá el diseño completo — decime si algo hay que cambiar</p>
+
+<div class="section">
+  <div class="label">1 · Vista general del dashboard</div>
+
+  <div class="mockup">
+    <div class="mockup-header">🗂 /reportes — Panel de Reportes</div>
+    <div class="mockup-body" style="padding:12px; display:flex; flex-direction:column; gap:10px; background:#0d0d0d; min-height:320px;">
+
+      <!-- Top bar -->
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <span style="font-size:13px; color:#fff; font-weight:700;">Reportes</span>
+          <span style="font-size:10px; color:#555; margin-left:8px;">4 reportes activos</span>
+        </div>
+        <button style="background:#E30613; border:none; border-radius:6px; padding:6px 14px; font-size:11px; color:#fff; font-weight:600; cursor:pointer;">+ Nuevo reporte</button>
+      </div>
+
+      <!-- 2-column grid -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+
+        <!-- Tile 1 -->
+        <div style="background:#141414; border-radius:8px; border:1px solid #222; padding:12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="font-size:11px; font-weight:700; color:#fff;">Por ASN</div>
+              <div style="font-size:9px; color:#555; margin-top:2px;">may 2025 – hoy · Todos</div>
+            </div>
+            <div style="display:flex; gap:6px; font-size:10px;">
+              <span style="color:#555; cursor:pointer" title="Editar">⚙</span>
+              <span style="color:#555; cursor:pointer" title="Excel">xlsx</span>
+              <span style="color:#555; cursor:pointer" title="PDF">pdf</span>
+              <span style="color:#E30613; cursor:pointer" title="Eliminar">✕</span>
+            </div>
+          </div>
+          <!-- Totals -->
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:4px;">
+            <div style="background:#0f1a0f; border-radius:4px; padding:4px; text-align:center;">
+              <div style="font-size:11px; font-weight:700; color:#5cb85c;">1.240</div>
+              <div style="font-size:8px; color:#3a5a3a; text-transform:uppercase;">qty</div>
+            </div>
+            <div style="background:#0f121a; border-radius:4px; padding:4px; text-align:center;">
+              <div style="font-size:11px; font-weight:700; color:#5b8dd9;">86</div>
+              <div style="font-size:8px; color:#2a3a5a; text-transform:uppercase;">bultos</div>
+            </div>
+            <div style="background:#1a0f0f; border-radius:4px; padding:4px; text-align:center;">
+              <div style="font-size:11px; font-weight:700; color:#d9855b;">12.4</div>
+              <div style="font-size:8px; color:#5a2a2a; text-transform:uppercase;">cbm</div>
+            </div>
+            <div style="background:#1a1a0f; border-radius:4px; padding:4px; text-align:center;">
+              <div style="font-size:11px; font-weight:700; color:#d9c55b;">380</div>
+              <div style="font-size:8px; color:#5a5a2a; text-transform:uppercase;">gw kg</div>
+            </div>
+          </div>
+          <!-- Mini table -->
+          <div style="background:#0a0a0a; border-radius:4px; overflow:hidden; font-size:9px;">
+            <div style="display:flex; gap:8px; padding:4px 8px; color:#444; border-bottom:1px solid #1a1a1a; text-transform:uppercase; font-size:8px;">
+              <span style="flex:3">ASN</span><span style="flex:1">Qty</span><span style="flex:1">Bultos</span><span style="flex:1">CBM</span>
+            </div>
+            <div style="display:flex; gap:8px; padding:4px 8px; color:#aaa; border-bottom:1px solid #111;">
+              <span style="flex:3">STS260506…</span><span style="flex:1">480</span><span style="flex:1">32</span><span style="flex:1">4.8</span>
+            </div>
+            <div style="display:flex; gap:8px; padding:4px 8px; color:#aaa; border-bottom:1px solid #111;">
+              <span style="flex:3">HYS260413…</span><span style="flex:1">380</span><span style="flex:1">28</span><span style="flex:1">3.9</span>
+            </div>
+            <div style="display:flex; gap:8px; padding:4px 8px; color:#555; font-style:italic; font-size:8px;">
+              + 2 grupos más ▼
+            </div>
+          </div>
+        </div>
+
+        <!-- Tile 2: tiempo de tránsito -->
+        <div style="background:#141414; border-radius:8px; border:1px solid #222; padding:12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="font-size:11px; font-weight:700; color:#fff;">Tiempo por ASN <span style="background:#1a1e2a; color:#5b8dd9; font-size:8px; padding:2px 5px; border-radius:3px; margin-left:4px;">★ tránsito</span></div>
+              <div style="font-size:9px; color:#555; margin-top:2px;">últimos 6 meses · todos</div>
+            </div>
+            <div style="display:flex; gap:6px; font-size:10px;">
+              <span style="color:#555;">⚙</span><span style="color:#555;">xlsx</span><span style="color:#555;">pdf</span><span style="color:#E30613;">✕</span>
+            </div>
+          </div>
+          <div style="background:#0a0a0a; border-radius:4px; overflow:hidden; font-size:9px;">
+            <div style="display:flex; gap:8px; padding:4px 8px; color:#444; border-bottom:1px solid #1a1a1a; text-transform:uppercase; font-size:8px;">
+              <span style="flex:3">ASN</span><span style="flex:1">ETD</span><span style="flex:1">Arribo</span><span style="flex:1.5">Días</span>
+            </div>
+            <div style="display:flex; gap:8px; padding:4px 8px; color:#aaa; border-bottom:1px solid #111; align-items:center;">
+              <span style="flex:3">STS260506…</span><span style="flex:1">15/04</span><span style="flex:1">28/04</span>
+              <span style="flex:1.5; background:#1e2a1e; border-radius:3px; padding:2px 4px; color:#5cb85c; font-size:8px; text-align:center;">13 días</span>
+            </div>
+            <div style="display:flex; gap:8px; padding:4px 8px; color:#aaa; border-bottom:1px solid #111; align-items:center;">
+              <span style="flex:3">HYS260413…</span><span style="flex:1">02/04</span><span style="flex:1">—</span>
+              <span style="flex:1.5; background:#2a1a1a; border-radius:3px; padding:2px 4px; color:#E30613; font-size:8px; text-align:center;">⚠ demorado</span>
+            </div>
+          </div>
+          <div style="font-size:9px; color:#444; font-style:italic;">Columnas: ETD, ETA, Arribo WH, días en tránsito (calc.)</div>
+        </div>
+
+        <!-- Tile 3 -->
+        <div style="background:#141414; border-radius:8px; border:1px solid #222; padding:12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="font-size:11px; font-weight:700; color:#fff;">Por Categoría</div>
+              <div style="font-size:9px; color:#555; margin-top:2px;">todo · Mercadería</div>
+            </div>
+            <div style="display:flex; gap:6px; font-size:10px;">
+              <span style="color:#555;">⚙</span><span style="color:#555;">xlsx</span><span style="color:#555;">pdf</span><span style="color:#E30613;">✕</span>
+            </div>
+          </div>
+          <div style="background:#0a0a0a; border-radius:4px; font-size:9px;">
+            <div style="display:flex; gap:8px; padding:4px 8px; color:#444; border-bottom:1px solid #1a1a1a; text-transform:uppercase; font-size:8px;">
+              <span style="flex:3">Categoría</span><span style="flex:1">Qty</span><span style="flex:1">CBM</span>
+            </div>
+            <div style="display:flex; gap:8px; padding:4px 8px; color:#aaa; border-bottom:1px solid #111;">
+              <span style="flex:3">Drone</span><span style="flex:1">620</span><span style="flex:1">6.2</span>
+            </div>
+            <div style="display:flex; gap:8px; padding:4px 8px; color:#aaa;">
+              <span style="flex:3">Cámara</span><span style="flex:1">380</span><span style="flex:1">3.8</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add tile placeholder -->
+        <div style="background:#0d0d0d; border-radius:8px; border:2px dashed #1e1e1e; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; min-height:140px; cursor:pointer;">
+          <span style="font-size:24px; color:#2a2a2a;">+</span>
+          <span style="font-size:9px; color:#2a2a2a; text-transform:uppercase; letter-spacing:.1em;">Nuevo reporte</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">2 · Configuración de cada reporte (drawer lateral)</div>
+
+  <div class="mockup">
+    <div class="mockup-header">Drawer: Nuevo reporte</div>
+    <div class="mockup-body" style="padding:0; display:flex; background:#0d0d0d; min-height:260px;">
+      <!-- Main dimmed -->
+      <div style="flex:1; background:#0d0d0d; opacity:.3; display:flex; align-items:center; justify-content:center;">
+        <span style="color:#fff; font-size:10px;">Panel de Reportes</span>
+      </div>
+      <!-- Drawer -->
+      <div style="width:260px; background:#141414; border-left:1px solid #222; padding:14px; display:flex; flex-direction:column; gap:10px;">
+        <div style="font-size:12px; color:#fff; font-weight:700;">Configurar reporte</div>
+
+        <div>
+          <div style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;">Agrupar por</div>
+          <div style="background:#E30613; border-radius:4px; padding:6px 10px; font-size:10px; color:#fff; font-weight:600;">ASN / Embarque ▾</div>
+        </div>
+
+        <div>
+          <div style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;">Filtros</div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <div style="background:#1e1e1e; border-radius:4px; padding:5px 8px; font-size:9px; color:#aaa;">📅 Fecha: may 2025 – hoy</div>
+            <div style="background:#1e1e1e; border-radius:4px; padding:5px 8px; font-size:9px; color:#aaa;">📦 Tipo: Todos ▾</div>
+            <div style="background:#1e1e1e; border-radius:4px; padding:5px 8px; font-size:9px; color:#aaa;">🔍 ASN / PI: (vacío)</div>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;">Columnas</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:3px;">
+            <div style="background:#E30613; border-radius:3px; padding:3px 6px; font-size:8px; color:#fff; text-align:center;">✓ Qty</div>
+            <div style="background:#E30613; border-radius:3px; padding:3px 6px; font-size:8px; color:#fff; text-align:center;">✓ Bultos</div>
+            <div style="background:#E30613; border-radius:3px; padding:3px 6px; font-size:8px; color:#fff; text-align:center;">✓ CBM</div>
+            <div style="background:#1e1e1e; border-radius:3px; padding:3px 6px; font-size:8px; color:#555; text-align:center;">GW</div>
+            <div style="background:#E30613; border-radius:3px; padding:3px 6px; font-size:8px; color:#fff; text-align:center;">✓ ETD</div>
+            <div style="background:#E30613; border-radius:3px; padding:3px 6px; font-size:8px; color:#fff; text-align:center;">✓ ETA</div>
+            <div style="background:#1e1e1e; border-radius:3px; padding:3px 6px; font-size:8px; color:#555; text-align:center;">Arribo WH</div>
+            <div style="background:#1a1e2a; border-radius:3px; padding:3px 6px; font-size:8px; color:#5b8dd9; text-align:center;">★ Días</div>
+          </div>
+          <div style="font-size:8px; color:#444; margin-top:4px;">★ = columna calculada (días ETD→Arribo)</div>
+        </div>
+
+        <button style="margin-top:auto; background:#E30613; border:none; border-radius:6px; padding:8px; font-size:10px; color:#fff; font-weight:600; width:100%; cursor:pointer;">Agregar al dashboard</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">3 · Lo que se elimina de los otros paneles</div>
+  <ul style="color:#aaa; font-size:12px; line-height:2;">
+    <li>Panel General → se elimina el dropdown "Agrupar por" y la vista de reporte</li>
+    <li>Comex Tracking → se elimina el botón de reporte (BarChart2) y la vista Reporte</li>
+    <li>Ambos paneles vuelven a su función original: tabla de ítems y timeline</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="label">4 · Persistencia</div>
+  <p style="color:#aaa; font-size:12px; line-height:1.8;">
+    La configuración de cada tile se guarda en <strong style="color:#fff">localStorage</strong> del navegador.
+    Los reportes sobreviven recargas y cierres del navegador. Solo desaparecen cuando el usuario los elimina explícitamente (✕).
+    No requiere cambios en la base de datos.
+  </p>
+</div>
+
+<div style="background:#1a1a0f; border-radius:6px; padding:12px; margin-top:8px; border:1px solid #3a3a1a;">
+  <div style="font-size:10px; font-weight:700; color:#d9c55b; margin-bottom:6px;">¿Este diseño se ve bien? ¿Querés cambiar algo?</div>
+  <p style="font-size:10px; color:#aaa; margin:0; line-height:1.6;">
+    Avisame en el terminal si algo hay que ajustar antes de escribir el plan de implementación.
+  </p>
+</div>

@@ -1,0 +1,181 @@
+<h2>Auditoría final del diseño</h2>
+<p class="subtitle">Todo lo decidido, consolidado. Revisá si algo falta antes de pasar a la spec.</p>
+
+<div class="section">
+  <h3>🏗 Arquitectura definitiva</h3>
+  <div style="background:#0d0d0d;border:1px solid #333;border-radius:10px;padding:14px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+
+      <div style="background:#1a0a0a;border:2px solid #E30613;border-radius:8px;padding:12px">
+        <div style="color:#E30613;font-size:10px;font-weight:700;margin-bottom:6px">🚢 EMBARQUES</div>
+        <div style="font-size:9px;color:#888;line-height:1.5;margin-bottom:6px">
+          Lista + detalle.<br>
+          <strong style="color:#e5e5e5">Detalle = single source of truth.</strong>
+        </div>
+        <div style="background:#111;border-radius:4px;padding:6px;font-size:8px;color:#555">
+          • PL items completos<br>
+          • Tracking de Comex<br>
+          • Compra(s) vinculadas<br>
+          • Fotos inspección<br>
+          • Control qty + fotos<br>
+          • Links Drive<br>
+          • <strong style="color:#10b981">Exportar CIPL consolidado</strong>
+        </div>
+      </div>
+
+      <div style="background:#0d0d0d;border:1px solid #8b5cf6;border-radius:8px;padding:12px">
+        <div style="color:#8b5cf6;font-size:10px;font-weight:700;margin-bottom:6px">🛒 COMPRAS</div>
+        <div style="font-size:9px;color:#888;line-height:1.5;margin-bottom:6px">
+          Lista + detalle, igual a hoy.
+        </div>
+        <div style="background:#111;border-radius:4px;padding:6px;font-size:8px;color:#555">
+          • Header de compra<br>
+          • SOs (CompraSOItem)<br>
+          • Lifecycle de pago<br>
+          • Por cada SO: link a sus embarques
+        </div>
+      </div>
+
+      <div style="background:#0d0d0d;border:1px solid #10b981;border-radius:8px;padding:12px">
+        <div style="color:#10b981;font-size:10px;font-weight:700;margin-bottom:6px">📤 CARGA CIPL</div>
+        <div style="font-size:9px;color:#888;line-height:1.5;margin-bottom:6px">
+          <strong style="color:#e5e5e5">Flujo lineal de 4 pasos.</strong><br>
+          Absorbe Inspección.
+        </div>
+        <div style="background:#111;border-radius:4px;padding:6px;font-size:8px;color:#555">
+          1. Cargar Excel DJI<br>
+          2. Asignar SOs (con IA)<br>
+          3. Subir fotos inspección<br>
+          4. Control qty + fotos<br>
+          5. Confirmar
+        </div>
+      </div>
+
+      <div style="background:#0d0d0d;border:1px solid #3b82f6;border-radius:8px;padding:12px">
+        <div style="color:#3b82f6;font-size:10px;font-weight:700;margin-bottom:6px">⚙️ CONFIGURACIÓN</div>
+        <div style="font-size:9px;color:#888;line-height:1.5;margin-bottom:6px">
+          Solo 3 campos.
+        </div>
+        <div style="background:#111;border-radius:4px;padding:6px;font-size:8px;color:#555">
+          • URL planilla Comex<br>
+          • Columna SO<br>
+          • Columna N° Embarque<br>
+          <span style="color:#333">(las demás se autodetectan)</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🔁 Cómo funciona el join (split shipments incluidos)</h3>
+  <div style="background:#0d0d0d;border:1px solid #333;border-radius:10px;padding:14px;font-family:monospace;font-size:11px;line-height:1.7;color:#888">
+    <div style="color:#555;font-size:10px;margin-bottom:8px">// El SO en la planilla Comex puede tener MÚLTIPLES embarques</div>
+    <div>1. Leer planilla Comex →
+      <span style="color:#10b981">SO-1001</span>
+      |
+      <span style="color:#e5e5e5">N° Embarque = "EMB-045,EMB-046"</span></div>
+    <div>2. Splittear la columna por coma →
+      <span style="color:#e5e5e5">[EMB-045, EMB-046]</span></div>
+    <div>3. CIPLItem con
+      <span style="color:#10b981">soPrincipal = SO-1001</span>
+      aparece en <strong style="color:#E30613">AMBOS</strong> embarques</div>
+    <div>4. En el detalle de cada embarque se ve el ítem completo</div>
+    <div style="margin-top:10px;padding:8px;background:#1a1100;border-radius:6px;font-size:10px;color:#f59e0b">
+      ⚠ Nota: las fechas (ETD/ETA) en la planilla seguramente son del embarque más activo. Si querés fechas distintas por embarque, vas a tener que sincronizarlas en Comex con la misma posición del split.
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>📦 Detalle del Embarque — la pantalla central</h3>
+  <div style="background:#0d0d0d;border:1px solid #E30613;border-radius:10px;overflow:hidden">
+
+    <!-- Header con acciones -->
+    <div style="background:#0a0505;border-bottom:1px solid #2a0808;padding:12px 16px;display:flex;align-items:center;gap:10px">
+      <span style="color:#E30613;font-weight:700;font-size:14px">EMB-045</span>
+      <span style="background:#0d2a4a;color:#3b82f6;padding:2px 8px;border-radius:10px;font-size:10px">En tránsito</span>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <span style="background:#10b981;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">⬇ Exportar CIPL consolidado</span>
+        <span style="background:#1a1a1a;border:1px solid #333;color:#888;padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer">🔗 Drive</span>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="background:#0a0a0a;border-bottom:1px solid #1a1a1a;display:flex;font-size:10px">
+      <span style="padding:8px 14px;color:#E30613;border-bottom:2px solid #E30613;font-weight:600">Resumen</span>
+      <span style="padding:8px 14px;color:#555">Ítems (12)</span>
+      <span style="padding:8px 14px;color:#555">Control <span style="background:#2a1a0a;color:#f59e0b;padding:0 4px;border-radius:8px;font-size:8px;margin-left:2px">3</span></span>
+      <span style="padding:8px 14px;color:#555">Fotos (28)</span>
+      <span style="padding:8px 14px;color:#555">Compras (2)</span>
+      <span style="padding:8px 14px;color:#555">Historial</span>
+    </div>
+
+    <!-- Contenido -->
+    <div style="padding:14px 16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+        <div style="background:#111;border-radius:6px;padding:8px"><div style="color:#444;font-size:8px;text-transform:uppercase;letter-spacing:.1em">Tracking</div><div style="color:#888;font-size:10px;margin-top:4px">ETD <strong style="color:#e5e5e5">15/06</strong> · ETA <strong style="color:#e5e5e5">28/06</strong></div><div style="color:#555;font-size:9px;margin-top:2px">AWB 235-1234567</div></div>
+        <div style="background:#111;border-radius:6px;padding:8px"><div style="color:#444;font-size:8px;text-transform:uppercase;letter-spacing:.1em">Contenido</div><div style="color:#888;font-size:10px;margin-top:4px">2 SOs · 80 unidades</div><div style="color:#555;font-size:9px;margin-top:2px">0.83 CBM · 145 kg</div></div>
+        <div style="background:#111;border-radius:6px;padding:8px"><div style="color:#444;font-size:8px;text-transform:uppercase;letter-spacing:.1em">Control</div><div style="color:#888;font-size:10px;margin-top:4px"><strong style="color:#10b981">9 OK</strong> · <strong style="color:#f59e0b">3 con diferencia</strong></div><div style="color:#555;font-size:9px;margin-top:2px">28 fotos cargadas</div></div>
+      </div>
+
+      <div style="font-size:9px;color:#444;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Vista rápida de ítems</div>
+      <div style="background:#111;border-radius:6px;padding:8px;font-size:10px;color:#888;line-height:1.7">
+        <div>SO-1001 · DJI Mini 4 Pro × 50 · <span style="color:#10b981">✓</span></div>
+        <div>SO-1001 · Repuesto motor × 5 · <span style="color:#f59e0b">⚠ falta 1</span></div>
+        <div>SO-1002 · DJI Air 3 × 30 · <span style="color:#10b981">✓</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>✨ Funcionalidades transversales</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div style="background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:12px">
+      <div style="color:#e5e5e5;font-size:11px;font-weight:600;margin-bottom:4px">🔍 Búsqueda global (cmd+k)</div>
+      <div style="font-size:9px;color:#555;line-height:1.5">Encontrar SO, ASN, embarque, EAN, descripción. Te lleva al detalle.</div>
+    </div>
+    <div style="background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:12px">
+      <div style="color:#e5e5e5;font-size:11px;font-weight:600;margin-bottom:4px">🔔 Bandeja de alertas (home)</div>
+      <div style="font-size:9px;color:#555;line-height:1.5">"EMB-045 llega en 3 días", "PL ASN-7: 3 sin fotos", "Compra X paga mañana".</div>
+    </div>
+    <div style="background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:12px">
+      <div style="color:#e5e5e5;font-size:11px;font-weight:600;margin-bottom:4px">📊 Status automático</div>
+      <div style="font-size:9px;color:#555;line-height:1.5">El estado del embarque se deriva de las fechas Comex. Nadie marca nada manualmente.</div>
+    </div>
+    <div style="background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:12px">
+      <div style="color:#e5e5e5;font-size:11px;font-weight:600;margin-bottom:4px">✏️ Control con acciones</div>
+      <div style="font-size:9px;color:#555;line-height:1.5">Por ítem: marcar revisado, editar qty en línea, escribir nota. Queda auditado.</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🗑 Lo que sale del sistema</h3>
+  <div style="background:#0d0d0d;border:1px solid #333;border-radius:10px;padding:14px;display:flex;flex-wrap:wrap;gap:6px">
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:10px;text-decoration:line-through">Panel General</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:10px;text-decoration:line-through">Comex Tracking (como módulo)</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:10px;text-decoration:line-through">Operaciones</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:10px;text-decoration:line-through">Reportes</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:10px;text-decoration:line-through">Inspección (módulo separado)</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:10px;text-decoration:line-through">fieldKey mapping complejo</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:10px;text-decoration:line-through">join keys múltiples (so:, asn:, embarqueNo:)</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:10px;text-decoration:line-through">Tracking fields en CIPLItem (ya sacado)</span>
+  </div>
+</div>
+
+<div class="section">
+  <h3>📋 Pendiente de definir</h3>
+  <div style="background:#0d0d0d;border:1px solid #2a2a00;border-radius:10px;padding:14px">
+    <ul style="color:#888;font-size:11px;line-height:1.8;margin:0;padding-left:18px">
+      <li><strong style="color:#f59e0b">Fechas en split shipments:</strong> ¿la planilla Comex tiene una sola fecha por SO (compartida entre embarques) o también listas con coma?</li>
+      <li><strong style="color:#f59e0b">Roles:</strong> comercial/comex/admin — ¿quién ve y edita qué? (Hoy hay middleware pero las reglas no están escritas)</li>
+      <li><strong style="color:#f59e0b">Mobile:</strong> ¿el equipo necesita ver embarques desde el celular?</li>
+      <li><strong style="color:#f59e0b">Migración:</strong> ¿tirar datos viejos y empezar fresh, o migrar lo que está cargado?</li>
+    </ul>
+  </div>
+</div>
+
+<p class="subtitle" style="text-align:center;margin-top:8px">Si esto está OK, paso a escribir la spec. ¿Algo más antes?</p>

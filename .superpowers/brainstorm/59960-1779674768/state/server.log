@@ -1,0 +1,7 @@
+{"type":"server-started","port":62848,"host":"0.0.0.0","url_host":"localhost","url":"http://localhost:62848","screen_dir":"/workspaces/Panel-Compras/.superpowers/brainstorm/59960-1779674768/content","state_dir":"/workspaces/Panel-Compras/.superpowers/brainstorm/59960-1779674768/state"}
+{"type":"screen-added","file":"/workspaces/Panel-Compras/.superpowers/brainstorm/59960-1779674768/content/estructura.html"}
+{"type":"screen-added","file":"/workspaces/Panel-Compras/.superpowers/brainstorm/59960-1779674768/content/arquitectura.html"}
+{"type":"screen-added","file":"/workspaces/Panel-Compras/.superpowers/brainstorm/59960-1779674768/content/explicacion.html"}
+{"type":"screen-added","file":"/workspaces/Panel-Compras/.superpowers/brainstorm/59960-1779674768/content/pantallas.html"}
+{"type":"screen-added","file":"/workspaces/Panel-Compras/.superpowers/brainstorm/59960-1779674768/content/control-pl.html"}
+{"type":"server-stopped","reason":"idle timeout"}

@@ -1,0 +1,132 @@
+<h2>Arquitectura del sistema rediseñado</h2>
+<p class="subtitle">Basado en todo lo que me contaste. Revisá si el modelo tiene sentido antes de hablar de pantallas.</p>
+
+<div class="section">
+  <h3>Cómo fluye la información</h3>
+
+  <div style="background:#0d0d0d;border-radius:12px;padding:24px;margin-top:8px;font-family:monospace;font-size:12px;line-height:1.8;border:1px solid #222">
+
+    <div style="display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;gap:0;align-items:start;margin-bottom:16px">
+
+      <!-- Box 1: PL/CIPL -->
+      <div style="background:#141414;border:1px solid #333;border-radius:8px;padding:12px">
+        <div style="color:#f59e0b;font-size:10px;font-weight:700;letter-spacing:.1em;margin-bottom:8px">📄 CIPL / PL</div>
+        <div style="color:#555;font-size:10px;line-height:1.6">
+          ASN (código DJI)<br>
+          <span style="color:#888">soPrincipal</span><br>
+          descripción, qty<br>
+          bultos, CBM, GW<br>
+          fotos de inspección
+        </div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #222;font-size:9px;color:#444">Sube Francisco desde Excel</div>
+      </div>
+
+      <!-- Arrow -->
+      <div style="display:flex;align-items:center;justify-content:center;padding-top:24px">
+        <div style="color:#E30613;font-size:18px">→</div>
+      </div>
+
+      <!-- Box 2: Compra -->
+      <div style="background:#141414;border:1px solid #333;border-radius:8px;padding:12px">
+        <div style="color:#8b5cf6;font-size:10px;font-weight:700;letter-spacing:.1em;margin-bottom:8px">🛒 COMPRA</div>
+        <div style="color:#555;font-size:10px;line-height:1.6">
+          <span style="color:#888">SOs (SO-1234, ...)</span><br>
+          proveedor<br>
+          fechaPago, fechaLMS<br>
+          FOB total
+        </div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #222;font-size:9px;color:#444">Crea Francisco</div>
+      </div>
+
+      <!-- Arrow -->
+      <div style="display:flex;align-items:center;justify-content:center;padding-top:24px">
+        <div style="color:#E30613;font-size:18px">→</div>
+      </div>
+
+      <!-- Box 3: Planilla Comex -->
+      <div style="background:#141414;border:2px solid #E30613;border-radius:8px;padding:12px">
+        <div style="color:#E30613;font-size:10px;font-weight:700;letter-spacing:.1em;margin-bottom:8px">📊 PLANILLA COMEX</div>
+        <div style="color:#555;font-size:10px;line-height:1.6">
+          <span style="color:#e5e5e5">SO número ← match</span><br>
+          <span style="color:#e5e5e5">N° Embarque ← agrupa</span><br>
+          ETD, ETA, AWB<br>
+          Arribo WH<br>
+          ETA Caldas, status
+        </div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #333;font-size:9px;color:#E30613">Fuente de tracking</div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div style="display:flex;justify-content:center;margin-bottom:16px">
+      <div style="color:#E30613;font-size:12px">↓ el sistema cruza todo esto ↓</div>
+    </div>
+
+    <div style="background:#1a0a0a;border:2px solid #E30613;border-radius:8px;padding:16px;text-align:center">
+      <div style="color:#E30613;font-size:11px;font-weight:700;letter-spacing:.1em;margin-bottom:8px">🚢 EMBARQUE (vista calculada)</div>
+      <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap">
+        <span style="background:#1f1f1f;color:#888;padding:4px 10px;border-radius:4px;font-size:9px">N° Embarque interno</span>
+        <span style="background:#1f1f1f;color:#888;padding:4px 10px;border-radius:4px;font-size:9px">SOs incluidos</span>
+        <span style="background:#1f1f1f;color:#888;padding:4px 10px;border-radius:4px;font-size:9px">ETD / ETA / AWB</span>
+        <span style="background:#1f1f1f;color:#888;padding:4px 10px;border-radius:4px;font-size:9px">Estado</span>
+        <span style="background:#1f1f1f;color:#888;padding:4px 10px;border-radius:4px;font-size:9px">Productos del PL</span>
+        <span style="background:#1f1f1f;color:#888;padding:4px 10px;border-radius:4px;font-size:9px">Compra(s) vinculadas</span>
+      </div>
+      <div style="margin-top:10px;font-size:9px;color:#555">No se guarda en la DB — se construye en tiempo real cruzando las 3 fuentes</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Los 4 módulos del sistema</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+
+    <div style="background:#0d0d0d;border:1px solid #333;border-radius:10px;padding:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="background:#E30613;color:white;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">🚢</span>
+        <span style="color:white;font-size:13px;font-weight:700">Embarques</span>
+        <span style="background:#E30613;color:white;font-size:8px;padding:1px 6px;border-radius:10px;margin-left:auto">PRINCIPAL</span>
+      </div>
+      <p style="color:#666;font-size:11px;line-height:1.5;margin:0">Lista de embarques activos con estado, ETD/ETA, SOs y productos. Detalle completo de cada embarque con el PL. <strong style="color:#888">Es lo que ve el equipo.</strong></p>
+    </div>
+
+    <div style="background:#0d0d0d;border:1px solid #333;border-radius:10px;padding:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="background:#8b5cf6;color:white;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">🛒</span>
+        <span style="color:white;font-size:13px;font-weight:700">Compras</span>
+      </div>
+      <p style="color:#666;font-size:11px;line-height:1.5;margin:0">Órdenes de compra con SOs, proveedor y lifecycle de pago. Muestra en qué embarque está cada SO. Básicamente igual a lo que existe hoy.</p>
+    </div>
+
+    <div style="background:#0d0d0d;border:1px solid #333;border-radius:10px;padding:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="background:#10b981;color:white;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">📤</span>
+        <span style="color:white;font-size:13px;font-weight:700">Carga CIPL</span>
+      </div>
+      <p style="color:#666;font-size:11px;line-height:1.5;margin:0">Subir PLs desde Excel, asignar SOs, fotos de inspección. Lo que funciona bien hoy, mejorado. Se simplifica el Panel General.</p>
+    </div>
+
+    <div style="background:#0d0d0d;border:1px solid #333;border-radius:10px;padding:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="background:#3b82f6;color:white;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">⚙️</span>
+        <span style="color:white;font-size:13px;font-weight:700">Configuración</span>
+      </div>
+      <p style="color:#666;font-size:11px;line-height:1.5;margin:0">Solo: URL de la planilla de Comex + qué columna es el SO + qué columna es el N° Embarque. Nada más. Sin mapeos complejos.</p>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <h3>Lo que se elimina</h3>
+  <div style="background:#0d0d0d;border:1px solid #333;border-radius:10px;padding:14px;display:flex;flex-wrap:wrap;gap:8px">
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:11px;text-decoration:line-through">Panel General (como módulo separado)</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:11px;text-decoration:line-through">Comex Tracking (separado)</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:11px;text-decoration:line-through">Operaciones (configuración compleja)</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:11px;text-decoration:line-through">Reportes (por ahora)</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:11px;text-decoration:line-through">fieldKey mapping</span>
+    <span style="background:#1a1a1a;color:#666;padding:4px 10px;border-radius:6px;font-size:11px;text-decoration:line-through">join keys complejos</span>
+  </div>
+</div>
+
+<p class="subtitle" style="text-align:center;margin-top:8px">¿Este modelo refleja cómo funciona tu operación? Decime en el chat si algo está mal.</p>
