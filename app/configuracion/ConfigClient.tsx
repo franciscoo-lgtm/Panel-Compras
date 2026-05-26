@@ -1,49 +1,66 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Save, Loader2, AlertTriangle, CheckCircle2, Eye, Trash2 } from 'lucide-react'
-import { saveComexConfig, previewSheetHeaders, clearComexConfig, type ComexConfig } from '@/app/lib/comex'
+import { Save, Loader2, AlertTriangle, CheckCircle2, Eye, Trash2, Plus, Star, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { saveComexConfig, previewSheetHeaders, clearComexConfig, type ComexConfig, type ComexSource, type ComexMapping } from '@/app/lib/comex'
+import { MILESTONE_CATALOG, type MilestoneField } from '@/app/lib/milestone-catalog'
+import { cn } from '@/lib/utils'
 
-const EMPTY: ComexConfig = {
-  url: '',
-  sheetName: '',
-  joinCol: '',
-  embarqueCol: '',
-  extraCols: [],
+const EMPTY_CONFIG: ComexConfig = { sources: [], primarySourceId: null }
+
+function genId(): string {
+  return Math.random().toString(36).slice(2, 10)
+}
+
+function newSource(name: string = 'Nueva fuente'): ComexSource {
+  return {
+    id: genId(),
+    name,
+    enabled: true,
+    url: '',
+    sheetName: '',
+    joinCol: '',
+    mappings: [],
+  }
 }
 
 export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
-  const [cfg, setCfg] = useState<ComexConfig>(initial ?? EMPTY)
-  const [headers, setHeaders] = useState<string[]>([])
-  const [previewError, setPreviewError] = useState<string | null>(null)
-  const [previewing, startPreview] = useTransition()
+  const [cfg, setCfg] = useState<ComexConfig>(initial ?? EMPTY_CONFIG)
   const [saving, startSave] = useTransition()
   const [clearing, startClear] = useTransition()
   const [confirmClear, setConfirmClear] = useState(false)
   const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(initial?.sources[0]?.id ?? null)
 
-  function handlePreview() {
-    setPreviewError(null)
-    setSaveResult(null)
-    startPreview(async () => {
-      const res = await previewSheetHeaders(cfg.url, cfg.sheetName)
-      if (res.ok) {
-        setHeaders(res.headers)
-      } else {
-        setPreviewError(res.error)
-        setHeaders([])
-      }
-    })
+  function updateSource(id: string, patch: Partial<ComexSource>) {
+    setCfg(prev => ({
+      ...prev,
+      sources: prev.sources.map(s => s.id === id ? { ...s, ...patch } : s),
+    }))
   }
 
-  function toggleExtraCol(header: string) {
-    setCfg(prev => {
-      const idx = prev.extraCols.findIndex(c => c.header === header)
-      if (idx >= 0) {
-        return { ...prev, extraCols: prev.extraCols.filter((_, i) => i !== idx) }
-      }
-      return { ...prev, extraCols: [...prev.extraCols, { header, label: header }] }
-    })
+  function addSource() {
+    const s = newSource(`Fuente ${cfg.sources.length + 1}`)
+    setCfg(prev => ({
+      ...prev,
+      sources: [...prev.sources, s],
+      primarySourceId: prev.primarySourceId ?? s.id,
+    }))
+    setExpandedId(s.id)
+  }
+
+  function removeSource(id: string) {
+    setCfg(prev => ({
+      ...prev,
+      sources: prev.sources.filter(s => s.id !== id),
+      primarySourceId: prev.primarySourceId === id
+        ? (prev.sources.find(s => s.id !== id)?.id ?? null)
+        : prev.primarySourceId,
+    }))
+  }
+
+  function setPrimary(id: string) {
+    setCfg(prev => ({ ...prev, primarySourceId: id }))
   }
 
   function handleSave() {
@@ -63,189 +80,69 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
     startClear(async () => {
       try {
         await clearComexConfig()
-        setCfg(EMPTY)
-        setHeaders([])
+        setCfg(EMPTY_CONFIG)
         setConfirmClear(false)
-        setSaveResult({ ok: true, msg: 'Configuración eliminada. /embarques no tendrá datos de Comex hasta que configures de nuevo.' })
+        setSaveResult({ ok: true, msg: 'Configuración eliminada.' })
       } catch (err) {
         setSaveResult({ ok: false, msg: err instanceof Error ? err.message : String(err) })
       }
     })
   }
 
-  const canPreview = cfg.url.trim().length > 0
-  const canSave = cfg.url && cfg.joinCol && cfg.embarqueCol
-  const hasInitialConfig = initial != null && initial.url.length > 0
-
-  const availableExtraHeaders = headers.filter(h => h !== cfg.joinCol && h !== cfg.embarqueCol)
+  const hasPrimary = cfg.primarySourceId != null && cfg.sources.some(s => s.id === cfg.primarySourceId && s.enabled)
+  const canSave = cfg.sources.length > 0 && hasPrimary &&
+    cfg.sources.every(s => !s.enabled || (s.url && s.joinCol))
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] p-5 space-y-4">
-        <h3 className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Planilla Comex</h3>
-
-        <label className="block">
-          <span className="block text-[11px] text-zinc-400 mb-1">URL de la planilla (Google Sheets)</span>
-          <input
-            value={cfg.url}
-            onChange={e => setCfg({ ...cfg, url: e.target.value })}
-            placeholder="https://docs.google.com/spreadsheets/d/..."
-            className="w-full px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] placeholder:text-zinc-600 focus:outline-none focus:border-[#E30613]/50"
+    <div className="space-y-4">
+      {/* Lista de fuentes */}
+      <div className="space-y-3">
+        {cfg.sources.map(source => (
+          <SourceCard
+            key={source.id}
+            source={source}
+            isPrimary={source.id === cfg.primarySourceId}
+            expanded={expandedId === source.id}
+            onToggle={() => setExpandedId(expandedId === source.id ? null : source.id)}
+            onChange={patch => updateSource(source.id, patch)}
+            onRemove={() => removeSource(source.id)}
+            onSetPrimary={() => setPrimary(source.id)}
           />
-        </label>
-
-        <label className="block">
-          <span className="block text-[11px] text-zinc-400 mb-1">Nombre de la hoja (opcional)</span>
-          <input
-            value={cfg.sheetName ?? ''}
-            onChange={e => setCfg({ ...cfg, sheetName: e.target.value })}
-            placeholder="Tracking"
-            className="w-full px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] placeholder:text-zinc-600 focus:outline-none focus:border-[#E30613]/50"
-          />
-        </label>
+        ))}
 
         <button
-          onClick={handlePreview}
-          disabled={!canPreview || previewing}
-          className="px-3 py-1.5 rounded-md text-[11px] font-medium bg-white/[0.06] hover:bg-white/[0.1] disabled:opacity-40 text-white inline-flex items-center gap-1.5"
+          onClick={addSource}
+          className="w-full px-4 py-3 rounded-lg border border-dashed border-white/[0.12] hover:border-[#E30613]/40 hover:bg-[#E30613]/[0.04] text-[12px] text-zinc-400 hover:text-white inline-flex items-center justify-center gap-2 transition-colors"
         >
-          {previewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
-          Previsualizar columnas
+          <Plus className="w-4 h-4" /> Agregar fuente
         </button>
-
-        {previewError && (
-          <p className="text-[11px] text-red-400 inline-flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5" /> {previewError}
-          </p>
-        )}
       </div>
 
-      {headers.length > 0 && (
-        <div className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] p-5 space-y-4">
-          <h3 className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Columnas detectadas ({headers.length})</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <label className="block">
-              <span className="block text-[11px] text-zinc-400 mb-1">Columna SO (obligatoria)</span>
-              <select
-                value={cfg.joinCol}
-                onChange={e => setCfg({ ...cfg, joinCol: e.target.value })}
-                className="w-full px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] focus:outline-none focus:border-[#E30613]/50"
-              >
-                <option value="">— Elegí columna —</option>
-                {headers.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="block text-[11px] text-zinc-400 mb-1">Columna N° Embarque (obligatoria)</span>
-              <select
-                value={cfg.embarqueCol}
-                onChange={e => setCfg({ ...cfg, embarqueCol: e.target.value })}
-                className="w-full px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] focus:outline-none focus:border-[#E30613]/50"
-              >
-                <option value="">— Elegí columna —</option>
-                {headers.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
-            </label>
-          </div>
-
-          {/* Detección automática de tracking */}
-          {(() => {
-            const detect = (kw: string) => availableExtraHeaders.find(h => h.toLowerCase().includes(kw))
-            const etd = detect('etd')
-            const eta = detect('eta')
-            const awb = detect('awb')
-            const arribo = detect('arribo')
-            const any = etd || eta || awb || arribo
-            if (!any) return null
-            return (
-              <div className="rounded-md border border-blue-500/30 bg-blue-500/[0.04] p-3">
-                <p className="text-[11px] uppercase tracking-wider text-blue-400 font-semibold mb-2">
-                  ✨ Columnas de tracking auto-detectadas
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
-                  <div>
-                    <p className="text-zinc-500 text-[9px] uppercase">ETD</p>
-                    <p className={etd ? 'text-blue-300 font-mono truncate' : 'text-zinc-600 italic'}>{etd ?? 'no encontrada'}</p>
-                  </div>
-                  <div>
-                    <p className="text-zinc-500 text-[9px] uppercase">ETA</p>
-                    <p className={eta ? 'text-blue-300 font-mono truncate' : 'text-zinc-600 italic'}>{eta ?? 'no encontrada'}</p>
-                  </div>
-                  <div>
-                    <p className="text-zinc-500 text-[9px] uppercase">AWB</p>
-                    <p className={awb ? 'text-blue-300 font-mono truncate' : 'text-zinc-600 italic'}>{awb ?? 'no encontrada'}</p>
-                  </div>
-                  <div>
-                    <p className="text-zinc-500 text-[9px] uppercase">Arribo</p>
-                    <p className={arribo ? 'text-blue-300 font-mono truncate' : 'text-zinc-600 italic'}>{arribo ?? 'no encontrada'}</p>
-                  </div>
-                </div>
-                <p className="text-[10px] text-zinc-500 mt-2">
-                  Estas se usan automáticamente para el estado del embarque. Activá su toggle abajo si querés que también aparezcan en el panel.
-                </p>
-              </div>
-            )
-          })()}
-
-          <div>
-            <p className="text-[11px] text-zinc-400 mb-1">
-              <strong className="text-white">Columnas extra a mostrar</strong> en el detalle del embarque (opcional):
-            </p>
-            <p className="text-[10px] text-zinc-600 mb-2">
-              Click para activar/desactivar. Las verdes están activadas.
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {availableExtraHeaders.map(h => {
-                const enabled = cfg.extraCols.some(c => c.header === h)
-                const isAutoDetected = ['etd', 'eta', 'awb', 'arribo'].some(kw => h.toLowerCase().includes(kw))
-                return (
-                  <button
-                    key={h}
-                    onClick={() => toggleExtraCol(h)}
-                    className={`px-2.5 py-1 rounded text-[10px] font-medium border transition-colors ${
-                      enabled
-                        ? 'bg-[#E30613]/10 text-white border-[#E30613]/40'
-                        : isAutoDetected
-                          ? 'bg-blue-500/[0.05] text-blue-400/70 border-blue-500/20 hover:text-blue-300'
-                          : 'bg-transparent text-zinc-500 border-white/[0.08] hover:text-zinc-300'
-                    }`}
-                    title={isAutoDetected ? 'Auto-detectada (ya se usa para estado/tracking)' : undefined}
-                  >
-                    {h}{isAutoDetected && ' ✨'}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center gap-3 flex-wrap">
+      {/* Botones generales */}
+      <div className="flex items-center gap-3 flex-wrap pt-4 border-t border-white/[0.06]">
         <button
           onClick={handleSave}
           disabled={!canSave || saving}
           className="px-4 py-2 rounded-md text-[12px] font-medium bg-[#E30613] hover:bg-[#E30613]/85 disabled:opacity-40 text-white inline-flex items-center gap-1.5"
         >
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-          Guardar
+          Guardar todas las fuentes
         </button>
 
-        {hasInitialConfig && !confirmClear && (
+        {cfg.sources.length > 0 && !confirmClear && (
           <button
             onClick={() => setConfirmClear(true)}
             className="px-3 py-2 rounded-md text-[11px] font-medium border border-red-500/30 bg-red-500/[0.05] hover:bg-red-500/[0.1] text-red-400 inline-flex items-center gap-1.5"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Eliminar configuración
+            Eliminar TODAS las fuentes
           </button>
         )}
 
         {confirmClear && (
           <div className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-red-500/40 bg-red-500/[0.08]">
             <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
-            <span className="text-[11px] text-red-300">¿Seguro? Se borra la planilla y /embarques queda vacío.</span>
+            <span className="text-[11px] text-red-300">¿Seguro? Se borran TODAS las fuentes.</span>
             <button
               onClick={handleClear}
               disabled={clearing}
@@ -263,6 +160,13 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
           </div>
         )}
 
+        {!hasPrimary && cfg.sources.length > 0 && (
+          <span className="text-[11px] text-amber-400 inline-flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            Tenés que marcar una fuente como principal (la que tiene N° Embarque)
+          </span>
+        )}
+
         {saveResult && (
           <span className={`text-[11px] inline-flex items-center gap-1.5 ${saveResult.ok ? 'text-emerald-400' : 'text-red-400'}`}>
             {saveResult.ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
@@ -271,5 +175,264 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
         )}
       </div>
     </div>
+  )
+}
+
+// ─── SourceCard ──────────────────────────────────────────────────────────────
+
+function SourceCard({
+  source, isPrimary, expanded, onToggle, onChange, onRemove, onSetPrimary,
+}: {
+  source: ComexSource
+  isPrimary: boolean
+  expanded: boolean
+  onToggle: () => void
+  onChange: (patch: Partial<ComexSource>) => void
+  onRemove: () => void
+  onSetPrimary: () => void
+}) {
+  const [headers, setHeaders] = useState<string[]>([])
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [previewing, startPreview] = useTransition()
+
+  function handlePreview() {
+    setPreviewError(null)
+    startPreview(async () => {
+      const res = await previewSheetHeaders(source.url, source.sheetName)
+      if (res.ok) setHeaders(res.headers)
+      else { setPreviewError(res.error); setHeaders([]) }
+    })
+  }
+
+  function setMapping(header: string, field: ComexMapping['field'] | null) {
+    if (!field) {
+      onChange({ mappings: source.mappings.filter(m => m.header !== header) })
+      return
+    }
+    const existing = source.mappings.find(m => m.header === header)
+    if (existing) {
+      onChange({ mappings: source.mappings.map(m => m.header === header ? { ...m, field } : m) })
+    } else {
+      const def = MILESTONE_CATALOG.find(d => d.field === field)
+      onChange({ mappings: [...source.mappings, { header, field, label: def?.label ?? header }] })
+    }
+  }
+
+  const mappedCount = source.mappings.length
+  const hasEmbarqueMapping = source.mappings.some(m => m.field === 'embarqueNo')
+
+  return (
+    <div className={cn(
+      'rounded-lg border bg-[#0a0a0a] overflow-hidden transition-colors',
+      isPrimary ? 'border-[#E30613]/40' : 'border-white/[0.08]',
+      !source.enabled && 'opacity-50',
+    )}>
+      {/* Header de la card */}
+      <div className="px-4 py-3 flex items-center gap-3 border-b border-white/[0.04]">
+        <button
+          onClick={onToggle}
+          className="text-zinc-500 hover:text-white shrink-0"
+          aria-label={expanded ? 'Colapsar' : 'Expandir'}
+        >
+          {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
+
+        <input
+          value={source.name}
+          onChange={e => onChange({ name: e.target.value })}
+          className="bg-transparent text-[13px] font-medium text-white flex-1 min-w-0 focus:outline-none border-b border-transparent focus:border-white/[0.2]"
+          placeholder="Nombre de la fuente"
+        />
+
+        {isPrimary && (
+          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#E30613]/15 text-[#E30613] font-bold inline-flex items-center gap-1">
+            <Star className="w-3 h-3 fill-current" /> Principal
+          </span>
+        )}
+
+        {!isPrimary && (
+          <button
+            onClick={onSetPrimary}
+            className="text-[10px] text-zinc-500 hover:text-[#E30613] inline-flex items-center gap-1"
+            title="Marcar como fuente principal (la que tiene N° Embarque)"
+          >
+            <Star className="w-3 h-3" /> Marcar principal
+          </button>
+        )}
+
+        <span className="text-[10px] text-zinc-500">{mappedCount} mapping{mappedCount === 1 ? '' : 's'}</span>
+
+        <label className="inline-flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={source.enabled}
+            onChange={e => onChange({ enabled: e.target.checked })}
+            className="rounded"
+          />
+          <span className="text-[10px] text-zinc-400">Habilitada</span>
+        </label>
+
+        <button
+          onClick={onRemove}
+          className="text-zinc-500 hover:text-red-400 shrink-0"
+          aria-label="Eliminar fuente"
+          title="Eliminar esta fuente"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="px-4 py-4 space-y-4">
+          {/* URL + sheet */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <label className="block md:col-span-2">
+              <span className="block text-[11px] text-zinc-400 mb-1">URL de la planilla</span>
+              <input
+                value={source.url}
+                onChange={e => onChange({ url: e.target.value })}
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                className="w-full px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] placeholder:text-zinc-600 focus:outline-none focus:border-[#E30613]/50"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-[11px] text-zinc-400 mb-1">Hoja (opcional)</span>
+              <input
+                value={source.sheetName ?? ''}
+                onChange={e => onChange({ sheetName: e.target.value })}
+                placeholder="Tracking"
+                className="w-full px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] placeholder:text-zinc-600 focus:outline-none focus:border-[#E30613]/50"
+              />
+            </label>
+          </div>
+
+          <button
+            onClick={handlePreview}
+            disabled={!source.url.trim() || previewing}
+            className="px-3 py-1.5 rounded-md text-[11px] font-medium bg-white/[0.06] hover:bg-white/[0.1] disabled:opacity-40 text-white inline-flex items-center gap-1.5"
+          >
+            {previewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
+            Previsualizar columnas
+          </button>
+
+          {previewError && (
+            <p className="text-[11px] text-red-400 inline-flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5" /> {previewError}
+            </p>
+          )}
+
+          {/* Si hay headers, mostrar selector de SO + tabla de mappings */}
+          {headers.length > 0 && (
+            <>
+              <label className="block">
+                <span className="block text-[11px] text-zinc-400 mb-1">Columna SO en esta planilla (obligatoria)</span>
+                <select
+                  value={source.joinCol}
+                  onChange={e => onChange({ joinCol: e.target.value })}
+                  className="w-full md:w-72 px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] focus:outline-none focus:border-[#E30613]/50"
+                >
+                  <option value="">— Elegí columna —</option>
+                  {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </label>
+
+              <div>
+                <p className="text-[11px] text-zinc-400 mb-1">
+                  <strong className="text-white">Mapeo de columnas → hitos</strong>
+                </p>
+                <p className="text-[10px] text-zinc-600 mb-3">
+                  Para cada columna que querés exponer en el panel, elegí a qué hito alimenta.
+                  Dejá &quot;Ignorar&quot; para columnas que no necesitás.
+                </p>
+
+                {isPrimary && !hasEmbarqueMapping && (
+                  <div className="mb-3 p-2 rounded border border-amber-500/30 bg-amber-500/[0.05] text-[11px] text-amber-300 inline-flex items-start gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <span>Como esta es la fuente principal, tenés que mapear una columna a <strong>N° Embarque</strong>.</span>
+                  </div>
+                )}
+
+                <div className="rounded-md border border-white/[0.06] overflow-hidden">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="bg-[#0d0d0d] border-b border-white/[0.06]">
+                        <th className="text-left text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-3 py-2">Columna en la sheet</th>
+                        <th className="text-left text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-3 py-2">Mapear a hito</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {headers.filter(h => h !== source.joinCol).map(header => {
+                        const current = source.mappings.find(m => m.header === header)
+                        return (
+                          <tr key={header} className="border-b border-white/[0.04] last:border-0">
+                            <td className="px-3 py-1.5 font-mono text-[11px] text-zinc-300">{header}</td>
+                            <td className="px-3 py-1.5">
+                              <MilestoneSelect
+                                currentField={current?.field ?? null}
+                                isPrimary={isPrimary}
+                                onChange={field => setMapping(header, field)}
+                              />
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── MilestoneSelect: dropdown para mapear a hito o extra ────────────────────
+
+function MilestoneSelect({
+  currentField, isPrimary, onChange,
+}: {
+  currentField: ComexMapping['field'] | null
+  isPrimary: boolean
+  onChange: (field: ComexMapping['field'] | null) => void
+}) {
+  const isExtra = typeof currentField === 'string' && currentField.startsWith('extra_')
+  return (
+    <select
+      value={currentField ?? '__ignore__'}
+      onChange={e => {
+        const v = e.target.value
+        if (v === '__ignore__') return onChange(null)
+        if (v === '__extra__') {
+          const slug = 'col_' + Math.random().toString(36).slice(2, 7)
+          return onChange(`extra_${slug}` as ComexMapping['field'])
+        }
+        onChange(v as MilestoneField)
+      }}
+      className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[11px] focus:outline-none focus:border-[#E30613]/50"
+    >
+      <option value="__ignore__">— Ignorar —</option>
+      {isPrimary && (
+        <optgroup label="Obligatoria en fuente principal">
+          <option value="embarqueNo">📦 N° Embarque</option>
+        </optgroup>
+      )}
+      <optgroup label="Tracking (alimentan estado del embarque)">
+        {MILESTONE_CATALOG.filter(d => d.category === 'tracking').map(d => (
+          <option key={d.field} value={d.field}>
+            ⏱ {d.label}
+          </option>
+        ))}
+      </optgroup>
+      <optgroup label="Meta info">
+        {MILESTONE_CATALOG.filter(d => d.category === 'meta').map(d => (
+          <option key={d.field} value={d.field}>
+            ℹ {d.label}
+          </option>
+        ))}
+      </optgroup>
+      <option value="__extra__">{isExtra ? '✓ Extra (libre)' : '+ Extra (libre)'}</option>
+    </select>
   )
 }
