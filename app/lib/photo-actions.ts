@@ -155,12 +155,24 @@ export async function matchPhotosToItems(
         const h = byCarton.get(caseUp)
         if (h) return hit(c, h, 'box-carton')
       }
-      // 3. fall back: asn + case
-      if (asnUp && cartonUp) {
-        const h = byAsnCase.get(`${asnUp}|${cartonUp}`)
-        if (h) return hit(c, h, 'asn+case')
+      // 3. partial match (algunos casos el barcode incluye guion: "...761-8" vs "...761")
+      if (cartonUp) {
+        for (const [storedCase, item] of byCarton) {
+          // Compare digits only (ignore dashes / formatting)
+          const a = cartonUp.replace(/[^A-Z0-9]/g, '')
+          const b = storedCase.replace(/[^A-Z0-9]/g, '')
+          if (a.length >= 10 && b.length >= 10 && (a === b || a.startsWith(b) || b.startsWith(a))) {
+            return hit(c, item, 'box-carton')
+          }
+        }
       }
-      // 4. fall back: asn solo (cualquier item del ASN)
+      // Si hay cartonNo detectado pero no matcheó, NO hacer fallback a ASN
+      // (es engañoso — sugiere un ítem cuyo carton es DISTINTO al detectado).
+      // Mejor dejar sin match para que el usuario decida.
+      if (cartonUp) return none(c)
+
+      // Sin cartonNo detectado (caja sin número legible): aceptar fallback
+      // a ASN como "mejor adivinanza".
       if (asnUp) {
         const h = byAsn.get(asnUp)?.[0]
         if (h) return hit(c, h, 'asn')

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { CheckCircle2, AlertTriangle, Save, Loader2, Sparkles, X } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Save, Loader2, Sparkles, X, AlertCircle } from 'lucide-react'
 import { InspectionPhotoUploader, type PhotoExtractionResult } from '@/components/shared/InspectionPhotoUploader'
 import { matchPhotosToItems, saveCIPLPhotos, type MatchedPhoto, type PhotoMatchCandidateLight } from '@/app/lib/photo-actions'
 import { cn } from '@/lib/utils'
@@ -153,8 +153,18 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {matched.map((m, idx) => (
-                    <tr key={`${m.rowIndex}-${m.colIndex}`} className="border-b border-white/[0.04] last:border-0">
+                  {matched.map((m, idx) => {
+                    // Detectar discrepancia: AI extrajo un cartonNo pero el item matcheado tiene un caseNo distinto
+                    const normalizeNum = (s: string | null | undefined) => (s ?? '').replace(/[^A-Z0-9]/gi, '').toUpperCase()
+                    const aiCarton = normalizeNum(m.ai?.cartonNo)
+                    const itemCase = normalizeNum(m.matchedItemCase)
+                    const cartonMismatch = aiCarton && itemCase && aiCarton !== itemCase &&
+                      !aiCarton.startsWith(itemCase) && !itemCase.startsWith(aiCarton)
+                    return (
+                    <tr key={`${m.rowIndex}-${m.colIndex}`} className={cn(
+                      'border-b border-white/[0.04] last:border-0',
+                      cartonMismatch && 'bg-amber-500/[0.04]',
+                    )}>
                       <td className="px-3 py-2">
                         <button
                           onClick={() => setLightbox(`data:${m.mediaType};base64,${m.base64}`)}
@@ -200,7 +210,10 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
                         <select
                           value={m.matchedItemId ?? ''}
                           onChange={e => overrideMatch(idx, e.target.value)}
-                          className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[11px] focus:outline-none focus:border-[#E30613]/50"
+                          className={cn(
+                            'w-full px-2 py-1 rounded bg-[#0d0d0d] border text-white text-[11px] focus:outline-none focus:border-[#E30613]/50',
+                            cartonMismatch ? 'border-amber-500/50' : 'border-white/[0.08]',
+                          )}
                         >
                           <option value="">— Sin asignar —</option>
                           {items.map(it => (
@@ -209,6 +222,12 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
                             </option>
                           ))}
                         </select>
+                        {cartonMismatch && (
+                          <div className="mt-1 text-[10px] text-amber-400 inline-flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            Carton no coincide: leí <code className="font-mono">{m.ai?.cartonNo}</code>, ítem tiene <code className="font-mono">{m.matchedItemCase}</code>
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-center">
                         {m.matchReason === 'box-carton' && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">CARTON</span>}
@@ -221,7 +240,8 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
                         {m.matchReason === 'none'       && <span className="text-[9px] text-zinc-500">—</span>}
                       </td>
                     </tr>
-                  ))}
+                  )
+                  })}
                 </tbody>
               </table>
             </div>
