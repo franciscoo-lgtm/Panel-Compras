@@ -9,7 +9,31 @@ import type { SOOption } from '@/app/lib/sheets'
 const fmt = (n: number | null) =>
   n != null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n) : '—'
 
-export function NuevaCompraClient({ soList }: { soList: SOOption[] }) {
+export type SupplierSuggestions = {
+  names:     string[]
+  addresses: string[]
+  contacts:  string[]
+  phones:    string[]
+  emails:    string[]
+  byName:    Record<string, {
+    address: string | null
+    contact: string | null
+    phone:   string | null
+    email:   string | null
+  }>
+}
+
+const EMPTY_SUGGESTIONS: SupplierSuggestions = {
+  names: [], addresses: [], contacts: [], phones: [], emails: [], byName: {},
+}
+
+export function NuevaCompraClient({
+  soList,
+  supplierSuggestions = EMPTY_SUGGESTIONS,
+}: {
+  soList: SOOption[]
+  supplierSuggestions?: SupplierSuggestions
+}) {
   const router = useRouter()
   const [query, setQuery]           = useState('')
   const [selected, setSelected]     = useState<SOOption[]>([])
@@ -268,29 +292,70 @@ export function NuevaCompraClient({ soList }: { soList: SOOption[] }) {
 
           {/* Supplier */}
           <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/25 mb-4">3. Datos del proveedor <span className="text-white/15 font-normal normal-case">(aparecen en el PL Consolidado)</span></p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/25 mb-4">3. Datos del proveedor <span className="text-white/15 font-normal normal-case">(aparecen en el PL Consolidado · escribí para ver sugerencias)</span></p>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/30 block mb-1.5">Nombre del proveedor</label>
-                <input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Ej: DJI Technology Co. Ltd." className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-white/20" />
+                <input
+                  list="supplier-names-list"
+                  autoComplete="off"
+                  value={supplierName}
+                  onChange={e => {
+                    const v = e.target.value
+                    setSupplierName(v)
+                    // Si el nombre matchea exactamente uno conocido, auto-completar
+                    // los otros campos (a menos que el user ya haya escrito algo).
+                    const match = supplierSuggestions.byName[v.trim()]
+                    if (match) {
+                      if (!supplierAddress.trim() && match.address) setSupplierAddress(match.address)
+                      if (!supplierContact.trim() && match.contact) setSupplierContact(match.contact)
+                      if (!supplierPhone.trim()   && match.phone)   setSupplierPhone(match.phone)
+                      if (!supplierEmail.trim()   && match.email)   setSupplierEmail(match.email)
+                    }
+                  }}
+                  placeholder="Ej: DJI Technology Co. Ltd."
+                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-white/20"
+                />
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/30 block mb-1.5">Dirección</label>
-                <input value={supplierAddress} onChange={e => setSupplierAddress(e.target.value)} placeholder="Dirección de la fábrica" className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-white/20" />
+                <input list="supplier-addresses-list" autoComplete="off" value={supplierAddress} onChange={e => setSupplierAddress(e.target.value)} placeholder="Dirección de la fábrica" className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-white/20" />
               </div>
               <div>
                 <label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/30 block mb-1.5">Contacto</label>
-                <input value={supplierContact} onChange={e => setSupplierContact(e.target.value)} placeholder="Nombre" className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-white/20" />
+                <input list="supplier-contacts-list" autoComplete="off" value={supplierContact} onChange={e => setSupplierContact(e.target.value)} placeholder="Nombre" className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-white/20" />
               </div>
               <div>
                 <label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/30 block mb-1.5">Teléfono</label>
-                <input value={supplierPhone} onChange={e => setSupplierPhone(e.target.value)} placeholder="+86 ..." className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-white/20" />
+                <input list="supplier-phones-list" autoComplete="off" value={supplierPhone} onChange={e => setSupplierPhone(e.target.value)} placeholder="+86 ..." className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-white/20" />
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/30 block mb-1.5">Email</label>
-                <input value={supplierEmail} onChange={e => setSupplierEmail(e.target.value)} placeholder="proveedor@dji.com" className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-white/20" />
+                <input list="supplier-emails-list" autoComplete="off" value={supplierEmail} onChange={e => setSupplierEmail(e.target.value)} placeholder="proveedor@dji.com" className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-white/20" />
               </div>
             </div>
+
+            <datalist id="supplier-names-list">
+              {supplierSuggestions.names.map(v => <option key={v} value={v} />)}
+            </datalist>
+            <datalist id="supplier-addresses-list">
+              {supplierSuggestions.addresses.map(v => <option key={v} value={v} />)}
+            </datalist>
+            <datalist id="supplier-contacts-list">
+              {supplierSuggestions.contacts.map(v => <option key={v} value={v} />)}
+            </datalist>
+            <datalist id="supplier-phones-list">
+              {supplierSuggestions.phones.map(v => <option key={v} value={v} />)}
+            </datalist>
+            <datalist id="supplier-emails-list">
+              {supplierSuggestions.emails.map(v => <option key={v} value={v} />)}
+            </datalist>
+
+            {supplierSuggestions.names.length > 0 && (
+              <p className="mt-3 text-[10px] text-white/30">
+                ✨ {supplierSuggestions.names.length} proveedor{supplierSuggestions.names.length === 1 ? '' : 'es'} usado{supplierSuggestions.names.length === 1 ? '' : 's'} antes. Si elegís uno del autocomplete del nombre, dirección/contacto/teléfono/email se completan automáticamente con la última compra que tenía ese proveedor.
+              </p>
+            )}
           </div>
         </div>
 
