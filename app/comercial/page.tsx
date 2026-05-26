@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { ChevronRight, Upload, Sparkles, Camera, ShieldCheck, CheckCircle2 } from 'lucide-react'
 import type { ExtractedItem, DriveLinks } from '@/app/lib/etl'
 import type { PhotoExtractionResult } from '@/components/shared/InspectionPhotoUploader'
@@ -62,8 +63,19 @@ export default function ComercialPage() {
   return (
     <div className="px-6 py-5 max-w-[1600px] mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-display font-bold text-white tracking-tight mb-1">Carga CIPL</h1>
-        <p className="text-[12px] text-zinc-500">Extraé y guardá CIPLs de Repuestos o Mercadería DJI</p>
+        <div className="flex items-start gap-4 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <h1 className="text-2xl font-display font-bold text-white tracking-tight mb-1">Carga CIPL</h1>
+            <p className="text-[12px] text-zinc-500">Extraé y guardá CIPLs de Repuestos o Mercadería DJI</p>
+          </div>
+          <Link
+            href="/comercial/fotos"
+            className="px-3 py-2 rounded-md text-[11px] font-medium border border-white/[0.08] hover:border-[#E30613]/40 hover:bg-[#E30613]/10 text-zinc-300 hover:text-white inline-flex items-center gap-1.5 transition-colors"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            Subir fotos a un CIPL ya cargado
+          </Link>
+        </div>
       </div>
 
       <div className="flex items-center gap-1 mb-6 text-[11px] overflow-x-auto pb-1">

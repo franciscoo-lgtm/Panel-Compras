@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Image as ImageIcon, X } from 'lucide-react'
+import Link from 'next/link'
+import { Image as ImageIcon, X, Upload } from 'lucide-react'
 import type { EmbarqueItem } from '../types'
 
 export function FotosTab({ items }: { items: EmbarqueItem[] }) {
@@ -9,18 +10,31 @@ export function FotosTab({ items }: { items: EmbarqueItem[] }) {
 
   const withPhotos = items.filter(i => (i.photos?.length ?? 0) > 0)
 
+  const uploadButton = (
+    <Link
+      href="/comercial/fotos"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-[#E30613] hover:bg-[#E30613]/85 text-white transition-colors"
+    >
+      <Upload className="w-3.5 h-3.5" />
+      Subir fotos
+    </Link>
+  )
+
   if (withPhotos.length === 0) {
     return (
       <div className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] py-12 text-center">
         <ImageIcon className="w-8 h-8 mx-auto text-zinc-700 mb-2" />
-        <p className="text-zinc-500 text-[12px]">No hay fotos cargadas para este embarque todavía.</p>
-        <p className="text-zinc-600 text-[10px] mt-1">Las fotos se suben desde el flujo de Carga CIPL.</p>
+        <p className="text-zinc-500 text-[12px] mb-4">No hay fotos cargadas para este embarque todavía.</p>
+        {uploadButton}
       </div>
     )
   }
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        {uploadButton}
+      </div>
       {withPhotos.map(it => (
         <div key={it.id} className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] overflow-hidden">
           <div className="px-4 py-2 bg-[#0d0d0d] border-b border-white/[0.06] flex items-center gap-3">
