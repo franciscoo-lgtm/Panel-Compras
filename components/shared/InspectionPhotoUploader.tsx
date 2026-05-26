@@ -10,12 +10,16 @@ export type PhotoExtractionResult = {
   base64: string
   mediaType: string
   ai?: {
+    labelType?: 'box' | 'part' | 'unknown' | null
     asn?: string | null
     cartonNo?: string | null
     caseNo?: string | null
     soNo?: string | null
     modelo?: string | null
     qty?: number | null
+    partCode?: string | null
+    partDescription?: string | null
+    partQty?: number | null
     confidence?: 'high' | 'medium' | 'low' | null
   }
 }

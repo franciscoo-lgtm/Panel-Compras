@@ -168,9 +168,20 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
                       <td className="px-3 py-2 text-[10px] text-zinc-400 font-mono">
                         {m.ai ? (
                           <div className="space-y-0.5">
+                            {m.ai.labelType && (
+                              <span className={cn(
+                                'inline-block mb-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase',
+                                m.ai.labelType === 'box'  && 'bg-blue-500/15 text-blue-400',
+                                m.ai.labelType === 'part' && 'bg-purple-500/15 text-purple-400',
+                                m.ai.labelType === 'unknown' && 'bg-zinc-500/15 text-zinc-400',
+                              )}>{m.ai.labelType === 'box' ? '📦 Caja' : m.ai.labelType === 'part' ? '🔧 Repuesto' : '? Desconocido'}</span>
+                            )}
+                            {m.ai.cartonNo && <div><span className="text-zinc-600">Carton:</span> {m.ai.cartonNo}</div>}
+                            {m.ai.partCode && <div><span className="text-zinc-600">Código:</span> {m.ai.partCode}</div>}
+                            {m.ai.partDescription && <div className="text-zinc-300 truncate" title={m.ai.partDescription}><span className="text-zinc-600">Desc:</span> {m.ai.partDescription}</div>}
+                            {m.ai.partQty != null && <div><span className="text-zinc-600">Qty:</span> {m.ai.partQty}</div>}
                             {m.ai.asn && <div><span className="text-zinc-600">ASN:</span> {m.ai.asn}</div>}
                             {m.ai.soNo && <div><span className="text-zinc-600">SO:</span> {m.ai.soNo}</div>}
-                            {m.ai.cartonNo && <div><span className="text-zinc-600">Carton:</span> {m.ai.cartonNo}</div>}
                             {m.ai.modelo && <div><span className="text-zinc-600">Modelo:</span> {m.ai.modelo}</div>}
                             {m.ai.confidence && (
                               <span className={cn(
@@ -200,11 +211,14 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
                         </select>
                       </td>
                       <td className="px-3 py-2 text-center">
-                        {m.matchReason === 'asn+case' && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">ASN+CASE</span>}
-                        {m.matchReason === 'asn+so'   && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">ASN+SO</span>}
-                        {m.matchReason === 'asn'      && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-bold">ASN</span>}
-                        {m.matchReason === 'so'       && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-bold">SO</span>}
-                        {m.matchReason === 'none'     && <span className="text-[9px] text-zinc-500">—</span>}
+                        {m.matchReason === 'box-carton' && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">CARTON</span>}
+                        {m.matchReason === 'part-code'  && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">CÓDIGO</span>}
+                        {m.matchReason === 'part-desc'  && <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 font-bold">DESC</span>}
+                        {m.matchReason === 'asn+case'   && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">ASN+CASE</span>}
+                        {m.matchReason === 'asn+so'     && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">ASN+SO</span>}
+                        {m.matchReason === 'asn'        && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-bold">ASN</span>}
+                        {m.matchReason === 'so'         && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-bold">SO</span>}
+                        {m.matchReason === 'none'       && <span className="text-[9px] text-zinc-500">—</span>}
                       </td>
                     </tr>
                   ))}

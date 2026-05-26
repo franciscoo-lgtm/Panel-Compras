@@ -4,19 +4,34 @@ import Anthropic from '@anthropic-ai/sdk'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const PROMPT = `Sos un asistente que analiza fotos de cajas DJI listas para inspección.
-Mirá la etiqueta de la caja en la foto y extraé estos datos si están visibles:
+const PROMPT = `Sos un asistente que analiza fotos de etiquetas en importaciones DJI Argentina.
 
-- asn: el código ASN (formato: 3 letras + 6 dígitos + 4 caracteres alfanuméricos, ej "JDS260401LFUN")
-- cartonNo: número de carton (ej "1/24", "5/12")
-- caseNo: número de caso interno
-- soNo: número de orden de venta (ej "SO-1234", "12345")
-- modelo: nombre del modelo de producto visible (ej "DJI Mini 4 Pro", "Air 3")
-- qty: cantidad visible en la etiqueta (entero)
-- confidence: tu nivel de certeza ("high" | "medium" | "low")
+PRIMERO, decidí qué tipo de etiqueta estás viendo:
+- "box": etiqueta de CAJA — tiene "Ctn N°", "Carton N°", "CTN", "箱号" o "(CarTon No)" visible, y un número/barcode de carton (puede ser largo, tipo 73122612604290000563, o corto tipo 1/24)
+- "part": etiqueta de REPUESTO individual — describe un producto (con código, descripción, cantidad). NO tiene "Ctn N°".
+- "unknown": no podés decidir.
 
-Respondé ÚNICAMENTE con un JSON object sin markdown. Si un campo no se ve claro, ponelo en null.
-Ejemplo: {"asn":"JDS260401LFUN","cartonNo":"1/24","caseNo":null,"soNo":"SO-1234","modelo":"DJI Mini 4 Pro","qty":2,"confidence":"high"}`
+LUEGO, extraé los campos según el tipo:
+
+Si es "box":
+- cartonNo: el número de carton (string, puede ser barcode largo o corto)
+- asn: si lo ves (formato 3 letras + 6 dígitos + 4 alfanuméricos)
+- caseNo: si hay un caso interno visible (suele coincidir con cartonNo o ser un sub-código)
+
+Si es "part":
+- partCode: código del repuesto / EAN / SKU (string)
+- partDescription: descripción del producto tal como aparece en la etiqueta
+- partQty: cantidad visible en la etiqueta (entero)
+- asn: si lo ves
+- soNo: número de SO si aparece (ej "SO-1234", "SO40100")
+- modelo: nombre del modelo si aparece
+
+confidence: tu nivel de certeza ("high" | "medium" | "low")
+
+Respondé ÚNICAMENTE con UN JSON object sin markdown. Campos no aplicables o ilegibles → null.
+
+Ejemplo box: {"labelType":"box","cartonNo":"73122612604290000563","asn":"JDS260428M24N","caseNo":null,"partCode":null,"partDescription":null,"partQty":null,"soNo":null,"modelo":null,"confidence":"high"}
+Ejemplo part: {"labelType":"part","cartonNo":null,"asn":"JDS260428M24N","caseNo":null,"partCode":"CP.MA.00000691.01","partDescription":"DJI Mini 4 Pro Battery","partQty":2,"soNo":"SO-40100","modelo":"DJI Mini 4 Pro","confidence":"high"}`
 
 export async function POST(req: Request) {
   try {
