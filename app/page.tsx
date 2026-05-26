@@ -1,65 +1,83 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { Anchor, AlertTriangle, ArrowRight } from 'lucide-react'
-import { prisma } from '@/lib/prisma'
+import { Anchor, AlertTriangle, ArrowRight, Building2, TrendingUp, BarChart3, Activity, PieChart } from 'lucide-react'
 import { listEmbarques } from '@/app/lib/embarques'
+import { getExecutiveKPIs, getAlerts } from '@/app/lib/dashboard'
 import { KPICard } from '@/components/shared/KPICard'
 import { StatusPill } from '@/components/shared/StatusPill'
 import { DateRange } from '@/components/shared/DateRange'
+import { EmbarquesPorMesChart } from '@/components/dashboard/EmbarquesPorMesChart'
+import { TipoCargaDonut } from '@/components/dashboard/TipoCargaDonut'
+import { TopProveedoresChart } from '@/components/dashboard/TopProveedoresChart'
+import { DiscrepanciasTrendChart } from '@/components/dashboard/DiscrepanciasTrendChart'
+
+const fmtUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 
 export default async function HomePage() {
-  const { summaries, errors } = await listEmbarques()
-
-  const activos      = summaries.filter(s => s.estado === 'en-transito' || s.estado === 'pendiente').length
-  const enTransito   = summaries.filter(s => s.estado === 'en-transito').length
-  const arribados    = summaries.filter(s => s.estado === 'arribado').length
-  const unidades     = summaries.reduce((s, e) => s + e.totalQty, 0)
-
-  const itemsSinFoto = await prisma.cIPLItem.count({ where: { photos: { none: {} } } })
-
-  const alerts: { kind: 'critical' | 'warn' | 'info'; text: string; href?: string }[] = []
-  const now = new Date()
-  for (const s of summaries.slice(0, 30)) {
-    if (s.eta) {
-      const eta = new Date(s.eta)
-      if (!isNaN(eta.getTime())) {
-        const days = Math.round((eta.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-        if (s.estado === 'en-transito' && days >= 0 && days <= 7) {
-          alerts.push({ kind: 'info', text: `${s.embarqueNo} llega en ${days} día${days === 1 ? '' : 's'}`, href: `/embarques/${encodeURIComponent(s.embarqueNo)}` })
-        } else if (s.estado === 'en-transito' && days < 0) {
-          alerts.push({ kind: 'critical', text: `${s.embarqueNo} ETA pasada hace ${-days} días sin arribo`, href: `/embarques/${encodeURIComponent(s.embarqueNo)}` })
-        }
-      }
-    }
-  }
-  if (itemsSinFoto > 0) {
-    alerts.push({ kind: 'warn', text: `${itemsSinFoto} ítems sin foto cargada`, href: '/comercial' })
-  }
+  const [{ summaries, errors }, kpis] = await Promise.all([listEmbarques(), getExecutiveKPIs()])
+  const alerts = await getAlerts(summaries)
 
   return (
-    <div className="px-6 py-5 max-w-7xl">
-      <h1 className="text-2xl font-display font-bold text-white tracking-tight mb-1">Panel de seguimiento</h1>
-      <p className="text-[12px] text-zinc-500 mb-6">Resumen operativo en tiempo real</p>
+    <div className="px-6 py-5 max-w-[1600px]">
+      <h1 className="text-2xl font-display font-bold text-white tracking-tight mb-1">Tablero ejecutivo</h1>
+      <p className="text-[12px] text-zinc-500 mb-6">Resumen operativo de importaciones DJI Argentina</p>
 
       {errors.length > 0 && (
         <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md border border-amber-500/20 bg-amber-500/[0.05] text-[12px] text-amber-300">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>Hay {errors.length} aviso{errors.length === 1 ? '' : 's'} al leer la planilla Comex. Revisá <Link href="/embarques" className="underline">Embarques</Link>.</span>
+          <span>Hay {errors.length} aviso{errors.length === 1 ? '' : 's'} al leer la planilla Comex. Revisá <Link href="/configuracion" className="underline">Configuración</Link>.</span>
         </div>
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <KPICard label="Embarques activos"  value={activos.toString()}             hint={`${enTransito} en tránsito`}     accent="red"     />
-        <KPICard label="Arribados"           value={arribados.toString()}           hint="histórico total"                  accent="emerald" />
-        <KPICard label="Unidades en juego"   value={unidades.toLocaleString()}      hint="suma todos los embarques"        accent="blue"    />
-        <KPICard label="Ítems sin foto"      value={itemsSinFoto.toString()}        hint="requieren inspección"            accent="amber"   />
+        <KPICard label="Valor en tránsito"   value={fmtUSD.format(kpis.valorEnTransitoUSD)} hint="FOB SOs activos"      accent="red"     />
+        <KPICard label="Embarques activos"   value={kpis.embarquesActivos.toString()}        hint="pendiente + tránsito" accent="blue"    />
+        <KPICard label="Unidades del mes"    value={kpis.unidadesArribadasMes.toLocaleString()} hint="arribadas este mes" accent="emerald" />
+        <KPICard label="SLA cumplimiento"    value={`${kpis.slaCumplimiento}%`}              hint="arribo ≤ 21 días"    accent="amber"   />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-[#E30613]" />
+            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Embarques por mes</h2>
+            <span className="ml-auto text-[10px] text-zinc-500">últimos 12</span>
+          </div>
+          <div className="p-3"><EmbarquesPorMesChart data={kpis.embarquesPorMes} /></div>
+        </section>
+
+        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-purple-400" />
+            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Top proveedores</h2>
+            <span className="ml-auto text-[10px] text-zinc-500">por FOB total</span>
+          </div>
+          <div className="p-3"><TopProveedoresChart data={kpis.topProveedores} /></div>
+        </section>
+
+        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-amber-400" />
+            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Tendencia discrepancias</h2>
+            <span className="ml-auto text-[10px] text-zinc-500">% ítems con dif. qty</span>
+          </div>
+          <div className="p-3"><DiscrepanciasTrendChart data={kpis.discrepanciasPorMes} /></div>
+        </section>
+
+        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+            <PieChart className="w-4 h-4 text-blue-400" />
+            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Distribución tipo de carga</h2>
+          </div>
+          <div className="p-3"><TipoCargaDonut data={kpis.tipoCargaDist} /></div>
+        </section>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
         <section className="lg:col-span-2 rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <Activity className="w-4 h-4 text-amber-400" />
             <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Bandeja de alertas</h2>
             <span className="ml-auto text-[10px] text-zinc-500">{alerts.length}</span>
           </div>
@@ -68,7 +86,7 @@ export default async function HomePage() {
               <p className="px-4 py-8 text-center text-zinc-500 text-[12px]">Sin alertas. Todo en orden.</p>
             ) : alerts.slice(0, 12).map((a, i) => {
               const dot = a.kind === 'critical' ? 'bg-red-500' : a.kind === 'warn' ? 'bg-amber-500' : 'bg-blue-500'
-              const Body = (
+              const body = (
                 <div className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors">
                   <span className={`w-1.5 h-1.5 rounded-full ${dot} shrink-0`} />
                   <span className="text-[12px] text-zinc-300 flex-1 truncate">{a.text}</span>
@@ -76,8 +94,8 @@ export default async function HomePage() {
                 </div>
               )
               return a.href
-                ? <Link key={i} href={a.href}>{Body}</Link>
-                : <div key={i}>{Body}</div>
+                ? <Link key={i} href={a.href}>{body}</Link>
+                : <div key={i}>{body}</div>
             })}
           </div>
         </section>
