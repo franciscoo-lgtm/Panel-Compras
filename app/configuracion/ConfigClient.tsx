@@ -132,11 +132,56 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
             </label>
           </div>
 
+          {/* Detección automática de tracking */}
+          {(() => {
+            const detect = (kw: string) => availableExtraHeaders.find(h => h.toLowerCase().includes(kw))
+            const etd = detect('etd')
+            const eta = detect('eta')
+            const awb = detect('awb')
+            const arribo = detect('arribo')
+            const any = etd || eta || awb || arribo
+            if (!any) return null
+            return (
+              <div className="rounded-md border border-blue-500/30 bg-blue-500/[0.04] p-3">
+                <p className="text-[11px] uppercase tracking-wider text-blue-400 font-semibold mb-2">
+                  ✨ Columnas de tracking auto-detectadas
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+                  <div>
+                    <p className="text-zinc-500 text-[9px] uppercase">ETD</p>
+                    <p className={etd ? 'text-blue-300 font-mono truncate' : 'text-zinc-600 italic'}>{etd ?? 'no encontrada'}</p>
+                  </div>
+                  <div>
+                    <p className="text-zinc-500 text-[9px] uppercase">ETA</p>
+                    <p className={eta ? 'text-blue-300 font-mono truncate' : 'text-zinc-600 italic'}>{eta ?? 'no encontrada'}</p>
+                  </div>
+                  <div>
+                    <p className="text-zinc-500 text-[9px] uppercase">AWB</p>
+                    <p className={awb ? 'text-blue-300 font-mono truncate' : 'text-zinc-600 italic'}>{awb ?? 'no encontrada'}</p>
+                  </div>
+                  <div>
+                    <p className="text-zinc-500 text-[9px] uppercase">Arribo</p>
+                    <p className={arribo ? 'text-blue-300 font-mono truncate' : 'text-zinc-600 italic'}>{arribo ?? 'no encontrada'}</p>
+                  </div>
+                </div>
+                <p className="text-[10px] text-zinc-500 mt-2">
+                  Estas se usan automáticamente para el estado del embarque. Activá su toggle abajo si querés que también aparezcan en el panel.
+                </p>
+              </div>
+            )
+          })()}
+
           <div>
-            <p className="text-[11px] text-zinc-400 mb-2">Columnas extra a mostrar (opcional, click para alternar):</p>
+            <p className="text-[11px] text-zinc-400 mb-1">
+              <strong className="text-white">Columnas extra a mostrar</strong> en el detalle del embarque (opcional):
+            </p>
+            <p className="text-[10px] text-zinc-600 mb-2">
+              Click para activar/desactivar. Las verdes están activadas.
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {availableExtraHeaders.map(h => {
                 const enabled = cfg.extraCols.some(c => c.header === h)
+                const isAutoDetected = ['etd', 'eta', 'awb', 'arribo'].some(kw => h.toLowerCase().includes(kw))
                 return (
                   <button
                     key={h}
@@ -144,10 +189,13 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
                     className={`px-2.5 py-1 rounded text-[10px] font-medium border transition-colors ${
                       enabled
                         ? 'bg-[#E30613]/10 text-white border-[#E30613]/40'
-                        : 'bg-transparent text-zinc-500 border-white/[0.08] hover:text-zinc-300'
+                        : isAutoDetected
+                          ? 'bg-blue-500/[0.05] text-blue-400/70 border-blue-500/20 hover:text-blue-300'
+                          : 'bg-transparent text-zinc-500 border-white/[0.08] hover:text-zinc-300'
                     }`}
+                    title={isAutoDetected ? 'Auto-detectada (ya se usa para estado/tracking)' : undefined}
                   >
-                    {h}
+                    {h}{isAutoDetected && ' ✨'}
                   </button>
                 )
               })}
