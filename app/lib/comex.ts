@@ -74,6 +74,18 @@ export async function saveComexConfig(cfg: ComexConfig): Promise<void> {
   })
 }
 
+/**
+ * Elimina la configuración de Comex de la DB.
+ * Borra tanto el nuevo formato (COMEX_CONFIG) como el legacy (COMEX_SOURCES).
+ * Después de esto, /configuracion arranca vacío y /embarques no tendrá datos
+ * de Comex hasta configurar de nuevo.
+ */
+export async function clearComexConfig(): Promise<void> {
+  await prisma.appConfig.deleteMany({
+    where: { key: { in: [CONFIG_KEY, LEGACY_KEY] } },
+  })
+}
+
 // ─── Preview de columnas para la UI de Configuración ──────────────────────────
 
 export async function previewSheetHeaders(

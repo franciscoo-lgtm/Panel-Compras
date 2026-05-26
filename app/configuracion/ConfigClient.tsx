@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Save, Loader2, AlertTriangle, CheckCircle2, Eye } from 'lucide-react'
-import { saveComexConfig, previewSheetHeaders, type ComexConfig } from '@/app/lib/comex'
+import { Save, Loader2, AlertTriangle, CheckCircle2, Eye, Trash2 } from 'lucide-react'
+import { saveComexConfig, previewSheetHeaders, clearComexConfig, type ComexConfig } from '@/app/lib/comex'
 
 const EMPTY: ComexConfig = {
   url: '',
@@ -18,6 +18,8 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [previewing, startPreview] = useTransition()
   const [saving, startSave] = useTransition()
+  const [clearing, startClear] = useTransition()
+  const [confirmClear, setConfirmClear] = useState(false)
   const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
   function handlePreview() {
@@ -56,8 +58,24 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
     })
   }
 
+  function handleClear() {
+    setSaveResult(null)
+    startClear(async () => {
+      try {
+        await clearComexConfig()
+        setCfg(EMPTY)
+        setHeaders([])
+        setConfirmClear(false)
+        setSaveResult({ ok: true, msg: 'Configuración eliminada. /embarques no tendrá datos de Comex hasta que configures de nuevo.' })
+      } catch (err) {
+        setSaveResult({ ok: false, msg: err instanceof Error ? err.message : String(err) })
+      }
+    })
+  }
+
   const canPreview = cfg.url.trim().length > 0
   const canSave = cfg.url && cfg.joinCol && cfg.embarqueCol
+  const hasInitialConfig = initial != null && initial.url.length > 0
 
   const availableExtraHeaders = headers.filter(h => h !== cfg.joinCol && h !== cfg.embarqueCol)
 
@@ -204,7 +222,7 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
         </div>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={handleSave}
           disabled={!canSave || saving}
@@ -213,6 +231,37 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
           Guardar
         </button>
+
+        {hasInitialConfig && !confirmClear && (
+          <button
+            onClick={() => setConfirmClear(true)}
+            className="px-3 py-2 rounded-md text-[11px] font-medium border border-red-500/30 bg-red-500/[0.05] hover:bg-red-500/[0.1] text-red-400 inline-flex items-center gap-1.5"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Eliminar configuración
+          </button>
+        )}
+
+        {confirmClear && (
+          <div className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-red-500/40 bg-red-500/[0.08]">
+            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+            <span className="text-[11px] text-red-300">¿Seguro? Se borra la planilla y /embarques queda vacío.</span>
+            <button
+              onClick={handleClear}
+              disabled={clearing}
+              className="px-3 py-1 rounded text-[11px] font-medium bg-red-500 hover:bg-red-500/85 text-white inline-flex items-center gap-1.5 disabled:opacity-40"
+            >
+              {clearing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+              Sí, eliminar
+            </button>
+            <button
+              onClick={() => setConfirmClear(false)}
+              className="px-3 py-1 rounded text-[11px] font-medium bg-white/[0.06] hover:bg-white/[0.1] text-zinc-300"
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
 
         {saveResult && (
           <span className={`text-[11px] inline-flex items-center gap-1.5 ${saveResult.ok ? 'text-emerald-400' : 'text-red-400'}`}>
