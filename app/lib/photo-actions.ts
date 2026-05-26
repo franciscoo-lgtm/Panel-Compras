@@ -10,10 +10,14 @@ export type PhotoToSave = {
   colIndex: number
 }
 
-export type PhotoMatchCandidate = {
+/**
+ * Light candidate for the matching server action — does NOT include base64 to stay
+ * under the 1MB server-action body limit. The client keeps base64 locally and stitches
+ * it back into the matched result after the server call returns.
+ */
+export type PhotoMatchCandidateLight = {
   rowIndex: number
   colIndex: number
-  base64: string
   mediaType: string
   ai?: {
     asn?: string | null
@@ -26,7 +30,7 @@ export type PhotoMatchCandidate = {
   } | null
 }
 
-export type MatchedPhoto = PhotoMatchCandidate & {
+export type MatchedPhotoLight = PhotoMatchCandidateLight & {
   matchedItemId: string | null
   matchedItemDesc: string | null
   matchedItemAsn: string | null
@@ -35,13 +39,18 @@ export type MatchedPhoto = PhotoMatchCandidate & {
   matchReason: 'asn+case' | 'asn+so' | 'asn' | 'so' | 'none'
 }
 
+/** Same as MatchedPhotoLight plus base64 (only used client-side). */
+export type MatchedPhoto = MatchedPhotoLight & {
+  base64: string
+}
+
 /**
  * Run AI matches against CIPLItems in DB, return enriched photos with itemId where possible.
  * The user can later override before saving.
  */
 export async function matchPhotosToItems(
-  candidates: PhotoMatchCandidate[],
-): Promise<MatchedPhoto[]> {
+  candidates: PhotoMatchCandidateLight[],
+): Promise<MatchedPhotoLight[]> {
   // Collect all keys we might need to look up
   const asns = new Set<string>()
   const sos = new Set<string>()

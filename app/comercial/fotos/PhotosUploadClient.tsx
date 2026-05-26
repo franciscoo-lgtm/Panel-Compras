@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { CheckCircle2, AlertTriangle, Save, Loader2, Camera, Sparkles } from 'lucide-react'
 import { InspectionPhotoUploader, type PhotoExtractionResult } from '@/components/shared/InspectionPhotoUploader'
-import { matchPhotosToItems, saveCIPLPhotos, type MatchedPhoto } from '@/app/lib/photo-actions'
+import { matchPhotosToItems, saveCIPLPhotos, type MatchedPhoto, type PhotoMatchCandidateLight } from '@/app/lib/photo-actions'
 import { cn } from '@/lib/utils'
 
 type Item = {
@@ -23,8 +23,20 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
   async function handleAIComplete(photos: PhotoExtractionResult[]) {
     setSaveResult(null)
     startMatching(async () => {
-      const matched = await matchPhotosToItems(photos)
-      setMatched(matched)
+      // Strip base64 before sending to server action (1MB body limit).
+      // Keep base64 client-side and stitch back in.
+      const light: PhotoMatchCandidateLight[] = photos.map(p => ({
+        rowIndex: p.rowIndex,
+        colIndex: p.colIndex,
+        mediaType: p.mediaType,
+        ai: p.ai,
+      }))
+      const matchedLight = await matchPhotosToItems(light)
+      const merged: MatchedPhoto[] = matchedLight.map((m, i) => ({
+        ...m,
+        base64: photos[i]?.base64 ?? '',
+      }))
+      setMatched(merged)
     })
   }
 
@@ -62,13 +74,22 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
         return
       }
 
-      const res = await saveCIPLPhotos(toSave)
-      if (res.ok) {
-        setSaveResult({ ok: true, msg: `${res.saved} foto${res.saved === 1 ? '' : 's'} guardada${res.saved === 1 ? '' : 's'}.` })
-        setMatched([])
-      } else {
-        setSaveResult({ ok: false, msg: res.error })
+      // Batch to stay under server-action 1MB body limit.
+      // Each photo's dataUrl is ~150-300KB base64, so 3 per batch is safe.
+      const BATCH_SIZE = 3
+      let totalSaved = 0
+      for (let i = 0; i < toSave.length; i += BATCH_SIZE) {
+        const batch = toSave.slice(i, i + BATCH_SIZE)
+        const res = await saveCIPLPhotos(batch)
+        if (!res.ok) {
+          setSaveResult({ ok: false, msg: `Falló al guardar batch ${i / BATCH_SIZE + 1}: ${res.error}` })
+          return
+        }
+        totalSaved += res.saved
       }
+
+      setSaveResult({ ok: true, msg: `${totalSaved} foto${totalSaved === 1 ? '' : 's'} guardada${totalSaved === 1 ? '' : 's'}.` })
+      setMatched([])
     })
   }
 
