@@ -95,11 +95,23 @@ export async function listEmbarques(): Promise<{ summaries: EmbarqueSummary[]; e
     })
   }
 
+  // Sort: estados activos primero (en-transito > pendiente > sin-tracking > arribado),
+  // dentro de cada estado por ETA ascendente (los que llegan antes, primero).
+  // Embarques sin ETA quedan al final de su grupo.
+  const SORT_PRIORITY: Record<EmbarqueEstado, number> = {
+    'en-transito': 0,
+    'pendiente':   1,
+    'desconocido': 2,
+    'arribado':    3,
+  }
   summaries.sort((a, b) => {
-    const ad = parseDateLoose(a.etd)?.getTime() ?? 0
-    const bd = parseDateLoose(b.etd)?.getTime() ?? 0
-    if (ad !== bd) return bd - ad
-    return b.embarqueNo.localeCompare(a.embarqueNo)
+    const pa = SORT_PRIORITY[a.estado]
+    const pb = SORT_PRIORITY[b.estado]
+    if (pa !== pb) return pa - pb
+    const ea = parseDateLoose(a.eta)?.getTime() ?? Number.MAX_SAFE_INTEGER
+    const eb = parseDateLoose(b.eta)?.getTime() ?? Number.MAX_SAFE_INTEGER
+    if (ea !== eb) return ea - eb
+    return a.embarqueNo.localeCompare(b.embarqueNo)
   })
 
   return { summaries, errors: comex.errors }

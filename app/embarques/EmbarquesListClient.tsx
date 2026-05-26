@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Search } from 'lucide-react'
+import { Search, HelpCircle, Package } from 'lucide-react'
 import { StatusPill, type EmbarqueEstado } from '@/components/shared/StatusPill'
 import { DateRange } from '@/components/shared/DateRange'
 import { cn } from '@/lib/utils'
@@ -30,19 +30,25 @@ const FILTERS: { id: EmbarqueEstado | 'todos'; label: string }[] = [
 export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
   const [filter, setFilter] = useState<EmbarqueEstado | 'todos'>('todos')
   const [query, setQuery] = useState('')
+  const [onlyWithCIPL, setOnlyWithCIPL] = useState(true)
+
+  // Aplicamos primero el filtro "solo con CIPL" para todos los counts y rows
+  const scoped = useMemo(() => {
+    return onlyWithCIPL ? summaries.filter(s => s.totalItems > 0) : summaries
+  }, [summaries, onlyWithCIPL])
 
   const counts = useMemo(() => {
     const c: Record<EmbarqueEstado | 'todos', number> = {
-      todos: summaries.length,
+      todos: scoped.length,
       'en-transito': 0, pendiente: 0, arribado: 0, desconocido: 0,
     }
-    for (const s of summaries) c[s.estado]++
+    for (const s of scoped) c[s.estado]++
     return c
-  }, [summaries])
+  }, [scoped])
 
   const filtered = useMemo(() => {
     const q = query.trim().toUpperCase()
-    return summaries.filter(s => {
+    return scoped.filter(s => {
       if (filter !== 'todos' && s.estado !== filter) return false
       if (q) {
         if (s.embarqueNo.toUpperCase().includes(q)) return true
@@ -52,10 +58,52 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
       }
       return true
     })
-  }, [summaries, filter, query])
+  }, [scoped, filter, query])
+
+  const hiddenCount = summaries.length - scoped.length
 
   return (
     <div>
+      {/* Toggle "solo con CIPL" + help ─────────────────────────────────────── */}
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <button
+          onClick={() => setOnlyWithCIPL(v => !v)}
+          className={cn(
+            'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium border transition-colors',
+            onlyWithCIPL
+              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+              : 'bg-transparent text-zinc-400 border-white/[0.08] hover:text-white',
+          )}
+          title="Mostrar solo embarques que tienen al menos un CIPL cargado en /comercial"
+        >
+          <Package className="w-3.5 h-3.5" />
+          {onlyWithCIPL ? 'Solo con CIPL cargado' : 'Mostrando todos los embarques'}
+        </button>
+
+        {onlyWithCIPL && hiddenCount > 0 && (
+          <span className="text-[10px] text-zinc-500">
+            ({hiddenCount} embarque{hiddenCount === 1 ? '' : 's'} de Comex sin CIPL oculto{hiddenCount === 1 ? '' : 's'})
+          </span>
+        )}
+
+        <details className="ml-auto group">
+          <summary className="cursor-pointer inline-flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 list-none [&::-webkit-details-marker]:hidden">
+            <HelpCircle className="w-3 h-3" />
+            ¿Cómo se calcula el estado?
+          </summary>
+          <div className="absolute mt-2 right-6 z-10 max-w-md p-3 rounded-md border border-white/[0.08] bg-[#0d0d0d] shadow-xl text-[11px] text-zinc-300 space-y-1.5">
+            <p className="font-semibold text-white mb-1">El estado depende de las fechas de Comex:</p>
+            <p><span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" /><strong className="text-emerald-400">Arribado</strong>: hay fecha de Arribo WH cargada</p>
+            <p><span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 mr-1" /><strong className="text-blue-400">En tránsito</strong>: ETD ya pasó, sin arribo aún</p>
+            <p><span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1" /><strong className="text-amber-400">Pendiente</strong>: ETD aún en el futuro</p>
+            <p><span className="inline-block w-1.5 h-1.5 rounded-full bg-zinc-500 mr-1" /><strong className="text-zinc-400">Sin tracking</strong>: ninguna fecha cargada en Comex</p>
+            <p className="text-zinc-500 pt-1.5 mt-1.5 border-t border-white/[0.06]">
+              Si no ves arribados, probablemente tu fuente no mapea ninguna columna a <code className="text-[10px]">arriboWh</code>. Andá a <code className="text-[10px]">/configuracion</code>.
+            </p>
+          </div>
+        </details>
+      </div>
+
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         {FILTERS.map(f => (
           <button
