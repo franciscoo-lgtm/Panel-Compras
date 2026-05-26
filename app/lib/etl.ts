@@ -60,6 +60,13 @@ export async function guardarCIPL(formData: FormData): Promise<SaveResult> {
     const rows = items.map((item, i) => {
       const so  = sosPrincipal[i]?.trim() || null
       const gso = so ? (gsoMap.get(so.toUpperCase()) ?? {}) : {}
+      // El gsoMap puede contener campos que NO existen en CIPLItem (incoterm,
+      // puertoSalida, fobUnit, fobTotal — removidos en Fase 1). Extraemos solo
+      // los 4 campos válidos del schema para evitar PrismaClientValidationError.
+      const skuFromGso     = typeof gso.sku    === 'string' ? gso.sku    : null
+      const paFromGso      = typeof gso.pa     === 'string' ? gso.pa     : null
+      const modeloFromGso  = typeof gso.modelo === 'string' ? gso.modelo : null
+      const qPiFromGso     = typeof gso.qPi    === 'number' ? gso.qPi    : null
       return {
         tipoCarga,
         categoryName,
@@ -85,7 +92,10 @@ export async function guardarCIPL(formData: FormData): Promise<SaveResult> {
         driveLinkExcel: driveLinks.excel ?? null,
         driveLinkCi:    driveLinks.ci    ?? null,
         driveLinkPl:    driveLinks.pl    ?? null,
-        ...gso,
+        sku:    skuFromGso,
+        pa:     paFromGso,
+        modelo: modeloFromGso,
+        qPi:    qPiFromGso,
       }
     })
 
