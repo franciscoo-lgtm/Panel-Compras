@@ -5,24 +5,29 @@ import { Sidebar } from './sidebar'
 import { CmdK } from './shared/CmdK'
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState<boolean | null>(null)
 
   useEffect(() => {
+    if (collapsed !== null) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration from localStorage requires post-mount read
     setCollapsed(localStorage.getItem('sidebar-collapsed') === 'true')
-  }, [])
+  }, [collapsed])
 
   const toggle = () =>
     setCollapsed(prev => {
-      localStorage.setItem('sidebar-collapsed', String(!prev))
-      return !prev
+      const next = !prev
+      localStorage.setItem('sidebar-collapsed', String(next))
+      return next
     })
+
+  const effectiveCollapsed = collapsed ?? false
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar collapsed={collapsed} onToggle={toggle} />
+      <Sidebar collapsed={effectiveCollapsed} onToggle={toggle} />
       <main
         className="flex-1 overflow-y-auto bg-[#050505] transition-all duration-200 min-w-0"
-        style={{ marginLeft: collapsed ? 56 : 240 }}
+        style={{ marginLeft: effectiveCollapsed ? 56 : 240 }}
       >
         {children}
       </main>

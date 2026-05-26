@@ -20,17 +20,20 @@ export default async function ComprasPage() {
   const fobActivo   = active.reduce((s, c) => s + c.sos.reduce((ss, so) => ss + (so.fobTotal ?? 0), 0), 0)
   const unidadesEnProceso = active.reduce((s, c) => s + Math.max(0, getQtyPedida(c) - getQtyRecibida(c)), 0)
 
+  // eslint-disable-next-line react-hooks/purity -- server component renders once per request
+  const nowMs = Date.now()
+
   const completadas30d = compras.filter(c => {
     const st = getCompraStatus(c)
     if (st !== 'Completada') return false
-    const diff = Date.now() - c.createdAt.getTime()
+    const diff = nowMs - c.createdAt.getTime()
     return diff < 30 * 24 * 60 * 60 * 1000
   })
 
   const pagoSinPL = active.filter(c => {
     if (!c.fechaPago) return false
     if (c.ciplItems.length > 0) return false
-    const daysSince = (Date.now() - c.fechaPago.getTime()) / (1000 * 60 * 60 * 24)
+    const daysSince = (nowMs - c.fechaPago.getTime()) / (1000 * 60 * 60 * 24)
     return daysSince > 30
   })
 

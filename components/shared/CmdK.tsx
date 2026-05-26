@@ -13,29 +13,37 @@ export function CmdK() {
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
+  function close() {
+    setOpen(false)
+    setQuery('')
+    setResults(null)
+  }
+
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
         setOpen(true)
       }
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') close()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 50)
-    else { setQuery(''); setResults(null) }
+    if (!open) return
+    const t = setTimeout(() => inputRef.current?.focus(), 50)
+    return () => clearTimeout(t)
   }, [open])
 
   useEffect(() => {
-    if (query.trim().length < 2) { setResults(null); return }
+    const trimmed = query.trim()
+    if (trimmed.length < 2) return
     const t = setTimeout(async () => {
       setLoading(true)
       try {
-        const res: SearchResult = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`).then(r => r.json())
+        const res: SearchResult = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`).then(r => r.json())
         setResults(res)
       } finally {
         setLoading(false)
@@ -45,9 +53,12 @@ export function CmdK() {
   }, [query])
 
   function go(href: string) {
-    setOpen(false)
+    close()
     router.push(href)
   }
+
+  // Render results only when query is long enough; otherwise show placeholder
+  const showingResults = query.trim().length >= 2 && results !== null
 
   if (!open) return null
 
@@ -56,7 +67,7 @@ export function CmdK() {
     : 0
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center pt-[15vh] px-4" onClick={() => setOpen(false)}>
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center pt-[15vh] px-4" onClick={close}>
       <div className="w-full max-w-2xl bg-[#0a0a0a] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06]">
           <Search className="w-4 h-4 text-zinc-500 shrink-0" />
@@ -76,11 +87,11 @@ export function CmdK() {
             <p className="px-4 py-8 text-center text-zinc-500 text-[12px]">Escribí al menos 2 caracteres</p>
           )}
 
-          {results && total === 0 && (
+          {showingResults && total === 0 && (
             <p className="px-4 py-8 text-center text-zinc-500 text-[12px]">Sin resultados para &quot;{query}&quot;</p>
           )}
 
-          {results && total > 0 && (
+          {showingResults && total > 0 && results && (
             <div className="p-2 space-y-3">
               {results.embarques.length > 0 && (
                 <Section title="Embarques" icon={Anchor}>
