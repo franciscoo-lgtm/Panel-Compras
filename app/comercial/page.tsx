@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Upload, Sparkles, Camera, ShieldCheck, CheckCircle2 } from 'lucide-react'
+import { ChevronRight, Upload, Sparkles, Camera, ShieldCheck, CheckCircle2, FileSpreadsheet } from 'lucide-react'
 import type { ExtractedItem, DriveLinks } from '@/app/lib/etl'
 import type { PhotoExtractionResult } from '@/components/shared/InspectionPhotoUploader'
 import { Step1Upload } from './_components/Step1Upload'
@@ -68,13 +68,22 @@ export default function ComercialPage() {
             <h1 className="text-2xl font-display font-bold text-white tracking-tight mb-1">Carga CIPL</h1>
             <p className="text-[12px] text-zinc-500">Extraé y guardá CIPLs de Repuestos o Mercadería DJI</p>
           </div>
-          <Link
-            href="/comercial/fotos"
-            className="px-3 py-2 rounded-md text-[11px] font-medium border border-white/[0.08] hover:border-[#E30613]/40 hover:bg-[#E30613]/10 text-zinc-300 hover:text-white inline-flex items-center gap-1.5 transition-colors"
-          >
-            <Camera className="w-3.5 h-3.5" />
-            Subir fotos a un CIPL ya cargado
-          </Link>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href="/comercial/consolidar"
+              className="px-3 py-2 rounded-md text-[11px] font-medium border border-white/[0.08] hover:border-[#E30613]/40 hover:bg-[#E30613]/10 text-zinc-300 hover:text-white inline-flex items-center gap-1.5 transition-colors"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Exportar PL Consolidado
+            </Link>
+            <Link
+              href="/comercial/fotos"
+              className="px-3 py-2 rounded-md text-[11px] font-medium border border-white/[0.08] hover:border-[#E30613]/40 hover:bg-[#E30613]/10 text-zinc-300 hover:text-white inline-flex items-center gap-1.5 transition-colors"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              Subir fotos a un CIPL ya cargado
+            </Link>
+          </div>
         </div>
       </div>
 
