@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx'
 import type { ExtractedItem, DriveLinks } from '@/app/lib/etl'
 import {
   Upload, FileSpreadsheet, FileText, Loader2,
-  AlertTriangle, Zap,
+  AlertTriangle, Zap, RotateCcw,
 } from 'lucide-react'
 
 // ─── File drop zone ───────────────────────────────────────────────────────────
@@ -50,6 +50,11 @@ export function Step1Upload({
   const [error, setError]           = useState<string | null>(null)
   const [driveError, setDriveError] = useState<string | null>(null)
   const [pending, start]            = useTransition()
+  // Estado pendiente: cuando Drive falla pero la extracción salió OK, guardamos
+  // los items aquí esperando que el user decida (reintentar o continuar sin Drive).
+  const [pendingExtract, setPendingExtract] = useState<{
+    items: ExtractedItem[]; tipo: 'Repuesto' | 'Mercaderia'; driveLinks: DriveLinks
+  } | null>(null)
 
   const ready = category.trim() && (tipo === 'Repuesto' ? !!file : (!!fileCi && !!filePl))
 
@@ -57,6 +62,7 @@ export function Step1Upload({
     if (!ready) return
     setError(null)
     setDriveError(null)
+    setPendingExtract(null)
     start(async () => {
       const fd = new FormData()
       fd.set('tipoCarga', tipo)
@@ -123,11 +129,21 @@ export function Step1Upload({
         fd2.set('asn',  firstItem?.asn  ?? '')
         fd2.set('date', firstItem?.date ?? '')
         fd2.set('file', file)
+        console.log('[Step1] Iniciando upload a Drive (Repuesto):', { piNo: firstItem?.piNo, asn: firstItem?.asn, size: file.size })
         const driveRes = await fetch('/api/upload-drive', { method: 'POST', body: fd2 })
           .then(r => r.json()).catch((e: unknown) => ({ excel: null, ci: null, pl: null, uploadError: String(e) })) as DriveLinks & { uploadError?: string }
+        console.log('[Step1] Respuesta de Drive:', driveRes)
         if (driveRes.uploadError) setDriveError(`Drive: ${driveRes.uploadError}`)
+        if (!driveRes.excel && !driveRes.uploadError) setDriveError('Drive: el endpoint devolvió null sin error específico')
         const driveLinks: DriveLinks = { excel: driveRes.excel, ci: driveRes.ci, pl: driveRes.pl }
+        console.log('[Step1] driveLinks finales:', driveLinks)
 
+        // Si Drive falló, esperar decisión del user (NO avanzar solo)
+        const driveOk = !!driveRes.excel
+        if (!driveOk) {
+          setPendingExtract({ items: extractRes.items, tipo: 'Repuesto', driveLinks })
+          return
+        }
         onDone(extractRes.items, 'Repuesto', category.trim(), driveLinks)
         return
       }
@@ -161,11 +177,21 @@ export function Step1Upload({
       if (tipo === 'Mercaderia' && fileCi) fd2.set('file_ci', fileCi)
       if (tipo === 'Mercaderia' && filePl) fd2.set('file_pl', filePl)
 
+      console.log('[Step1] Iniciando upload a Drive (Mercaderia):', { piNo: firstItem?.piNo, asn: firstItem?.asn })
       const driveRes2 = await fetch('/api/upload-drive', { method: 'POST', body: fd2 })
         .then(r => r.json()).catch((e: unknown) => ({ excel: null, ci: null, pl: null, uploadError: String(e) })) as DriveLinks & { uploadError?: string }
+      console.log('[Step1] Respuesta de Drive (Mercaderia):', driveRes2)
       if (driveRes2.uploadError) setDriveError(`Drive: ${driveRes2.uploadError}`)
+      if (!driveRes2.ci && !driveRes2.pl && !driveRes2.uploadError) setDriveError('Drive: el endpoint devolvió null sin error específico')
       const driveLinks: DriveLinks = { excel: driveRes2.excel, ci: driveRes2.ci, pl: driveRes2.pl }
+      console.log('[Step1] driveLinks finales (Mercaderia):', driveLinks)
 
+      // Si Drive falló, esperar decisión del user
+      const driveOk = !!driveRes2.ci && !!driveRes2.pl
+      if (!driveOk) {
+        setPendingExtract({ items: extractRes.items, tipo: extractRes.tipoCarga ?? tipo, driveLinks })
+        return
+      }
       onDone(extractRes.items, extractRes.tipoCarga ?? tipo, category.trim(), driveLinks)
     })
   }
@@ -223,7 +249,45 @@ export function Step1Upload({
         </div>
       )}
 
-      {driveError && (
+      {driveError && pendingExtract && (
+        <div className="rounded-xl bg-[#E30613]/10 border-2 border-[#E30613]/40 p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-[#E30613]" />
+            <div className="text-sm text-[#E30613]">
+              <p className="font-bold mb-1">❌ Drive falló — los archivos NO se subieron</p>
+              <p className="text-[12px] text-zinc-300">{driveError}</p>
+              <p className="text-[11px] text-zinc-400 mt-2">
+                La extracción de los ítems sí funcionó. Podés reintentar subir a Drive o continuar
+                sin Drive (los CIPL se cargan pero no quedan archivos backed up).
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExtract}
+              disabled={pending}
+              className="px-3 py-1.5 rounded-md text-[12px] font-medium bg-[#E30613] hover:bg-[#E30613]/85 text-white inline-flex items-center gap-1.5 disabled:opacity-40"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Reintentar Drive
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!pendingExtract) return
+                console.log('[Step1] User eligió continuar SIN Drive')
+                onDone(pendingExtract.items, pendingExtract.tipo, category.trim(), pendingExtract.driveLinks)
+                setPendingExtract(null)
+              }}
+              className="px-3 py-1.5 rounded-md text-[12px] font-medium border border-white/[0.15] hover:bg-white/[0.06] text-zinc-300"
+            >
+              Continuar sin Drive →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {driveError && !pendingExtract && (
         <div className="flex items-start gap-2 rounded-xl bg-[#E30613]/10 border border-[#E30613]/40 px-4 py-3 text-sm text-[#E30613]">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <span><strong>Error al subir a Drive:</strong> {driveError}</span>

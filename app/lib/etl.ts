@@ -42,9 +42,13 @@ export async function guardarCIPL(formData: FormData): Promise<SaveResult> {
     const items         = JSON.parse(formData.get('items')         as string) as ExtractedItem[]
     const sosPrincipal  = JSON.parse(formData.get('sosPrincipal')  as string) as string[]
     const sosSecundario = JSON.parse(formData.get('sosSecundario') as string) as string[]
-    const driveLinks    = JSON.parse(formData.get('driveLinks')    as string ?? '{}') as Partial<DriveLinks>
+    const driveLinksRaw = formData.get('driveLinks')
+    const driveLinks    = JSON.parse((driveLinksRaw as string) ?? '{}') as Partial<DriveLinks>
     const categoryName  = (formData.get('categoryName') as string)?.trim() || 'Sin nombre'
     const tipoCarga     = formData.get('tipoCarga') as string
+
+    console.log('[guardarCIPL] received driveLinks:', JSON.stringify(driveLinks))
+    console.log('[guardarCIPL] items count:', items.length, 'tipoCarga:', tipoCarga)
 
     // Fetch GSO data once for all SOs in this batch
     const uniqueSOs = [...new Set(sosPrincipal.filter(Boolean).map(s => s.trim().toUpperCase()))]
@@ -99,7 +103,13 @@ export async function guardarCIPL(formData: FormData): Promise<SaveResult> {
       }
     })
 
+    console.log('[guardarCIPL] first row driveLinkExcel/Ci/Pl:', {
+      excel: rows[0]?.driveLinkExcel ?? 'NULL',
+      ci:    rows[0]?.driveLinkCi    ?? 'NULL',
+      pl:    rows[0]?.driveLinkPl    ?? 'NULL',
+    })
     const result = await prisma.cIPLItem.createMany({ data: rows })
+    console.log('[guardarCIPL] created', result.count, 'rows')
 
     // Auto-link new CIPLItems to a Compra if SO matches
     const savedSOs = [...new Set(sosPrincipal.filter(Boolean).map(s => s.trim().toUpperCase()))]
