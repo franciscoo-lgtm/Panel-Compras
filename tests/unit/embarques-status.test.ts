@@ -63,12 +63,21 @@ describe('pickField', () => {
 describe('deriveStatus', () => {
   const NOW = new Date('2026-06-01')
 
-  it('returns "arribado" when arrival is set', () => {
+  it('returns "arribado" when fechaArriboDeposito is set (final = depósito argentino)', () => {
+    const ship = {
+      embarqueNo: 'EMB-1',
+      extras: { etd: '15/05/26', fechaArriboDeposito: '20/05/26' },
+    }
+    expect(deriveStatus(ship, NOW)).toBe('arribado')
+  })
+
+  it('does NOT return "arribado" when only arriboWh (HK/Airsea) is set', () => {
     const ship = {
       embarqueNo: 'EMB-1',
       extras: { etd: '15/05/26', arriboWh: '20/05/26' },
     }
-    expect(deriveStatus(ship, NOW)).toBe('arribado')
+    // Arribo a WH intermedio NO es fin de proceso — embarque sigue en tránsito
+    expect(deriveStatus(ship, NOW)).toBe('en-transito')
   })
 
   it('returns "en-transito" when ETD is past and no arrival', () => {

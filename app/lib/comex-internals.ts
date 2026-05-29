@@ -111,8 +111,11 @@ export function pickField(shipment: ComexShipment, candidates: string[]): string
 }
 
 export function deriveStatus(shipment: ComexShipment, now: Date = new Date()): EmbarqueEstado {
-  const arribo = parseDateLoose(pickField(shipment, ['arribo']))
-  if (arribo) return 'arribado'
+  // "Arribado" = fin de proceso = llegó al depósito final argentino.
+  // NO se considera arribado al llegar al WH de HK / Airsea (esos son hitos
+  // intermedios, el embarque sigue en tránsito hasta que pisa nuestro depósito).
+  const arriboDeposito = parseDateLoose(pickField(shipment, ['deposito', 'depósito']))
+  if (arriboDeposito) return 'arribado'
   const etd = parseDateLoose(pickField(shipment, ['etd']))
   if (!etd) return 'desconocido'
   return etd <= now ? 'en-transito' : 'pendiente'

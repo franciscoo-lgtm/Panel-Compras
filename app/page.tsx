@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { Anchor, AlertTriangle, ArrowRight, TrendingUp, BarChart3, Activity, PieChart, Plane } from 'lucide-react'
+import { Anchor, AlertTriangle, ArrowRight, TrendingUp, BarChart3, Activity, PieChart, Plane, Boxes, Layers } from 'lucide-react'
 import { listEmbarques } from '@/app/lib/embarques'
 import { getExecutiveKPIs, getAlerts } from '@/app/lib/dashboard'
 import { KPICard } from '@/components/shared/KPICard'
@@ -11,12 +11,13 @@ import { EmbarquesPorMesChart } from '@/components/dashboard/EmbarquesPorMesChar
 import { TipoCargaDonut } from '@/components/dashboard/TipoCargaDonut'
 import { ProximosArribosChart } from '@/components/dashboard/ProximosArribosChart'
 import { DiscrepanciasTrendChart } from '@/components/dashboard/DiscrepanciasTrendChart'
+import { DiasEntreEtapasChart } from '@/components/dashboard/DiasEntreEtapasChart'
+import { ThroughputCbmChart } from '@/components/dashboard/ThroughputCbmChart'
 
 const fmtUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 
 export default async function HomePage() {
   const [{ summaries: allSummaries, errors }, kpis] = await Promise.all([listEmbarques(), getExecutiveKPIs()])
-  // Filtramos solo los embarques con CIPLs cargados (mismo criterio que /embarques default)
   const summaries = allSummaries.filter(s => s.totalItems > 0)
   const alerts = await getAlerts(allSummaries)
 
@@ -24,7 +25,7 @@ export default async function HomePage() {
     <div className="px-6 py-5 max-w-[1600px]">
       <h1 className="text-2xl font-display font-bold text-white tracking-tight mb-1">Tablero ejecutivo</h1>
       <p className="text-[12px] text-zinc-500 mb-6">
-        Resumen operativo · solo embarques con CIPL cargado
+        Resumen operativo · solo embarques con CIPL cargado · &quot;arribado&quot; = llegó al depósito final
       </p>
 
       {errors.length > 0 && (
@@ -34,7 +35,7 @@ export default async function HomePage() {
         </div>
       )}
 
-      {/* KPIs principales (4 cards) */}
+      {/* KPIs principales */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
         <KPICard label="Valor en tránsito"      value={fmtUSD.format(kpis.valorEnTransitoUSD)} hint={`${kpis.cbmEnTransito.toFixed(1)} CBM`}            accent="red"     />
         <KPICard label="Embarques activos"      value={kpis.embarquesActivos.toString()}        hint="pendiente + en tránsito"                          accent="blue"    />
@@ -42,14 +43,18 @@ export default async function HomePage() {
         <KPICard label="Retrasados"             value={kpis.embarquesRetrasados.toString()}     hint="ETA pasada hace +5 días"                          accent="red"     />
       </div>
 
-      {/* KPIs secundarios */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-        <KPICard label="Tiempo medio tránsito"   value={`${kpis.tiempoMedioTransitoDias} días`} hint="ETD → ETA promedio"           accent="zinc"    />
-        <KPICard label="SLA cumplimiento"        value={`${kpis.slaCumplimiento}%`}              hint="arribo ≤ 21 días"             accent="amber"   />
-        <KPICard label="Unidades del mes"        value={kpis.unidadesArribadasMes.toLocaleString()} hint="arribadas este mes"        accent="zinc" />
+      {/* KPIs secundarios - métricas de proceso */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <KPICard label="Tránsito promedio"      value={`${kpis.tiempoMedioTransitoDias}d`}      hint="ETD → Depósito"           accent="zinc" />
+        <KPICard label="SLA cumplimiento"       value={`${kpis.slaCumplimiento}%`}              hint="depósito ≤ 30 días"        accent="amber" />
+        <KPICard label="Lead time total"        value={`${kpis.leadTimePagoArriboDias}d`}       hint="Pago → Depósito"           accent="zinc" />
+        <KPICard label="Anticipación Comex"     value={`${kpis.anticipacionComexDias}d`}        hint="Instrucción → ETD"         accent="zinc" />
+        <KPICard label="Demora vs plan"         value={`${kpis.pctDemoraVsPlan}%`}              hint="llegaron después de ETA"   accent="amber" />
+        <KPICard label="Unidades del mes"       value={kpis.unidadesArribadasMes.toLocaleString()} hint="arribadas al depósito" accent="emerald" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      {/* Charts row 1 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
             <Plane className="w-4 h-4 text-emerald-400" />
@@ -61,11 +66,32 @@ export default async function HomePage() {
 
         <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+            <Layers className="w-4 h-4 text-amber-400" />
+            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Días promedio por etapa</h2>
+            <span className="ml-auto text-[10px] text-zinc-500">cuello de botella</span>
+          </div>
+          <div className="p-3"><DiasEntreEtapasChart data={kpis.diasEntreEtapas} /></div>
+        </section>
+      </div>
+
+      {/* Charts row 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-[#E30613]" />
             <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Embarques por mes</h2>
-            <span className="ml-auto text-[10px] text-zinc-500">últimos 12</span>
+            <span className="ml-auto text-[10px] text-zinc-500">por ETD · últimos 12</span>
           </div>
           <div className="p-3"><EmbarquesPorMesChart data={kpis.embarquesPorMes} /></div>
+        </section>
+
+        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+            <Boxes className="w-4 h-4 text-blue-400" />
+            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">CBM arribado por mes</h2>
+            <span className="ml-auto text-[10px] text-zinc-500">throughput operativo</span>
+          </div>
+          <div className="p-3"><ThroughputCbmChart data={kpis.throughputCbmPorMes} /></div>
         </section>
 
         <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
