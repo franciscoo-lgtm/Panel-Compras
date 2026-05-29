@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import NextLink from 'next/link'
 import { Settings, ArrowRight, Link as LinkIcon, KeyRound, Wand2, Layers } from 'lucide-react'
 import { getComexConfig } from '@/app/lib/comex'
 import { ConfigClient } from './ConfigClient'
@@ -12,6 +13,12 @@ export default async function ConfigPage() {
       <div className="flex items-center gap-3 mb-2">
         <Settings className="w-5 h-5 text-[#E30613] shrink-0" />
         <h1 className="text-xl font-display font-semibold text-white tracking-tight">Configuración</h1>
+        <NextLink
+          href="/configuracion/hitos"
+          className="ml-auto px-3 py-1.5 rounded-md text-[11px] font-medium border border-white/[0.08] hover:border-[#E30613]/40 hover:bg-[#E30613]/10 text-zinc-300 hover:text-white inline-flex items-center gap-1.5 transition-colors"
+        >
+          Hitos del proceso →
+        </NextLink>
       </div>
 
       <p className="text-[12px] text-zinc-500 mb-6">

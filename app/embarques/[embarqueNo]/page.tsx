@@ -4,8 +4,10 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, Download, Anchor } from 'lucide-react'
 import { getEmbarqueDetail } from '@/app/lib/embarques'
+import { getMilestonesConfig, getMilestoneDateForEmbarque } from '@/app/lib/milestones-config'
 import { StatusPill } from '@/components/shared/StatusPill'
 import { DateRange } from '@/components/shared/DateRange'
+import { MilestonesTimeline } from '@/components/shared/MilestonesTimeline'
 import { EmbarqueDetailClient } from './EmbarqueDetailClient'
 
 type Props = { params: Promise<{ embarqueNo: string }> }
@@ -31,6 +33,33 @@ export default async function EmbarqueDetailPage({ params }: Props) {
     shipmentsBySO: Array.from(detail.shipmentsBySO.entries()),
     extraColumns: detail.extraColumns,
   }
+
+  // ── Hitos del embarque (los configurados con showIn: 'embarques') ─────────
+  const allMilestones = await getMilestonesConfig()
+  const embarqueMilestones = allMilestones.filter(m => m.showIn.includes('embarques'))
+
+  // Para el cálculo de hitos: necesitamos bySO formateado y firstCiplCreatedAt
+  const bySORecord: Record<string, { so: string; shipments: { embarqueNo: string; extras: Record<string, string | null> }[] }> = {}
+  for (const [so, ship] of detail.shipmentsBySO) {
+    bySORecord[so] = { so, shipments: [ship] }
+  }
+  const firstCiplCreatedAt = detail.items.length > 0
+    ? detail.items.reduce<string | null>((earliest, it) => {
+        const created = (it as { createdAt?: Date | string | null }).createdAt
+        if (!created) return earliest
+        const iso = typeof created === 'string' ? created : (created as Date).toISOString()
+        if (!earliest || iso < earliest) return iso
+        return earliest
+      }, null)
+    : null
+
+  const comprasPlain = JSON.parse(JSON.stringify(detail.compras)) as Record<string, unknown>[]
+  const milestoneItems = embarqueMilestones.map(m => ({
+    key: m.key,
+    label: m.label,
+    source: m.source,
+    date: getMilestoneDateForEmbarque(m, comprasPlain, firstCiplCreatedAt, detail.sos, bySORecord),
+  }))
 
   return (
     <div className="px-6 py-5">
@@ -62,6 +91,12 @@ export default async function EmbarqueDetailPage({ params }: Props) {
           </a>
         </div>
       </div>
+
+      {milestoneItems.length > 0 && (
+        <div className="mb-5">
+          <MilestonesTimeline items={milestoneItems} />
+        </div>
+      )}
 
       <EmbarqueDetailClient detail={serializable} />
     </div>
