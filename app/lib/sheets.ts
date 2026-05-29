@@ -108,9 +108,15 @@ async function fetchRawCSV(): Promise<string> {
 // Exact lowercase column name lookup — derived from actual sheet headers
 function buildColMap(headers: string[]): Record<string, number> {
   const idx = (name: string) => headers.indexOf(name)
+  // Para PA: probar varios nombres comunes en orden de prioridad. Si ninguno
+  // existe queda -1 (null) — mejor vacío que mostrar dato incorrecto.
+  // El bug anterior leía "marca" (= "DJI" para todos los productos).
+  const paIdx = ['pa', 'p.a.', 'p.a', 'pre alerta', 'prealerta', 'pre-alerta']
+    .map(name => idx(name))
+    .find(i => i >= 0) ?? -1
   return {
     sku:          idx('codigo'),
-    pa:           idx('marca'),
+    pa:           paIdx,
     modelo:       idx('modelo'),
     qPi:          idx('cantidad'),
     incoterm:     idx('incoterm'),
