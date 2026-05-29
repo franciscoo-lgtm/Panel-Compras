@@ -20,6 +20,13 @@ export type ExportItem = {
   pa:              string | null
   driveLinkPl:     string | null
   driveLinkExcel:  string | null
+  // ─── Datos de la Compra vinculada por SO ────────────────────────────────
+  supplierName:         string | null
+  supplierAddress:      string | null
+  supplierContactName:  string | null
+  supplierContactPhone: string | null
+  supplierContactEmail: string | null
+  incoterm:             string | null
 }
 
 const RED    = { patternType: 'solid' as const, fgColor: { rgb: 'FFFF0000' }, bgColor: { rgb: 'FFFF0000' } }
@@ -105,13 +112,13 @@ export function buildCiplWorkbook(items: ExportItem[]): XLSX.WorkBook {
     const row: XLSX.CellObject[] = [
       cell(item.isDangerousGood ? 'X' : '', 's'),
       cell(boxNum, 'n'),
-      cell(item.categoryName ?? '', 's'),
-      cell('', 's'),
-      cell('', 's'),
-      cell('', 's'),
-      cell('', 's'),
+      cell(item.supplierName ?? '', 's'),
+      cell(item.supplierAddress ?? '', 's'),
+      cell(item.supplierContactName ?? '', 's'),
+      cell(item.supplierContactPhone ?? '', 's'),
+      cell(item.supplierContactEmail ?? '', 's'),
       cell(item.piNo ?? '', 's'),
-      cell('', 's'),
+      cell(item.incoterm ?? '', 's'),
       cell(item.caseNo ?? '', 's'),
       cell(item.soPrincipal ?? '', 's'),
       cell(item.sku ?? '', 's'),

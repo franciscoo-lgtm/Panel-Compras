@@ -15,6 +15,10 @@ export const dynamic = 'force-dynamic'
  * El Excel resultante tiene una fila por cada CIPLItem de cualquiera de esos
  * ASNs, ordenado por ASN luego por sortOrder. Usado por Comex/Comercial para
  * mandar instrucción al forwarder.
+ *
+ * Los datos del proveedor (supplier, dirección, contacto, etc.) e incoterm
+ * vienen de la Compra vinculada por SO. Si el item no tiene compra vinculada
+ * esos campos quedan vacíos.
  */
 export async function GET(req: Request) {
   const url = new URL(req.url)
@@ -28,10 +32,35 @@ export async function GET(req: Request) {
   const dbItems = await prisma.cIPLItem.findMany({
     where: { asn: { in: asns } },
     orderBy: [{ asn: 'asc' }, { sortOrder: 'asc' }],
+    include: {
+      compra: {
+        select: {
+          supplierName:         true,
+          supplierAddress:      true,
+          supplierContactName:  true,
+          supplierContactPhone: true,
+          supplierContactEmail: true,
+        },
+      },
+    },
   })
 
   if (dbItems.length === 0) {
     return new NextResponse(`No hay items para los ASNs: ${asns.join(', ')}`, { status: 404 })
+  }
+
+  // Para cada SO, obtener el incoterm del CompraSOItem (uno por SO).
+  // Lo cacheamos en un map para evitar N queries.
+  const uniqueSOs = Array.from(new Set(dbItems.map(i => i.soPrincipal).filter((s): s is string => !!s)))
+  const compraSOItems = uniqueSOs.length > 0
+    ? await prisma.compraSOItem.findMany({
+        where: { soNumber: { in: uniqueSOs } },
+        select: { soNumber: true, incoterm: true },
+      })
+    : []
+  const incotermBySO = new Map<string, string | null>()
+  for (const x of compraSOItems) {
+    if (!incotermBySO.has(x.soNumber)) incotermBySO.set(x.soNumber, x.incoterm ?? null)
   }
 
   const items: ExportItem[] = dbItems.map(i => ({
@@ -54,6 +83,12 @@ export async function GET(req: Request) {
     pa:              i.pa ?? null,
     driveLinkPl:     i.driveLinkPl ?? null,
     driveLinkExcel:  i.driveLinkExcel ?? null,
+    supplierName:         i.compra?.supplierName ?? null,
+    supplierAddress:      i.compra?.supplierAddress ?? null,
+    supplierContactName:  i.compra?.supplierContactName ?? null,
+    supplierContactPhone: i.compra?.supplierContactPhone ?? null,
+    supplierContactEmail: i.compra?.supplierContactEmail ?? null,
+    incoterm:             i.soPrincipal ? (incotermBySO.get(i.soPrincipal) ?? null) : null,
   }))
 
   const wb = buildCiplWorkbook(items)
