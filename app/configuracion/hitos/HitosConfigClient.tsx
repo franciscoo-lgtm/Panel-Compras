@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Save, Loader2, AlertTriangle, CheckCircle2, Plus, ArrowUp, ArrowDown, Trash2, RotateCcw } from 'lucide-react'
-import { saveMilestonesConfig, resetMilestonesConfig, DEFAULT_MILESTONES, type MilestoneConfig, type MilestoneSource } from '@/app/lib/milestones-config'
+import { saveMilestonesConfig, resetMilestonesConfig } from '@/app/lib/milestones-config'
+import { DEFAULT_MILESTONES, type MilestoneConfig, type MilestoneSource } from '@/app/lib/milestones-types'
 import { cn } from '@/lib/utils'
 
 type ComexField = { fieldKey: string; label: string; category: 'tracking' | 'meta' | 'extra' }
