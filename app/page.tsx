@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { Anchor, AlertTriangle, ArrowRight, Building2, TrendingUp, BarChart3, Activity, PieChart } from 'lucide-react'
+import { Anchor, AlertTriangle, ArrowRight, TrendingUp, BarChart3, Activity, PieChart, Plane } from 'lucide-react'
 import { listEmbarques } from '@/app/lib/embarques'
 import { getExecutiveKPIs, getAlerts } from '@/app/lib/dashboard'
 import { KPICard } from '@/components/shared/KPICard'
@@ -9,19 +9,23 @@ import { StatusPill } from '@/components/shared/StatusPill'
 import { DateRange } from '@/components/shared/DateRange'
 import { EmbarquesPorMesChart } from '@/components/dashboard/EmbarquesPorMesChart'
 import { TipoCargaDonut } from '@/components/dashboard/TipoCargaDonut'
-import { TopProveedoresChart } from '@/components/dashboard/TopProveedoresChart'
+import { ProximosArribosChart } from '@/components/dashboard/ProximosArribosChart'
 import { DiscrepanciasTrendChart } from '@/components/dashboard/DiscrepanciasTrendChart'
 
 const fmtUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 
 export default async function HomePage() {
-  const [{ summaries, errors }, kpis] = await Promise.all([listEmbarques(), getExecutiveKPIs()])
-  const alerts = await getAlerts(summaries)
+  const [{ summaries: allSummaries, errors }, kpis] = await Promise.all([listEmbarques(), getExecutiveKPIs()])
+  // Filtramos solo los embarques con CIPLs cargados (mismo criterio que /embarques default)
+  const summaries = allSummaries.filter(s => s.totalItems > 0)
+  const alerts = await getAlerts(allSummaries)
 
   return (
     <div className="px-6 py-5 max-w-[1600px]">
       <h1 className="text-2xl font-display font-bold text-white tracking-tight mb-1">Tablero ejecutivo</h1>
-      <p className="text-[12px] text-zinc-500 mb-6">Resumen operativo de importaciones DJI Argentina</p>
+      <p className="text-[12px] text-zinc-500 mb-6">
+        Resumen operativo · solo embarques con CIPL cargado
+      </p>
 
       {errors.length > 0 && (
         <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md border border-amber-500/20 bg-amber-500/[0.05] text-[12px] text-amber-300">
@@ -30,14 +34,31 @@ export default async function HomePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <KPICard label="Valor en tránsito"   value={fmtUSD.format(kpis.valorEnTransitoUSD)} hint="FOB SOs activos"      accent="red"     />
-        <KPICard label="Embarques activos"   value={kpis.embarquesActivos.toString()}        hint="pendiente + tránsito" accent="blue"    />
-        <KPICard label="Unidades del mes"    value={kpis.unidadesArribadasMes.toLocaleString()} hint="arribadas este mes" accent="emerald" />
-        <KPICard label="SLA cumplimiento"    value={`${kpis.slaCumplimiento}%`}              hint="arribo ≤ 21 días"    accent="amber"   />
+      {/* KPIs principales (4 cards) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <KPICard label="Valor en tránsito"      value={fmtUSD.format(kpis.valorEnTransitoUSD)} hint={`${kpis.cbmEnTransito.toFixed(1)} CBM`}            accent="red"     />
+        <KPICard label="Embarques activos"      value={kpis.embarquesActivos.toString()}        hint="pendiente + en tránsito"                          accent="blue"    />
+        <KPICard label="Próximos 7 días"        value={kpis.proximosArribos7d.toString()}       hint="ETA próximos 7 días"                              accent="emerald" />
+        <KPICard label="Retrasados"             value={kpis.embarquesRetrasados.toString()}     hint="ETA pasada hace +5 días"                          accent="red"     />
+      </div>
+
+      {/* KPIs secundarios */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+        <KPICard label="Tiempo medio tránsito"   value={`${kpis.tiempoMedioTransitoDias} días`} hint="ETD → ETA promedio"           accent="zinc"    />
+        <KPICard label="SLA cumplimiento"        value={`${kpis.slaCumplimiento}%`}              hint="arribo ≤ 21 días"             accent="amber"   />
+        <KPICard label="Unidades del mes"        value={kpis.unidadesArribadasMes.toLocaleString()} hint="arribadas este mes"        accent="zinc" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+            <Plane className="w-4 h-4 text-emerald-400" />
+            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Próximos arribos</h2>
+            <span className="ml-auto text-[10px] text-zinc-500">próximas 4 semanas</span>
+          </div>
+          <div className="p-3"><ProximosArribosChart data={kpis.proximosArribos} /></div>
+        </section>
+
         <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-[#E30613]" />
@@ -45,15 +66,6 @@ export default async function HomePage() {
             <span className="ml-auto text-[10px] text-zinc-500">últimos 12</span>
           </div>
           <div className="p-3"><EmbarquesPorMesChart data={kpis.embarquesPorMes} /></div>
-        </section>
-
-        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-purple-400" />
-            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Top proveedores</h2>
-            <span className="ml-auto text-[10px] text-zinc-500">por FOB total</span>
-          </div>
-          <div className="p-3"><TopProveedoresChart data={kpis.topProveedores} /></div>
         </section>
 
         <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
@@ -114,7 +126,7 @@ export default async function HomePage() {
                 <span className="ml-auto"><DateRange etd={s.etd} eta={s.eta} /></span>
               </Link>
             ))}
-            {summaries.length === 0 && <p className="px-4 py-8 text-center text-zinc-500 text-[12px]">Sin embarques cargados.</p>}
+            {summaries.length === 0 && <p className="px-4 py-8 text-center text-zinc-500 text-[12px]">Sin embarques con CIPL cargado.</p>}
           </div>
         </section>
       </div>
