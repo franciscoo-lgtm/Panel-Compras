@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Search, Download, CheckSquare, Square, FileSpreadsheet } from 'lucide-react'
+import { useState, useMemo, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { Search, Download, CheckSquare, Square, FileSpreadsheet, Trash2, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { deleteCIPLByAsn } from '@/app/lib/cipl-actions'
 import { cn } from '@/lib/utils'
 
 export type PLSummary = {
@@ -27,9 +29,16 @@ function fmtDate(iso: string): string {
 }
 
 export function ConsolidarClient({ pls }: { pls: PLSummary[] }) {
+  const router = useRouter()
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [filterTipo, setFilterTipo] = useState<'todos' | 'Repuesto' | 'Mercaderia'>('todos')
+  const [confirmDeleteAsn, setConfirmDeleteAsn] = useState<string | null>(null)
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [deleting, startDelete] = useTransition()
+  const [deleteResult, setDeleteResult] = useState<{
+    ok: boolean; msg: string; details?: string
+  } | null>(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toUpperCase()
@@ -94,6 +103,62 @@ export function ConsolidarClient({ pls }: { pls: PLSummary[] }) {
   const exportUrl = selected.size > 0
     ? `/api/comercial/export-consolidado?asns=${Array.from(selected).map(encodeURIComponent).join(',')}`
     : null
+
+  function handleDeleteSingle(asn: string) {
+    setDeleteResult(null)
+    startDelete(async () => {
+      const r = await deleteCIPLByAsn(asn)
+      if (r.ok) {
+        setDeleteResult({
+          ok: true,
+          msg: `PL ${r.asn} eliminado: ${r.itemsDeleted} ítems, ${r.photosDeleted} fotos, ${r.driveFilesDeleted} archivos Drive`,
+          details: r.driveErrors.length > 0 ? `Errores en Drive: ${r.driveErrors.join(' · ')}` : undefined,
+        })
+        setSelected(prev => {
+          const next = new Set(prev)
+          next.delete(asn)
+          return next
+        })
+        setConfirmDeleteAsn(null)
+        router.refresh()
+      } else {
+        setDeleteResult({ ok: false, msg: `Error al eliminar ${r.asn}: ${r.error}` })
+      }
+    })
+  }
+
+  function handleDeleteSelected() {
+    setDeleteResult(null)
+    const list = Array.from(selected)
+    if (list.length === 0) return
+    startDelete(async () => {
+      let totalItems = 0, totalPhotos = 0, totalDrive = 0
+      const errs: string[] = []
+      const failed: string[] = []
+      for (const asn of list) {
+        const r = await deleteCIPLByAsn(asn)
+        if (r.ok) {
+          totalItems += r.itemsDeleted
+          totalPhotos += r.photosDeleted
+          totalDrive += r.driveFilesDeleted
+          if (r.driveErrors.length > 0) errs.push(`${asn}: ${r.driveErrors.length} archivos Drive con error`)
+        } else {
+          failed.push(`${asn}: ${r.error}`)
+        }
+      }
+      const okCount = list.length - failed.length
+      setDeleteResult({
+        ok: failed.length === 0,
+        msg: failed.length === 0
+          ? `${okCount} PLs eliminados: ${totalItems} ítems, ${totalPhotos} fotos, ${totalDrive} archivos Drive`
+          : `${okCount}/${list.length} PLs eliminados. Fallaron: ${failed.length}`,
+        details: [...errs, ...failed].join(' · ') || undefined,
+      })
+      setSelected(new Set())
+      setConfirmBulkDelete(false)
+      router.refresh()
+    })
+  }
 
   if (pls.length === 0) {
     return (
@@ -160,21 +225,73 @@ export function ConsolidarClient({ pls }: { pls: PLSummary[] }) {
           </button>
         )}
 
-        <a
-          href={exportUrl ?? '#'}
-          onClick={e => { if (!exportUrl) e.preventDefault() }}
-          className={cn(
-            'ml-auto px-3 py-1.5 rounded-md text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors',
-            exportUrl
-              ? 'bg-[#E30613] hover:bg-[#E30613]/85 text-white'
-              : 'bg-white/[0.04] text-zinc-600 cursor-not-allowed',
+        <div className="ml-auto flex items-center gap-2">
+          {selected.size > 0 && !confirmBulkDelete && (
+            <button
+              onClick={() => setConfirmBulkDelete(true)}
+              disabled={deleting}
+              className="px-3 py-1.5 rounded-md text-[11px] font-medium border border-red-500/30 bg-red-500/[0.05] hover:bg-red-500/[0.1] text-red-400 inline-flex items-center gap-1.5 disabled:opacity-40"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Eliminar {selected.size}
+            </button>
           )}
-          download
-        >
-          <Download className="w-3.5 h-3.5" />
-          Exportar Consolidado{selected.size > 0 ? ` (${selected.size})` : ''}
-        </a>
+
+          {confirmBulkDelete && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-red-500/40 bg-red-500/[0.08]">
+              <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+              <span className="text-[11px] text-red-300">Eliminar {selected.size} PLs + sus archivos Drive?</span>
+              <button
+                onClick={handleDeleteSelected}
+                disabled={deleting}
+                className="px-2 py-0.5 rounded text-[11px] font-medium bg-red-500 hover:bg-red-500/85 text-white inline-flex items-center gap-1 disabled:opacity-40"
+              >
+                {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                Sí
+              </button>
+              <button
+                onClick={() => setConfirmBulkDelete(false)}
+                disabled={deleting}
+                className="px-2 py-0.5 rounded text-[11px] font-medium border border-white/[0.15] hover:bg-white/[0.06] text-zinc-300"
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+
+          <a
+            href={exportUrl ?? '#'}
+            onClick={e => { if (!exportUrl) e.preventDefault() }}
+            className={cn(
+              'px-3 py-1.5 rounded-md text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors',
+              exportUrl
+                ? 'bg-[#E30613] hover:bg-[#E30613]/85 text-white'
+                : 'bg-white/[0.04] text-zinc-600 cursor-not-allowed',
+            )}
+            download
+          >
+            <Download className="w-3.5 h-3.5" />
+            Exportar Consolidado{selected.size > 0 ? ` (${selected.size})` : ''}
+          </a>
+        </div>
       </div>
+
+      {/* Banner de resultado del delete */}
+      {deleteResult && (
+        <div className={cn(
+          'rounded-md border p-3 text-[11px] flex items-start gap-2',
+          deleteResult.ok
+            ? 'border-emerald-500/30 bg-emerald-500/[0.05] text-emerald-300'
+            : 'border-red-500/30 bg-red-500/[0.05] text-red-300',
+        )}>
+          {deleteResult.ok ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /> : <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />}
+          <div className="flex-1">
+            <p>{deleteResult.msg}</p>
+            {deleteResult.details && <p className="text-[10px] text-amber-400 mt-1">{deleteResult.details}</p>}
+          </div>
+          <button onClick={() => setDeleteResult(null)} className="text-zinc-500 hover:text-white text-[10px]">×</button>
+        </div>
+      )}
 
       {/* Tabla */}
       <div className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] overflow-hidden">
@@ -194,11 +311,12 @@ export function ConsolidarClient({ pls }: { pls: PLSummary[] }) {
                 <th className="text-right text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-3 py-2.5">CBM</th>
                 <th className="text-right text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-3 py-2.5">GW kg</th>
                 <th className="text-left text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-3 py-2.5">Cargado</th>
+                <th className="px-2 py-2.5 w-10"></th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={12} className="px-4 py-10 text-center text-zinc-500">Sin PLs que coincidan</td></tr>
+                <tr><td colSpan={13} className="px-4 py-10 text-center text-zinc-500">Sin PLs que coincidan</td></tr>
               )}
               {filtered.map(p => {
                 const isChecked = selected.has(p.asn)
@@ -247,6 +365,36 @@ export function ConsolidarClient({ pls }: { pls: PLSummary[] }) {
                     <td className="px-3 py-2 text-right text-zinc-500 tabular-nums">{p.cbm.toFixed(2)}</td>
                     <td className="px-3 py-2 text-right text-zinc-500 tabular-nums">{p.gwKg.toFixed(1)}</td>
                     <td className="px-3 py-2 text-zinc-500 text-[11px]">{fmtDate(p.loadedAt)}</td>
+                    <td className="px-2 py-2 text-center" onClick={e => e.stopPropagation()}>
+                      {confirmDeleteAsn === p.asn ? (
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => handleDeleteSingle(p.asn)}
+                            disabled={deleting}
+                            className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-500 hover:bg-red-500/85 text-white inline-flex items-center gap-1 disabled:opacity-40"
+                            title="Confirmar eliminación"
+                          >
+                            {deleting ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Trash2 className="w-2.5 h-2.5" />}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteAsn(null)}
+                            disabled={deleting}
+                            className="px-1.5 py-0.5 rounded text-[10px] text-zinc-400 hover:text-white"
+                            title="Cancelar"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteAsn(p.asn)}
+                          className="text-zinc-600 hover:text-red-400 transition-colors"
+                          title="Eliminar PL (DB + Drive)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
