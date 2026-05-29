@@ -110,6 +110,36 @@ export function pickField(shipment: ComexShipment, candidates: string[]): string
   return null
 }
 
+/**
+ * Detecta el tipo de transporte desde el prefijo del N° de Embarque.
+ * - AIR: vuelos (típicamente "AIR 176", "AIR-001")
+ * - FCL: barcos (Full Container Load, ej "FCL 2206")
+ * - LCL: barco con consolidado (Less than Container Load)
+ */
+export type TipoTransporte = 'AIR' | 'FCL' | 'LCL' | 'unknown'
+
+export function detectTipoTransporte(embarqueNo: string): TipoTransporte {
+  const upper = embarqueNo.toUpperCase().trim()
+  // Requerimos separador o final de palabra después del prefijo para no
+  // matchear cosas como "AIRBUS" o "FCLOREST".
+  if (/^AIR(?:[\s\-_]|$|\d)/.test(upper)) return 'AIR'
+  if (/^FCL(?:[\s\-_]|$|\d)/.test(upper)) return 'FCL'
+  if (/^LCL(?:[\s\-_]|$|\d)/.test(upper)) return 'LCL'
+  return 'unknown'
+}
+
+/**
+ * Threshold de SLA según tipo de transporte (en días, ETD → Arribo Depósito).
+ */
+export function slaThresholdDays(tipo: TipoTransporte): number {
+  switch (tipo) {
+    case 'AIR': return 30
+    case 'FCL': return 65
+    case 'LCL': return 65   // misma logística marítima
+    case 'unknown': return 30   // default conservador
+  }
+}
+
 export function deriveStatus(shipment: ComexShipment, now: Date = new Date()): EmbarqueEstado {
   // "Arribado" = fin de proceso = llegó al depósito final argentino.
   // NO se considera arribado al llegar al WH de HK / Airsea (esos son hitos

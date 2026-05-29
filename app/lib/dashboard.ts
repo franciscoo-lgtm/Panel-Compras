@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { listEmbarques, type EmbarqueSummary } from '@/app/lib/embarques'
-import { parseDateLoose } from '@/app/lib/comex-internals'
+import { parseDateLoose, detectTipoTransporte, slaThresholdDays } from '@/app/lib/comex-internals'
 import { fetchComexData } from '@/app/lib/comex'
 
 export type ExecutiveKPIs = {
@@ -13,13 +13,17 @@ export type ExecutiveKPIs = {
   embarquesRetrasados:    number
 
   // KPIs secundarios (más cards)
-  tiempoMedioTransitoDias:    number     // ETD → Arribo Depósito real (sobre arribados)
-  slaCumplimiento:            number     // % arribados ≤ 30 días tránsito
+  tiempoMedioTransitoDias:    number     // ETD → Arribo Depósito (todos)
+  tiempoMedioAirDias:         number     // ETD → Arribo Depósito (solo AIR)
+  tiempoMedioFclDias:         number     // ETD → Arribo Depósito (solo FCL)
+  slaCumplimientoGlobal:      number     // % global (threshold por tipo)
+  slaAir:                     number     // % AIR ≤ 30 días
+  slaFcl:                     number     // % FCL ≤ 65 días
   unidadesArribadasMes:       number
   cbmEnTransito:              number
-  leadTimePagoArriboDias:     number     // fechaPago → Arribo Depósito
-  pctDemoraVsPlan:            number     // % arribados después de ETA original
-  anticipacionComexDias:      number     // Instrucción Category → ETD promedio
+  leadTimePagoArriboDias:     number
+  pctDemoraVsPlan:            number
+  anticipacionComexDias:      number
 
   // Charts
   embarquesPorMes:        { month: string; count: number }[]
@@ -116,9 +120,13 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
 
   // ── Arribados con fechas relevantes ────────────────────────────────────────
   const arribados = summaries.filter(s => s.estado === 'arribado')
-  const tiempos: number[] = []           // ETD → arribo depósito (días)
-  let slaOk = 0, slaTotal = 0
-  const demoraVsPlan: number[] = []      // (arriboDeposito - ETA original) > 0 → demora
+  const tiempos: number[] = []           // ETD → arribo depósito (días, todos)
+  const tiemposAir: number[] = []
+  const tiemposFcl: number[] = []
+  let slaOk = 0, slaTotal = 0            // global
+  let slaAirOk = 0, slaAirTot = 0
+  let slaFclOk = 0, slaFclTot = 0
+  const demoraVsPlan: number[] = []
   for (const s of arribados) {
     const ship = shipmentFor(s)
     if (!ship) continue
@@ -126,12 +134,24 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
     const eta = parseDateLoose(s.eta)
     const arribo = parseDateLoose(pickFromExtras(ship.extras, 'deposito', 'depósito'))
     if (!arribo) continue
+    const tipo = detectTipoTransporte(s.embarqueNo)
+    const threshold = slaThresholdDays(tipo)
     if (etd) {
       const dias = diffDays(etd, arribo)
-      if (dias >= 0 && dias <= 120) {
+      if (dias >= 0 && dias <= 150) {
         tiempos.push(dias)
+        if (tipo === 'AIR') tiemposAir.push(dias)
+        if (tipo === 'FCL' || tipo === 'LCL') tiemposFcl.push(dias)
         slaTotal++
-        if (dias <= 30) slaOk++
+        if (dias <= threshold) slaOk++
+        if (tipo === 'AIR') {
+          slaAirTot++
+          if (dias <= 30) slaAirOk++
+        }
+        if (tipo === 'FCL' || tipo === 'LCL') {
+          slaFclTot++
+          if (dias <= 65) slaFclOk++
+        }
       }
     }
     if (eta) {
@@ -140,7 +160,11 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
     }
   }
   const tiempoMedioTransitoDias = mean(tiempos)
-  const slaCumplimiento = slaTotal === 0 ? 0 : Math.round((slaOk / slaTotal) * 100)
+  const tiempoMedioAirDias = mean(tiemposAir)
+  const tiempoMedioFclDias = mean(tiemposFcl)
+  const slaCumplimientoGlobal = slaTotal === 0 ? 0 : Math.round((slaOk / slaTotal) * 100)
+  const slaAir = slaAirTot === 0 ? 0 : Math.round((slaAirOk / slaAirTot) * 100)
+  const slaFcl = slaFclTot === 0 ? 0 : Math.round((slaFclOk / slaFclTot) * 100)
   const pctDemoraVsPlan = demoraVsPlan.length === 0
     ? 0
     : Math.round((demoraVsPlan.reduce((a, b) => a + b, 0) / demoraVsPlan.length) * 100)
@@ -383,7 +407,11 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
     proximosArribos7d,
     embarquesRetrasados,
     tiempoMedioTransitoDias,
-    slaCumplimiento,
+    tiempoMedioAirDias,
+    tiempoMedioFclDias,
+    slaCumplimientoGlobal,
+    slaAir,
+    slaFcl,
     unidadesArribadasMes,
     cbmEnTransito,
     leadTimePagoArriboDias,

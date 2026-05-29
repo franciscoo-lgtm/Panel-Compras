@@ -43,14 +43,20 @@ export default async function HomePage() {
         <KPICard label="Retrasados"             value={kpis.embarquesRetrasados.toString()}     hint="ETA pasada hace +5 días"                          accent="red"     />
       </div>
 
+      {/* SLA: split por tipo (AIR vs FCL/LCL) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <KPICard label="SLA AIR"          value={`${kpis.slaAir}%`}                 hint={`≤ 30 días · ${kpis.tiempoMedioAirDias}d prom`}   accent="blue"    />
+        <KPICard label="SLA FCL"          value={`${kpis.slaFcl}%`}                 hint={`≤ 65 días · ${kpis.tiempoMedioFclDias}d prom`}   accent="emerald" />
+        <KPICard label="SLA global"       value={`${kpis.slaCumplimientoGlobal}%`}  hint="ponderado por tipo"                                accent="amber"   />
+        <KPICard label="Tránsito promedio" value={`${kpis.tiempoMedioTransitoDias}d`} hint="ETD → Depósito"                                accent="zinc"    />
+      </div>
+
       {/* KPIs secundarios - métricas de proceso */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <KPICard label="Tránsito promedio"      value={`${kpis.tiempoMedioTransitoDias}d`}      hint="ETD → Depósito"           accent="zinc" />
-        <KPICard label="SLA cumplimiento"       value={`${kpis.slaCumplimiento}%`}              hint="depósito ≤ 30 días"        accent="amber" />
-        <KPICard label="Lead time total"        value={`${kpis.leadTimePagoArriboDias}d`}       hint="Pago → Depósito"           accent="zinc" />
-        <KPICard label="Anticipación Comex"     value={`${kpis.anticipacionComexDias}d`}        hint="Instrucción → ETD"         accent="zinc" />
-        <KPICard label="Demora vs plan"         value={`${kpis.pctDemoraVsPlan}%`}              hint="llegaron después de ETA"   accent="amber" />
-        <KPICard label="Unidades del mes"       value={kpis.unidadesArribadasMes.toLocaleString()} hint="arribadas al depósito" accent="emerald" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <KPICard label="Lead time total"    value={`${kpis.leadTimePagoArriboDias}d`}       hint="Pago → Depósito"           accent="zinc" />
+        <KPICard label="Anticipación Comex" value={`${kpis.anticipacionComexDias}d`}        hint="Instrucción → ETD"         accent="zinc" />
+        <KPICard label="Demora vs plan"     value={`${kpis.pctDemoraVsPlan}%`}              hint="llegaron después de ETA"   accent="amber" />
+        <KPICard label="Unidades del mes"   value={kpis.unidadesArribadasMes.toLocaleString()} hint="arribadas al depósito"  accent="emerald" />
       </div>
 
       {/* Charts row 1 */}
