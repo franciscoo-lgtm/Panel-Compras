@@ -66,7 +66,7 @@ export function EmbarqueDetailClient({ detail }: { detail: DetailProp }) {
                 {t.count}
               </span>
             )}
-            {tab === t.id && <span className="absolute bottom-0 left-0 right-0 h-px bg-[#E30613]" />}
+            {tab === t.id && <span className="absolute bottom-0 left-0 right-0 h-px bg-[#31AF4F]" />}
           </button>
         ))}
       </div>

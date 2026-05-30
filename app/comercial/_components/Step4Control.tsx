@@ -59,7 +59,7 @@ export function Step4Control({
         <button onClick={onBack} className="px-3 py-1.5 rounded-md text-[11px] font-medium bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 inline-flex items-center gap-1.5">
           <ChevronLeft className="w-3.5 h-3.5" /> Volver
         </button>
-        <button onClick={onContinue} className="px-3 py-1.5 rounded-md text-[11px] font-medium bg-[#E30613] hover:bg-[#E30613]/85 text-white inline-flex items-center gap-1.5">
+        <button onClick={onContinue} className="px-3 py-1.5 rounded-md text-[11px] font-medium bg-[#31AF4F] hover:bg-[#31AF4F]/85 text-white inline-flex items-center gap-1.5">
           Confirmar y guardar <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>

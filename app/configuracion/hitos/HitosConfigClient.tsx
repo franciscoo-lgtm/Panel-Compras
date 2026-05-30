@@ -108,14 +108,14 @@ export function HitosConfigClient({
                     <input
                       value={m.label}
                       onChange={e => update(i, { label: e.target.value })}
-                      className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] focus:outline-none focus:border-[#E30613]/50"
+                      className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] focus:outline-none focus:border-[#31AF4F]/50"
                     />
                   </td>
                   <td className="px-3 py-2">
                     <select
                       value={m.source}
                       onChange={e => update(i, { source: e.target.value as MilestoneSource })}
-                      className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[11px] focus:outline-none focus:border-[#E30613]/50"
+                      className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[11px] focus:outline-none focus:border-[#31AF4F]/50"
                     >
                       <option value="manual">Manual (Compra)</option>
                       <option value="comex">Comex (sheet)</option>
@@ -127,7 +127,7 @@ export function HitosConfigClient({
                       <select
                         value={m.compraField ?? ''}
                         onChange={e => update(i, { compraField: e.target.value || undefined })}
-                        className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[11px] focus:outline-none focus:border-[#E30613]/50"
+                        className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[11px] focus:outline-none focus:border-[#31AF4F]/50"
                       >
                         <option value="">—</option>
                         {compraFields.map(f => <option key={f.field} value={f.field}>{f.label}</option>)}
@@ -137,7 +137,7 @@ export function HitosConfigClient({
                       <select
                         value={m.comexFieldKey ?? ''}
                         onChange={e => update(i, { comexFieldKey: e.target.value || undefined })}
-                        className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[11px] focus:outline-none focus:border-[#E30613]/50"
+                        className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[11px] focus:outline-none focus:border-[#31AF4F]/50"
                       >
                         <option value="">— elegí campo —</option>
                         <optgroup label="Tracking">
@@ -221,7 +221,7 @@ export function HitosConfigClient({
 
       <button
         onClick={addCustom}
-        className="w-full px-4 py-3 rounded-lg border border-dashed border-white/[0.12] hover:border-[#E30613]/40 hover:bg-[#E30613]/[0.04] text-[12px] text-zinc-400 hover:text-white inline-flex items-center justify-center gap-2 transition-colors"
+        className="w-full px-4 py-3 rounded-lg border border-dashed border-white/[0.12] hover:border-[#31AF4F]/40 hover:bg-[#31AF4F]/[0.04] text-[12px] text-zinc-400 hover:text-white inline-flex items-center justify-center gap-2 transition-colors"
       >
         <Plus className="w-4 h-4" /> Agregar hito custom
       </button>
@@ -230,7 +230,7 @@ export function HitosConfigClient({
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-4 py-2 rounded-md text-[12px] font-medium bg-[#E30613] hover:bg-[#E30613]/85 disabled:opacity-40 text-white inline-flex items-center gap-1.5"
+          className="px-4 py-2 rounded-md text-[12px] font-medium bg-[#31AF4F] hover:bg-[#31AF4F]/85 disabled:opacity-40 text-white inline-flex items-center gap-1.5"
         >
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
           Guardar hitos

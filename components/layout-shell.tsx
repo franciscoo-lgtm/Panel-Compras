@@ -26,7 +26,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen overflow-hidden">
       <Sidebar collapsed={effectiveCollapsed} onToggle={toggle} />
       <main
-        className="flex-1 overflow-y-auto bg-[#050505] transition-all duration-200 min-w-0"
+        className="flex-1 overflow-y-auto brand-halo transition-all duration-200 min-w-0"
         style={{ marginLeft: effectiveCollapsed ? 56 : 240 }}
       >
         {children}

@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Home, Anchor, Upload, ChevronLeft, ChevronRight, Send, ShoppingCart, Settings } from 'lucide-react'
+import { Home, Anchor, Upload, ChevronLeft, ChevronRight, ShoppingCart, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const nav = [
@@ -24,20 +25,23 @@ export function Sidebar({ collapsed, onToggle }: Props) {
       style={{ width: collapsed ? 56 : 240 }}
     >
       {/* Brand */}
-      <div className={cn(
-        'border-b border-white/[0.06] flex items-center',
-        collapsed ? 'px-3 py-4 justify-center' : 'px-4 py-4'
-      )}>
-        <div className="w-8 h-8 rounded-md bg-[#E30613] flex items-center justify-center shrink-0 shadow-[0_0_12px_rgba(227,6,19,0.4)]">
-          <Send className="w-4 h-4 text-white" />
+      <Link
+        href="/"
+        className={cn(
+          'border-b border-white/[0.06] flex items-center group/brand',
+          collapsed ? 'px-3 py-4 justify-center' : 'px-4 py-4'
+        )}
+      >
+        <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 ring-1 ring-white/[0.06] shadow-[0_0_18px_rgba(49,175,79,0.35)] group-hover/brand:shadow-[0_0_22px_rgba(49,175,79,0.55)] transition-shadow">
+          <Image src="/brand/bidcom-icon.png" alt="Bidcom Agro" width={32} height={32} className="w-full h-full object-cover" />
         </div>
         {!collapsed && (
           <div className="ml-3 min-w-0">
-            <p className="text-white text-[13px] font-semibold leading-tight tracking-tight truncate">Envíos DJI</p>
-            <p className="text-[#E30613]/60 text-[10px] mt-0.5 tracking-widest uppercase font-medium">Tracking Suite</p>
+            <p className="text-white text-[13px] font-semibold leading-tight tracking-tight truncate">Bidcom Agro</p>
+            <p className="text-[#31AF4F]/70 text-[10px] mt-0.5 tracking-widest uppercase font-medium">Panel de Compras</p>
           </div>
         )}
-      </div>
+      </Link>
 
       {/* Nav */}
       <nav className={cn('flex-1 py-3 space-y-0.5', collapsed ? 'px-1.5' : 'px-2.5')}>
@@ -57,19 +61,19 @@ export function Sidebar({ collapsed, onToggle }: Props) {
                 'flex items-center rounded-md text-[13px] font-medium transition-all duration-150 group',
                 collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-2.5 py-2',
                 active
-                  ? 'bg-[#E30613]/10 text-white'
+                  ? 'bg-[#31AF4F]/10 text-white'
                   : 'text-white/40 hover:text-white/80 hover:bg-white/[0.04]'
               )}
             >
-              <Icon className={cn('w-4 h-4 shrink-0 transition-colors', active ? 'text-[#E30613]' : 'text-white/30 group-hover:text-white/60')} />
+              <Icon className={cn('w-4 h-4 shrink-0 transition-colors', active ? 'text-[#31AF4F]' : 'text-white/30 group-hover:text-white/60')} />
               {!collapsed && <span className="truncate">{label}</span>}
               {!collapsed && badge && (
-                <span className="ml-auto text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#E30613]/15 text-[#E30613] font-semibold shrink-0">
+                <span className="ml-auto text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#31AF4F]/15 text-[#31AF4F] font-semibold shrink-0">
                   {badge}
                 </span>
               )}
               {!collapsed && active && !badge && (
-                <span className="ml-auto w-1 h-5 rounded-full bg-[#E30613] shrink-0" />
+                <span className="ml-auto w-1 h-5 rounded-full bg-[#31AF4F] shrink-0" />
               )}
             </Link>
           )

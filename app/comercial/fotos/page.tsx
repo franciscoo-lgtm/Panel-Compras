@@ -18,7 +18,7 @@ export default async function FotosPage() {
       </div>
 
       <div className="flex items-center gap-3 mb-2">
-        <Camera className="w-5 h-5 text-[#E30613] shrink-0" />
+        <Camera className="w-5 h-5 text-[#31AF4F] shrink-0" />
         <h1 className="text-xl font-display font-semibold text-white tracking-tight">Subir fotos de inspección</h1>
       </div>
 

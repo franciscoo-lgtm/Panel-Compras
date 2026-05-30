@@ -188,7 +188,7 @@ export function ControlTab({ items: initialItems }: { items: EmbarqueItem[] }) {
                             onChange={e => setEditValue(e.target.value)}
                             onBlur={commitEdit}
                             onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditing(null) }}
-                            className="w-16 px-1 py-0.5 rounded bg-[#0d0d0d] border border-[#E30613]/40 text-white text-right tabular-nums"
+                            className="w-16 px-1 py-0.5 rounded bg-[#0d0d0d] border border-[#31AF4F]/40 text-white text-right tabular-nums"
                           />
                         ) : (
                           <button
@@ -219,7 +219,7 @@ export function ControlTab({ items: initialItems }: { items: EmbarqueItem[] }) {
                             onChange={e => setEditValue(e.target.value)}
                             onBlur={commitEdit}
                             onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditing(null) }}
-                            className="w-full px-2 py-0.5 rounded bg-[#0d0d0d] border border-[#E30613]/40 text-white text-[11px]"
+                            className="w-full px-2 py-0.5 rounded bg-[#0d0d0d] border border-[#31AF4F]/40 text-white text-[11px]"
                           />
                         ) : (
                           <button

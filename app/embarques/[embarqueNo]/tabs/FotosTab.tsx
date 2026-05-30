@@ -13,7 +13,7 @@ export function FotosTab({ items }: { items: EmbarqueItem[] }) {
   const uploadButton = (
     <Link
       href="/comercial/fotos"
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-[#E30613] hover:bg-[#E30613]/85 text-white transition-colors"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-[#31AF4F] hover:bg-[#31AF4F]/85 text-white transition-colors"
     >
       <Upload className="w-3.5 h-3.5" />
       Subir fotos
@@ -47,7 +47,7 @@ export function FotosTab({ items }: { items: EmbarqueItem[] }) {
               <button
                 key={p.id}
                 onClick={() => setLightbox(p.dataUrl)}
-                className="aspect-square rounded-md overflow-hidden bg-black border border-white/[0.04] hover:border-[#E30613]/40 transition-colors group"
+                className="aspect-square rounded-md overflow-hidden bg-black border border-white/[0.04] hover:border-[#31AF4F]/40 transition-colors group"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.dataUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />

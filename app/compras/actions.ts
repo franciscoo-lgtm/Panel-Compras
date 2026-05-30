@@ -92,6 +92,44 @@ export async function marcarHito(
   }
 }
 
+// ─── Delete Compra ────────────────────────────────────────────────────────────
+
+export type DeleteCompraResult =
+  | { ok: true;  itemsUnlinked: number; sosDeleted: number }
+  | { ok: false; error: string }
+
+/**
+ * Borra una Compra:
+ * 1. Desvincula CIPLItems (compraId → null) para no romper FK
+ * 2. Borra los CompraSOItem (cascade configurado en el schema)
+ * 3. Borra la Compra
+ *
+ * Los CIPLItems quedan en su lugar (no se borran las fotos / drive links).
+ * Si querés borrar también los CIPLs, hacelo desde /embarques/<no>/items.
+ */
+export async function eliminarCompra(compraId: string): Promise<DeleteCompraResult> {
+  try {
+    const result = await prisma.$transaction(async tx => {
+      const unlink = await tx.cIPLItem.updateMany({
+        where: { compraId },
+        data:  { compraId: null },
+      })
+      const sosDel = await tx.compraSOItem.deleteMany({ where: { compraId } })
+      await tx.compra.delete({ where: { id: compraId } })
+      return { itemsUnlinked: unlink.count, sosDeleted: sosDel.count }
+    })
+
+    revalidatePath('/compras')
+    revalidatePath('/embarques', 'layout')
+    revalidatePath('/')
+
+    return { ok: true, ...result }
+  } catch (err) {
+    console.error('[eliminarCompra]', err)
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 // ─── Edit supplier / notes ────────────────────────────────────────────────────
 
 export async function editarCompra(

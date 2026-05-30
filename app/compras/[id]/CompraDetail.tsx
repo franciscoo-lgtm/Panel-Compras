@@ -3,8 +3,8 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronDown, ChevronUp, Edit2, Check, X, Loader2, Download } from 'lucide-react'
-import { marcarHito, editarCompra } from '@/app/compras/actions'
+import { ChevronLeft, ChevronDown, ChevronUp, Edit2, Check, X, Loader2, Download, Trash2 } from 'lucide-react'
+import { marcarHito, editarCompra, eliminarCompra } from '@/app/compras/actions'
 import { generarConsolidado } from '@/app/compras/consolidado'
 import { getStatusBadgeClass } from '@/app/compras/lib'
 import type { CompraManualField } from '@/app/compras/actions'
@@ -124,7 +124,7 @@ function DateEditor({ compraId, field, current, onClose }: {
         onChange={e => setValue(e.target.value)}
         className="bg-white/[0.06] border border-white/15 rounded-lg px-3 py-1.5 text-[12px] text-white outline-none focus:border-white/30"
       />
-      <button onClick={save} disabled={pending} className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#E30613]/20 text-[#E30613] hover:bg-[#E30613]/30">
+      <button onClick={save} disabled={pending} className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#31AF4F]/20 text-[#31AF4F] hover:bg-[#31AF4F]/30">
         {pending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
       </button>
       <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/[0.06] text-white/40 hover:text-white/60">
@@ -143,6 +143,9 @@ export function CompraDetail({ compra, bySO }: { compra: CompraSerial; bySO: Rec
   const [expandedSOs, setExpandedSOs]           = useState<Set<string>>(new Set())
   const [dlPending, startDl]                     = useTransition()
   const [dlError, setDlError]                    = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete]        = useState(false)
+  const [delPending, startDel]                   = useTransition()
+  const [delError, setDelError]                  = useState<string | null>(null)
 
   const status    = deriveStatus(compra, compra.ciplItems, compra.sos, bySO)
   const qPedida   = compra.sos.reduce((s, so) => s + (so.qPi ?? 0), 0)
@@ -167,6 +170,15 @@ export function CompraDetail({ compra, bySO }: { compra: CompraSerial; bySO: Rec
       const next = new Set(prev)
       next.has(soNumber) ? next.delete(soNumber) : next.add(soNumber)
       return next
+    })
+  }
+
+  function handleDelete() {
+    setDelError(null)
+    startDel(async () => {
+      const res = await eliminarCompra(compra.id)
+      if (res.ok) router.push('/compras')
+      else setDelError(res.error)
     })
   }
 
@@ -217,11 +229,48 @@ export function CompraDetail({ compra, bySO }: { compra: CompraSerial; bySO: Rec
               PL Consolidado {emb}
             </button>
           ))}
+
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white/[0.03] border border-white/[0.06] text-white/40 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-colors"
+              title="Eliminar esta compra"
+            >
+              <Trash2 className="w-3 h-3" />
+              Eliminar
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30">
+              <span className="text-[11px] text-red-300">¿Eliminar {compra.piNo ?? 'esta compra'}?</span>
+              <button
+                onClick={handleDelete}
+                disabled={delPending}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-red-500/20 text-red-300 hover:bg-red-500/30"
+              >
+                {delPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                Sí
+              </button>
+              <button
+                onClick={() => { setConfirmDelete(false); setDelError(null) }}
+                disabled={delPending}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-white/50 hover:text-white/80"
+              >
+                <X className="w-3 h-3" />
+                No
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {dlError && (
         <div className="mx-6 mt-4 text-[12px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{dlError}</div>
+      )}
+
+      {delError && (
+        <div className="mx-6 mt-4 text-[12px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+          Error al eliminar: {delError}
+        </div>
       )}
 
       <div className="p-6 space-y-6">
@@ -338,7 +387,7 @@ export function CompraDetail({ compra, bySO }: { compra: CompraSerial; bySO: Rec
                   onClick={() => toggleSO(so.soNumber)}
                   className="w-full flex items-center gap-3 p-4 hover:bg-white/[0.02] transition-colors"
                 >
-                  <span className="font-mono text-[11px] font-bold text-[#E30613] bg-[#E30613]/10 px-2 py-0.5 rounded shrink-0">{so.soNumber}</span>
+                  <span className="font-mono text-[11px] font-bold text-[#31AF4F] bg-[#31AF4F]/10 px-2 py-0.5 rounded shrink-0">{so.soNumber}</span>
                   <div className="flex-1 text-left min-w-0">
                     <div className="text-[13px] text-white font-medium truncate">{so.modelo ?? '—'}</div>
                     <div className="text-[11px] text-white/35 mt-0.5">{so.sku ?? ''}{so.incoterm ? ` · ${so.incoterm}` : ''}{embarqueLabel ? ` · Embarque: ${embarqueLabel}` : ''}</div>

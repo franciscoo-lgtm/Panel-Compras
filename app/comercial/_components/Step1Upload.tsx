@@ -22,7 +22,7 @@ function FileDropZone({
       <div
         onClick={() => ref.current?.click()}
         className={`flex flex-col items-center gap-2 rounded-xl border-2 border-dashed py-6 cursor-pointer transition-colors ${
-          file ? 'border-white/[0.08] bg-[#0a0a0a]' : 'border-white/[0.08] hover:border-[#E30613]/40 hover:bg-[#E30613]/10'
+          file ? 'border-white/[0.08] bg-[#0a0a0a]' : 'border-white/[0.08] hover:border-[#31AF4F]/40 hover:bg-[#31AF4F]/10'
         }`}
       >
         <Upload className="w-5 h-5 text-zinc-600" />
@@ -250,10 +250,10 @@ export function Step1Upload({
       )}
 
       {driveError && pendingExtract && (
-        <div className="rounded-xl bg-[#E30613]/10 border-2 border-[#E30613]/40 p-4 space-y-3">
+        <div className="rounded-xl bg-[#31AF4F]/10 border-2 border-[#31AF4F]/40 p-4 space-y-3">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-[#E30613]" />
-            <div className="text-sm text-[#E30613]">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-[#31AF4F]" />
+            <div className="text-sm text-[#31AF4F]">
               <p className="font-bold mb-1">❌ Drive falló — los archivos NO se subieron</p>
               <p className="text-[12px] text-zinc-300">{driveError}</p>
               <p className="text-[11px] text-zinc-400 mt-2">
@@ -267,7 +267,7 @@ export function Step1Upload({
               type="button"
               onClick={handleExtract}
               disabled={pending}
-              className="px-3 py-1.5 rounded-md text-[12px] font-medium bg-[#E30613] hover:bg-[#E30613]/85 text-white inline-flex items-center gap-1.5 disabled:opacity-40"
+              className="px-3 py-1.5 rounded-md text-[12px] font-medium bg-[#31AF4F] hover:bg-[#31AF4F]/85 text-white inline-flex items-center gap-1.5 disabled:opacity-40"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Reintentar Drive
             </button>
@@ -288,7 +288,7 @@ export function Step1Upload({
       )}
 
       {driveError && !pendingExtract && (
-        <div className="flex items-start gap-2 rounded-xl bg-[#E30613]/10 border border-[#E30613]/40 px-4 py-3 text-sm text-[#E30613]">
+        <div className="flex items-start gap-2 rounded-xl bg-[#31AF4F]/10 border border-[#31AF4F]/40 px-4 py-3 text-sm text-[#31AF4F]">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <span><strong>Error al subir a Drive:</strong> {driveError}</span>
         </div>

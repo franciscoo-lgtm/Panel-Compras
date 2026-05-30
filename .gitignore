@@ -48,3 +48,9 @@ next-env.d.ts
 /playwright-report
 /blob-report
 /playwright/.cache
+.gstack/
+
+# Skills runtime (per-developer setup, no checkin)
+.agents/
+.claude/skills/web-design-engineer
+skills-lock.json

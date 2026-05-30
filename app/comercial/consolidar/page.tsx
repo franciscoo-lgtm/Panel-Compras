@@ -96,7 +96,7 @@ export default async function ConsolidarPage() {
       </div>
 
       <div className="flex items-center gap-3 mb-2">
-        <FileSpreadsheet className="w-5 h-5 text-[#E30613] shrink-0" />
+        <FileSpreadsheet className="w-5 h-5 text-[#31AF4F] shrink-0" />
         <h1 className="text-xl font-display font-semibold text-white tracking-tight">PL Consolidado</h1>
       </div>
 

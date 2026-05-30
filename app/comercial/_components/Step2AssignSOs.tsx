@@ -205,16 +205,16 @@ export function Step2AssignSOs({
       )}
 
       {/* Bulk SO apply */}
-      <div className="flex items-center gap-2 bg-[#E30613]/10 border border-[#E30613]/30 rounded-xl px-4 py-2.5">
-        <span className="text-xs font-semibold text-[#E30613] shrink-0">Aplicar SO a todos:</span>
+      <div className="flex items-center gap-2 bg-[#31AF4F]/10 border border-[#31AF4F]/30 rounded-xl px-4 py-2.5">
+        <span className="text-xs font-semibold text-[#31AF4F] shrink-0">Aplicar SO a todos:</span>
         <input
           list="so-opts"
           placeholder="Escribí o seleccioná un SO para todas las filas…"
-          className="flex-1 h-7 px-2 text-xs font-mono rounded-lg border border-[#E30613]/40 focus:outline-none focus:ring-1 focus:ring-amber-400 bg-[#0d0d0d] placeholder:font-sans placeholder:text-zinc-600"
+          className="flex-1 h-7 px-2 text-xs font-mono rounded-lg border border-[#31AF4F]/40 focus:outline-none focus:ring-1 focus:ring-amber-400 bg-[#0d0d0d] placeholder:font-sans placeholder:text-zinc-600"
           onKeyDown={e => { if (e.key === 'Enter') { applySOToAll((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = '' } }}
           onBlur={e => { if (e.target.value) applySOToAll(e.target.value) }}
         />
-        <span className="text-[10px] text-[#E30613]">↵ Enter para aplicar</span>
+        <span className="text-[10px] text-[#31AF4F]">↵ Enter para aplicar</span>
       </div>
 
       <div className="bg-[#0d0d0d] rounded-xl border border-white/[0.06] shadow-sm overflow-hidden">

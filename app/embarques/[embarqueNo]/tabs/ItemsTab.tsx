@@ -60,7 +60,7 @@ export function ItemsTab({ items }: { items: EmbarqueItem[] }) {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Buscar SO, descripción, EAN…"
-            className="pl-8 pr-3 py-1.5 w-full md:w-72 rounded-md text-[11px] bg-[#0d0d0d] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#E30613]/50"
+            className="pl-8 pr-3 py-1.5 w-full md:w-72 rounded-md text-[11px] bg-[#0d0d0d] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#31AF4F]/50"
           />
         </div>
       </div>

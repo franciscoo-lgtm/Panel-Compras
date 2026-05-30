@@ -24,8 +24,12 @@ const ibmPlexMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Seguimiento Envíos DJI',
-  description: 'Sistema de seguimiento de envíos y logística DJI Argentina',
+  title: 'Bidcom Agro · Panel de Compras',
+  description: 'Panel de seguimiento de compras, embarques y logística de Bidcom Agro',
+  icons: {
+    icon: '/brand/bidcom-favicon.png',
+    apple: '/brand/bidcom-icon.png',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

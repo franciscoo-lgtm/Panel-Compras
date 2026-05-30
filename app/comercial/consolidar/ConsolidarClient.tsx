@@ -181,7 +181,7 @@ export function ConsolidarClient({ pls }: { pls: PLSummary[] }) {
             className={cn(
               'px-3 py-1.5 rounded-md text-[11px] font-medium border transition-colors',
               filterTipo === t
-                ? 'bg-[#E30613]/10 text-white border-[#E30613]/40'
+                ? 'bg-[#31AF4F]/10 text-white border-[#31AF4F]/40'
                 : 'bg-transparent text-zinc-400 border-white/[0.08] hover:text-white',
             )}
           >
@@ -198,7 +198,7 @@ export function ConsolidarClient({ pls }: { pls: PLSummary[] }) {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Buscar ASN, PI, proveedor, SO…"
-            className="pl-8 pr-3 py-1.5 w-full md:w-80 rounded-md text-[11px] bg-[#0d0d0d] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#E30613]/50"
+            className="pl-8 pr-3 py-1.5 w-full md:w-80 rounded-md text-[11px] bg-[#0d0d0d] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#31AF4F]/50"
           />
         </div>
       </div>
@@ -265,7 +265,7 @@ export function ConsolidarClient({ pls }: { pls: PLSummary[] }) {
             className={cn(
               'px-3 py-1.5 rounded-md text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors',
               exportUrl
-                ? 'bg-[#E30613] hover:bg-[#E30613]/85 text-white'
+                ? 'bg-[#31AF4F] hover:bg-[#31AF4F]/85 text-white'
                 : 'bg-white/[0.04] text-zinc-600 cursor-not-allowed',
             )}
             download
@@ -326,7 +326,7 @@ export function ConsolidarClient({ pls }: { pls: PLSummary[] }) {
                     onClick={() => toggle(p.asn)}
                     className={cn(
                       'border-b border-white/[0.04] last:border-0 cursor-pointer transition-colors',
-                      isChecked ? 'bg-[#E30613]/[0.04] hover:bg-[#E30613]/[0.08]' : 'hover:bg-white/[0.02]',
+                      isChecked ? 'bg-[#31AF4F]/[0.04] hover:bg-[#31AF4F]/[0.08]' : 'hover:bg-white/[0.02]',
                     )}
                   >
                     <td className="px-2 py-2 text-center" onClick={e => e.stopPropagation()}>

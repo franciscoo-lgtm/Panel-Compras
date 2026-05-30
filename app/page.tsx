@@ -1,167 +1,244 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { Anchor, AlertTriangle, ArrowRight, TrendingUp, BarChart3, Activity, PieChart, Plane, Boxes, Layers } from 'lucide-react'
+import { Anchor, AlertTriangle, ArrowUpRight, Plane, Boxes, Layers, Activity, TrendingUp, BarChart3 } from 'lucide-react'
 import { listEmbarques } from '@/app/lib/embarques'
 import { getExecutiveKPIs, getAlerts } from '@/app/lib/dashboard'
-import { KPICard } from '@/components/shared/KPICard'
 import { StatusPill } from '@/components/shared/StatusPill'
 import { DateRange } from '@/components/shared/DateRange'
 import { EmbarquesPorMesChart } from '@/components/dashboard/EmbarquesPorMesChart'
-import { TipoCargaDonut } from '@/components/dashboard/TipoCargaDonut'
 import { ProximosArribosChart } from '@/components/dashboard/ProximosArribosChart'
 import { DiscrepanciasTrendChart } from '@/components/dashboard/DiscrepanciasTrendChart'
 import { DiasEntreEtapasChart } from '@/components/dashboard/DiasEntreEtapasChart'
 import { ThroughputCbmChart } from '@/components/dashboard/ThroughputCbmChart'
 
-const fmtUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+const fmtUSD       = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+const fmtUSDCompact = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 })
+const fmtN         = new Intl.NumberFormat('es-AR')
+
+const MONTH_NAMES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 
 export default async function HomePage() {
   const [{ summaries: allSummaries, errors }, kpis] = await Promise.all([listEmbarques(), getExecutiveKPIs()])
   const summaries = allSummaries.filter(s => s.totalItems > 0)
   const alerts = await getAlerts(allSummaries)
 
+  const now = new Date()
+  const monthLabel = `${MONTH_NAMES_ES[now.getMonth()]} ${now.getFullYear()}`
+
   return (
-    <div className="px-6 py-5 max-w-[1600px]">
-      <h1 className="text-2xl font-display font-bold text-white tracking-tight mb-1">Tablero ejecutivo</h1>
-      <p className="text-[12px] text-zinc-500 mb-6">
-        Resumen operativo · solo embarques con CIPL cargado · &quot;arribado&quot; = llegó al depósito final
-      </p>
+    <div className="px-8 py-10 max-w-[1500px] mx-auto">
+
+      {/* ── Eyebrow + Hero header ────────────────────────────────────────── */}
+      <header className="mb-12 fade-rise">
+        <div className="flex items-baseline justify-between mb-3">
+          <span className="eyebrow">Bidcom Agro · Panel de Compras</span>
+          <span className="eyebrow tabular-nums">{monthLabel}</span>
+        </div>
+        <h1 className="display-lg text-white">Panel ejecutivo.</h1>
+        <p className="mt-3 text-[13px] text-white/45 max-w-2xl leading-relaxed">
+          Resumen operativo de embarques activos con CIPL cargado. Un embarque se considera <em className="text-white/70 not-italic">arribado</em> cuando alcanza el depósito final.
+        </p>
+        <div className="hairline mt-8" />
+      </header>
 
       {errors.length > 0 && (
-        <div className="mb-4 flex items-start gap-2 px-3 py-2 rounded-md border border-amber-500/20 bg-amber-500/[0.05] text-[12px] text-amber-300">
+        <div className="mb-8 flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.03] text-[12px] text-amber-200/90 fade-rise fade-rise-1">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>Hay {errors.length} aviso{errors.length === 1 ? '' : 's'} al leer la planilla Comex. Revisá <Link href="/configuracion" className="underline">Configuración</Link>.</span>
+          <span>{errors.length} aviso{errors.length === 1 ? '' : 's'} al leer la planilla Comex. Revisá <Link href="/configuracion" className="underline decoration-amber-500/40 hover:decoration-amber-300">Configuración</Link>.</span>
         </div>
       )}
 
-      {/* KPIs principales */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-        <KPICard label="Valor en tránsito"      value={fmtUSD.format(kpis.valorEnTransitoUSD)} hint={`${kpis.cbmEnTransito.toFixed(1)} CBM`}            accent="red"     />
-        <KPICard label="Embarques activos"      value={kpis.embarquesActivos.toString()}        hint="pendiente + en tránsito"                          accent="blue"    />
-        <KPICard label="Próximos 7 días"        value={kpis.proximosArribos7d.toString()}       hint="ETA próximos 7 días"                              accent="emerald" />
-        <KPICard label="Retrasados"             value={kpis.embarquesRetrasados.toString()}     hint="ETA pasada hace +5 días"                          accent="red"     />
-      </div>
+      {/* ── HERO KPIs: asymmetric, 2/3 vs 1/3 split ──────────────────────── */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
 
-      {/* SLA: split por tipo (AIR vs FCL/LCL) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-        <KPICard label="SLA AIR"          value={`${kpis.slaAir}%`}                 hint={`≤ 30 días · ${kpis.tiempoMedioAirDias}d prom`}   accent="blue"    />
-        <KPICard label="SLA FCL"          value={`${kpis.slaFcl}%`}                 hint={`≤ 65 días · ${kpis.tiempoMedioFclDias}d prom`}   accent="emerald" />
-        <KPICard label="SLA global"       value={`${kpis.slaCumplimientoGlobal}%`}  hint="ponderado por tipo"                                accent="amber"   />
-        <KPICard label="Tránsito promedio" value={`${kpis.tiempoMedioTransitoDias}d`} hint="ETD → Depósito"                                accent="zinc"    />
-      </div>
+        {/* Hero: Valor en tránsito — el más importante, dos columnas */}
+        <article className="lg:col-span-2 glass-card p-8 relative overflow-hidden fade-rise fade-rise-1">
+          <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full bg-[#31AF4F]/10 blur-3xl pointer-events-none" />
+          <div className="relative">
+            <div className="flex items-center justify-between mb-6">
+              <span className="eyebrow">FOB en tránsito</span>
+              <span className="text-[10px] text-white/30 tabular-nums">{kpis.cbmEnTransito.toFixed(1)} CBM</span>
+            </div>
+            <div className="flex items-baseline gap-3 mb-6">
+              <span className="display-xl text-white tabular-nums">{fmtUSDCompact.format(kpis.valorEnTransitoUSD)}</span>
+              <span className="text-[15px] text-white/40 mb-2 tabular-nums">{fmtUSD.format(kpis.valorEnTransitoUSD)}</span>
+            </div>
+            <div className="flex items-center gap-8 text-[12px]">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.15em] text-white/35 mb-1">Activos</p>
+                <p className="text-[20px] font-display font-semibold text-white tabular-nums">{kpis.embarquesActivos}</p>
+              </div>
+              <div className="h-10 w-px bg-white/[0.06]" />
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.15em] text-white/35 mb-1">Próximos 7d</p>
+                <p className="text-[20px] font-display font-semibold text-emerald-300 tabular-nums">{kpis.proximosArribos7d}</p>
+              </div>
+              <div className="h-10 w-px bg-white/[0.06]" />
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.15em] text-white/35 mb-1">Retrasados</p>
+                <p className={`text-[20px] font-display font-semibold tabular-nums ${kpis.embarquesRetrasados > 0 ? 'text-red-300' : 'text-white/30'}`}>{kpis.embarquesRetrasados}</p>
+              </div>
+            </div>
+          </div>
+        </article>
 
-      {/* KPIs secundarios - métricas de proceso */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <KPICard label="Lead time total"    value={`${kpis.leadTimePagoArriboDias}d`}       hint="Pago → Depósito"           accent="zinc" />
-        <KPICard label="Anticipación Comex" value={`${kpis.anticipacionComexDias}d`}        hint="Instrucción → ETD"         accent="zinc" />
-        <KPICard label="Demora vs plan"     value={`${kpis.pctDemoraVsPlan}%`}              hint="llegaron después de ETA"   accent="amber" />
-        <KPICard label="Unidades del mes"   value={kpis.unidadesArribadasMes.toLocaleString()} hint="arribadas al depósito"  accent="emerald" />
-      </div>
+        {/* Side: SLA Global */}
+        <article className="glass-card p-7 fade-rise fade-rise-2">
+          <span className="eyebrow">SLA global</span>
+          <div className="mt-4 mb-6">
+            <span className="display-lg text-white tabular-nums">{kpis.slaCumplimientoGlobal}</span>
+            <span className="text-[24px] font-display text-white/40 ml-1">%</span>
+          </div>
+          <div className="space-y-3 text-[12px]">
+            <SLABar label="AIR ≤ 30d" value={kpis.slaAir} mean={kpis.tiempoMedioAirDias} />
+            <SLABar label="FCL ≤ 65d" value={kpis.slaFcl} mean={kpis.tiempoMedioFclDias} />
+          </div>
+        </article>
+      </section>
 
-      {/* Charts row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
-            <Plane className="w-4 h-4 text-emerald-400" />
-            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Próximos arribos</h2>
-            <span className="ml-auto text-[10px] text-zinc-500">próximas 4 semanas</span>
-          </div>
-          <div className="p-3"><ProximosArribosChart data={kpis.proximosArribos} /></div>
-        </section>
+      {/* ── Tira de métricas de proceso ──────────────────────────────────── */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
+        <MetricBlock eyebrow="Tránsito promedio" value={`${kpis.tiempoMedioTransitoDias}`} unit="días" hint="ETD → depósito" delay={3} />
+        <MetricBlock eyebrow="Lead time pago"    value={`${kpis.leadTimePagoArriboDias}`}    unit="días" hint="pago → depósito" delay={4} />
+        <MetricBlock eyebrow="Anticipación Comex" value={`${kpis.anticipacionComexDias}`}    unit="días" hint="instrucción → ETD" delay={5} />
+        <MetricBlock eyebrow="Unidades del mes"  value={fmtN.format(kpis.unidadesArribadasMes)} unit="" hint="arribadas al depósito" delay={6} />
+      </section>
 
-        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
-            <Layers className="w-4 h-4 text-amber-400" />
-            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Días promedio por etapa</h2>
-            <span className="ml-auto text-[10px] text-zinc-500">cuello de botella</span>
-          </div>
-          <div className="p-3"><DiasEntreEtapasChart data={kpis.diasEntreEtapas} /></div>
-        </section>
-      </div>
+      {/* ── Charts: layout asimétrico ────────────────────────────────────── */}
+      <section className="space-y-5 mb-12">
+        <div className="flex items-baseline gap-3">
+          <h2 className="display-md text-white">Flujo operativo</h2>
+          <div className="hairline flex-1 mb-2" />
+        </div>
 
-      {/* Charts row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-[#E30613]" />
-            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Embarques por mes</h2>
-            <span className="ml-auto text-[10px] text-zinc-500">por ETD · últimos 12</span>
-          </div>
-          <div className="p-3"><EmbarquesPorMesChart data={kpis.embarquesPorMes} /></div>
-        </section>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <ChartCard icon={<Plane className="w-3.5 h-3.5" />}  title="Próximos arribos"          subtitle="próximas 4 semanas" className="lg:col-span-5">
+            <ProximosArribosChart data={kpis.proximosArribos} />
+          </ChartCard>
+          <ChartCard icon={<Layers className="w-3.5 h-3.5" />} title="Días promedio por etapa"   subtitle="cuello de botella"  className="lg:col-span-7">
+            <DiasEntreEtapasChart data={kpis.diasEntreEtapas} />
+          </ChartCard>
+        </div>
 
-        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
-            <Boxes className="w-4 h-4 text-blue-400" />
-            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">CBM arribado por mes</h2>
-            <span className="ml-auto text-[10px] text-zinc-500">throughput operativo</span>
-          </div>
-          <div className="p-3"><ThroughputCbmChart data={kpis.throughputCbmPorMes} /></div>
-        </section>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <ChartCard icon={<BarChart3 className="w-3.5 h-3.5" />} title="Embarques por mes"      subtitle="por ETD · últimos 12" className="lg:col-span-7">
+            <EmbarquesPorMesChart data={kpis.embarquesPorMes} />
+          </ChartCard>
+          <ChartCard icon={<Boxes className="w-3.5 h-3.5" />}    title="CBM arribado por mes"   subtitle="throughput operativo" className="lg:col-span-5">
+            <ThroughputCbmChart data={kpis.throughputCbmPorMes} />
+          </ChartCard>
+        </div>
 
-        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-amber-400" />
-            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Tendencia discrepancias</h2>
-            <span className="ml-auto text-[10px] text-zinc-500">% ítems con dif. qty</span>
-          </div>
-          <div className="p-3"><DiscrepanciasTrendChart data={kpis.discrepanciasPorMes} /></div>
-        </section>
+        <ChartCard icon={<TrendingUp className="w-3.5 h-3.5" />} title="Tendencia de discrepancias" subtitle="% ítems con diferencia de qty">
+          <DiscrepanciasTrendChart data={kpis.discrepanciasPorMes} />
+        </ChartCard>
+      </section>
 
-        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
-            <PieChart className="w-4 h-4 text-blue-400" />
-            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Distribución tipo de carga</h2>
-          </div>
-          <div className="p-3"><TipoCargaDonut data={kpis.tipoCargaDist} /></div>
-        </section>
-      </div>
+      {/* ── Bottom: Alertas + últimos embarques ──────────────────────────── */}
+      <section className="space-y-5">
+        <div className="flex items-baseline gap-3">
+          <h2 className="display-md text-white">Atención</h2>
+          <div className="hairline flex-1 mb-2" />
+        </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <section className="lg:col-span-2 rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
-            <Activity className="w-4 h-4 text-amber-400" />
-            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Bandeja de alertas</h2>
-            <span className="ml-auto text-[10px] text-zinc-500">{alerts.length}</span>
-          </div>
-          <div className="divide-y divide-white/[0.04]">
-            {alerts.length === 0 ? (
-              <p className="px-4 py-8 text-center text-zinc-500 text-[12px]">Sin alertas. Todo en orden.</p>
-            ) : alerts.slice(0, 12).map((a, i) => {
-              const dot = a.kind === 'critical' ? 'bg-red-500' : a.kind === 'warn' ? 'bg-amber-500' : 'bg-blue-500'
-              const body = (
-                <div className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors">
-                  <span className={`w-1.5 h-1.5 rounded-full ${dot} shrink-0`} />
-                  <span className="text-[12px] text-zinc-300 flex-1 truncate">{a.text}</span>
-                  {a.href && <ArrowRight className="w-3.5 h-3.5 text-zinc-600" />}
-                </div>
-              )
-              return a.href
-                ? <Link key={i} href={a.href}>{body}</Link>
-                : <div key={i}>{body}</div>
-            })}
-          </div>
-        </section>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <article className="lg:col-span-2 glass-card overflow-hidden">
+            <div className="px-6 py-4 flex items-center gap-3 border-b border-white/[0.04]">
+              <Activity className="w-3.5 h-3.5 text-amber-300/80" />
+              <span className="text-[11px] font-medium text-white/70 tracking-wide">Bandeja de alertas</span>
+              <span className="ml-auto text-[10px] text-white/30 tabular-nums">{alerts.length}</span>
+            </div>
+            <div className="divide-y divide-white/[0.03]">
+              {alerts.length === 0 ? (
+                <p className="px-6 py-12 text-center text-white/30 text-[12px]">Sin alertas. Todo en orden.</p>
+              ) : alerts.slice(0, 8).map((a, i) => {
+                const dotColor = a.kind === 'critical' ? 'bg-red-400' : a.kind === 'warn' ? 'bg-amber-300' : 'bg-emerald-400'
+                const body = (
+                  <div className="px-6 py-3 flex items-center gap-3 hover:bg-white/[0.02] transition-colors group">
+                    <span className={`w-1.5 h-1.5 rounded-full ${dotColor} shrink-0`} />
+                    <span className="text-[12px] text-white/75 flex-1 truncate">{a.text}</span>
+                    {a.href && <ArrowUpRight className="w-3.5 h-3.5 text-white/20 group-hover:text-[#31AF4F] transition-colors" />}
+                  </div>
+                )
+                return a.href
+                  ? <Link key={i} href={a.href}>{body}</Link>
+                  : <div key={i}>{body}</div>
+              })}
+            </div>
+          </article>
 
-        <section className="rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
-            <Anchor className="w-4 h-4 text-[#E30613]" />
-            <h2 className="text-[12px] font-display font-semibold text-white uppercase tracking-wide">Últimos embarques</h2>
-            <Link href="/embarques" className="ml-auto text-[10px] text-zinc-500 hover:text-white">Ver todos →</Link>
-          </div>
-          <div className="divide-y divide-white/[0.04]">
-            {summaries.slice(0, 6).map(s => (
-              <Link key={s.embarqueNo} href={`/embarques/${encodeURIComponent(s.embarqueNo)}`} className="px-4 py-2.5 flex items-center gap-2 hover:bg-white/[0.02] transition-colors">
-                <span className="font-mono text-[11px] font-semibold text-white">{s.embarqueNo}</span>
-                <StatusPill estado={s.estado} className="text-[9px]" />
-                <span className="ml-auto"><DateRange etd={s.etd} eta={s.eta} /></span>
-              </Link>
-            ))}
-            {summaries.length === 0 && <p className="px-4 py-8 text-center text-zinc-500 text-[12px]">Sin embarques con CIPL cargado.</p>}
-          </div>
-        </section>
-      </div>
+          <article className="glass-card overflow-hidden">
+            <div className="px-6 py-4 flex items-center gap-3 border-b border-white/[0.04]">
+              <Anchor className="w-3.5 h-3.5 text-[#31AF4F]" />
+              <span className="text-[11px] font-medium text-white/70 tracking-wide">Últimos embarques</span>
+              <Link href="/embarques" className="ml-auto text-[10px] text-white/40 hover:text-white transition-colors">Ver todos →</Link>
+            </div>
+            <div className="divide-y divide-white/[0.03]">
+              {summaries.slice(0, 6).map(s => (
+                <Link key={s.embarqueNo} href={`/embarques/${encodeURIComponent(s.embarqueNo)}`} className="px-6 py-3 flex items-center gap-2 hover:bg-white/[0.02] transition-colors">
+                  <span className="font-mono text-[11px] font-semibold text-white">{s.embarqueNo}</span>
+                  <StatusPill estado={s.estado} className="text-[9px]" />
+                  <span className="ml-auto"><DateRange etd={s.etd} eta={s.eta} /></span>
+                </Link>
+              ))}
+              {summaries.length === 0 && <p className="px-6 py-12 text-center text-white/30 text-[12px]">Sin embarques con CIPL cargado.</p>}
+            </div>
+          </article>
+        </div>
+      </section>
     </div>
+  )
+}
+
+// ─── Sub-components (locales del home) ───────────────────────────────────────
+
+function MetricBlock({ eyebrow, value, unit, hint, delay }: {
+  eyebrow: string; value: string; unit: string; hint: string; delay: number
+}) {
+  return (
+    <div className={`fade-rise fade-rise-${delay}`}>
+      <p className="eyebrow mb-3">{eyebrow}</p>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-[36px] font-display font-bold text-white tabular-nums leading-none">{value}</span>
+        {unit && <span className="text-[13px] text-white/35 tabular-nums">{unit}</span>}
+      </div>
+      <p className="mt-2 text-[11px] text-white/35">{hint}</p>
+    </div>
+  )
+}
+
+function SLABar({ label, value, mean }: { label: string; value: number; mean: number }) {
+  const ok = value >= 80
+  const warn = value >= 60 && value < 80
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="text-white/55 text-[11px]">{label}</span>
+        <span className="tabular-nums text-white/80 font-semibold">{value}<span className="text-white/40 font-normal">%</span></span>
+      </div>
+      <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
+        <div
+          className={`h-full transition-all ${ok ? 'bg-emerald-400/80' : warn ? 'bg-amber-300/70' : 'bg-red-400/70'}`}
+          style={{ width: `${Math.min(value, 100)}%` }}
+        />
+      </div>
+      <p className="mt-1 text-[10px] text-white/30 tabular-nums">{mean}d promedio</p>
+    </div>
+  )
+}
+
+function ChartCard({ icon, title, subtitle, className = '', children }: {
+  icon: React.ReactNode; title: string; subtitle?: string; className?: string; children: React.ReactNode
+}) {
+  return (
+    <article className={`glass-card overflow-hidden ${className}`}>
+      <div className="px-5 py-3.5 flex items-center gap-3 border-b border-white/[0.04]">
+        <span className="text-[#31AF4F]/80">{icon}</span>
+        <span className="text-[11px] font-medium text-white/70 tracking-wide">{title}</span>
+        {subtitle && <span className="ml-auto text-[10px] text-white/30">{subtitle}</span>}
+      </div>
+      <div className="p-4">{children}</div>
+    </article>
   )
 }

@@ -72,7 +72,7 @@ export default async function EmbarqueDetailPage({ params }: Props) {
       </div>
 
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <Anchor className="w-5 h-5 text-[#E30613] shrink-0" />
+        <Anchor className="w-5 h-5 text-[#31AF4F] shrink-0" />
         <h1 className="text-2xl font-display font-bold text-white tracking-tight">{detail.embarqueNo}</h1>
         <StatusPill estado={detail.estado} />
 
@@ -85,7 +85,7 @@ export default async function EmbarqueDetailPage({ params }: Props) {
           )}
           <a
             href={`/api/embarques/${encodeURIComponent(detail.embarqueNo)}/export`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-[#E30613] hover:bg-[#E30613]/85 text-white transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-[#31AF4F] hover:bg-[#31AF4F]/85 text-white transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             Exportar CIPL consolidado

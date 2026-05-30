@@ -1,35 +1,34 @@
 export const dynamic = 'force-dynamic'
 
 import NextLink from 'next/link'
-import { Settings, ArrowRight, Link as LinkIcon, KeyRound, Wand2, Layers } from 'lucide-react'
+import { ArrowRight, Link as LinkIcon, KeyRound, Wand2, Layers } from 'lucide-react'
 import { getComexConfig } from '@/app/lib/comex'
 import { ConfigClient } from './ConfigClient'
+import { PageHeader } from '@/components/shared/PageHeader'
 
 export default async function ConfigPage() {
   const cfg = await getComexConfig()
 
   return (
-    <div className="px-6 py-5 max-w-4xl">
-      <div className="flex items-center gap-3 mb-2">
-        <Settings className="w-5 h-5 text-[#E30613] shrink-0" />
-        <h1 className="text-xl font-display font-semibold text-white tracking-tight">Configuración</h1>
-        <NextLink
-          href="/configuracion/hitos"
-          className="ml-auto px-3 py-1.5 rounded-md text-[11px] font-medium border border-white/[0.08] hover:border-[#E30613]/40 hover:bg-[#E30613]/10 text-zinc-300 hover:text-white inline-flex items-center gap-1.5 transition-colors"
-        >
-          Hitos del proceso →
-        </NextLink>
-      </div>
-
-      <p className="text-[12px] text-zinc-500 mb-6">
-        Conectá una o más planillas de Comex. Cada fuente declara qué columna alimenta cada hito del
-        seguimiento (ETD, ETA, Arribo WH, Arribo Aduana, etc.). El sistema mergea todas las fuentes por SO.
-      </p>
+    <div className="px-8 py-10 max-w-[1100px] mx-auto">
+      <PageHeader
+        eyebrow="Bidcom Agro · Sistema"
+        title="Configuración."
+        description="Planillas de Comex conectadas, mapeo de hitos y fuentes de datos del seguimiento."
+        action={
+          <NextLink
+            href="/configuracion/hitos"
+            className="px-3 py-2 rounded-lg text-[11px] font-medium border border-white/[0.08] hover:border-[#31AF4F]/40 hover:bg-[#31AF4F]/10 text-white/65 hover:text-white inline-flex items-center gap-1.5 transition-colors"
+          >
+            Hitos del proceso →
+          </NextLink>
+        }
+      />
 
       {/* ── Cómo funciona ────────────────────────────────────────────────── */}
       <details className="mb-6 rounded-lg border border-white/[0.06] bg-[#0a0a0a] group" open={!cfg || cfg.sources.length === 0}>
         <summary className="cursor-pointer px-4 py-3 flex items-center gap-2 text-[12px] font-display font-semibold text-white uppercase tracking-wide hover:bg-white/[0.02] transition-colors list-none [&::-webkit-details-marker]:hidden">
-          <Layers className="w-4 h-4 text-[#E30613]" />
+          <Layers className="w-4 h-4 text-[#31AF4F]" />
           Cómo funciona la planilla
           <ArrowRight className="w-3.5 h-3.5 ml-auto text-zinc-500 transition-transform group-open:rotate-90" />
         </summary>
@@ -46,10 +45,10 @@ export default async function ConfigPage() {
           </ol>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-md border border-[#E30613]/30 bg-[#E30613]/[0.04] p-3">
+            <div className="rounded-md border border-[#31AF4F]/30 bg-[#31AF4F]/[0.04] p-3">
               <div className="flex items-center gap-1.5 mb-1">
-                <KeyRound className="w-3.5 h-3.5 text-[#E30613]" />
-                <strong className="text-[11px] uppercase tracking-wider text-[#E30613]">Fuente principal</strong>
+                <KeyRound className="w-3.5 h-3.5 text-[#31AF4F]" />
+                <strong className="text-[11px] uppercase tracking-wider text-[#31AF4F]">Fuente principal</strong>
               </div>
               <p className="text-[11px] mt-2">
                 Una de las fuentes tiene que tener la columna <strong className="text-white">N° Embarque</strong>.

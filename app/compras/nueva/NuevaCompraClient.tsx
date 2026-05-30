@@ -148,7 +148,7 @@ export function NuevaCompraClient({
           <button
             onClick={handleSubmit}
             disabled={pending}
-            className="px-4 py-1.5 rounded-lg text-[12px] font-semibold bg-[#E30613] text-white hover:bg-[#c00510] transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-1.5 rounded-lg text-[12px] font-semibold bg-[#31AF4F] text-white hover:bg-[#c00510] transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {pending && <Loader2 className="w-3 h-3 animate-spin" />}
             Crear Compra
@@ -199,7 +199,7 @@ export function NuevaCompraClient({
                 <button
                   onClick={handlePasteConfirm}
                   disabled={!pasteText.trim()}
-                  className="w-full py-2 rounded-lg text-[12px] font-semibold bg-[#E30613]/15 border border-[#E30613]/30 text-[#E30613] hover:bg-[#E30613]/25 transition-colors disabled:opacity-30"
+                  className="w-full py-2 rounded-lg text-[12px] font-semibold bg-[#31AF4F]/15 border border-[#31AF4F]/30 text-[#31AF4F] hover:bg-[#31AF4F]/25 transition-colors disabled:opacity-30"
                 >
                   Agregar SOs
                 </button>
@@ -240,14 +240,14 @@ export function NuevaCompraClient({
                     onClick={() => toggle(so)}
                     className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
                       isSelected
-                        ? 'bg-[#E30613]/[0.06] border-[#E30613]/40'
+                        ? 'bg-[#31AF4F]/[0.06] border-[#31AF4F]/40'
                         : 'bg-white/[0.02] border-white/[0.06] hover:border-white/[0.12]'
                     }`}
                   >
-                    <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${isSelected ? 'bg-[#E30613] border-[#E30613] text-white text-[10px]' : 'border-white/20'}`}>
+                    <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${isSelected ? 'bg-[#31AF4F] border-[#31AF4F] text-white text-[10px]' : 'border-white/20'}`}>
                       {isSelected && '✓'}
                     </div>
-                    <span className="font-mono text-[11px] font-bold text-[#E30613] bg-[#E30613]/10 px-2 py-0.5 rounded shrink-0">{so.soNumber}</span>
+                    <span className="font-mono text-[11px] font-bold text-[#31AF4F] bg-[#31AF4F]/10 px-2 py-0.5 rounded shrink-0">{so.soNumber}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-[13px] text-white font-medium truncate">{so.modelo ?? '—'}</div>
                       <div className="text-[11px] text-white/35 mt-0.5">{so.sku ?? ''}{so.qPi ? ` · ${so.qPi} un.` : ''}</div>
@@ -263,7 +263,7 @@ export function NuevaCompraClient({
                 <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/25 mb-2">SOs seleccionados</p>
                 <div className="flex flex-wrap gap-1.5">
                   {selected.map(so => (
-                    <span key={so.soNumber} className="inline-flex items-center gap-1.5 bg-[#E30613]/10 border border-[#E30613]/25 rounded-full px-2.5 py-1 text-[11px] font-semibold text-[#fb9ca2]">
+                    <span key={so.soNumber} className="inline-flex items-center gap-1.5 bg-[#31AF4F]/10 border border-[#31AF4F]/25 rounded-full px-2.5 py-1 text-[11px] font-semibold text-[#fb9ca2]">
                       {so.soNumber}
                       <button onClick={() => toggle(so)} className="text-white/30 hover:text-white/60"><X className="w-3 h-3" /></button>
                     </span>
@@ -396,7 +396,7 @@ export function NuevaCompraClient({
           <button
             onClick={handleSubmit}
             disabled={pending}
-            className="mt-auto w-full py-2.5 rounded-xl text-[13px] font-semibold bg-[#E30613] text-white hover:bg-[#c00510] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="mt-auto w-full py-2.5 rounded-xl text-[13px] font-semibold bg-[#31AF4F] text-white hover:bg-[#c00510] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {pending && <Loader2 className="w-4 h-4 animate-spin" />}
             Crear Orden de Compra

@@ -112,7 +112,7 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
             className={cn(
               'px-3 py-1.5 rounded-md text-[11px] font-medium border transition-colors',
               filter === f.id
-                ? 'bg-[#E30613]/10 text-white border-[#E30613]/40'
+                ? 'bg-[#31AF4F]/10 text-white border-[#31AF4F]/40'
                 : 'bg-transparent text-zinc-400 border-white/[0.08] hover:text-white hover:border-white/[0.2]',
             )}
           >
@@ -120,14 +120,19 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
           </button>
         ))}
 
-        <div className="ml-auto relative w-full md:w-auto">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Buscar N° Embarque, SO o AWB…"
-            className="pl-8 pr-3 py-1.5 w-full md:w-72 rounded-md text-[11px] bg-[#0d0d0d] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#E30613]/50"
-          />
+        <div className="ml-auto flex items-center gap-3 w-full md:w-auto">
+          <span className="text-[11px] text-zinc-500 shrink-0 tabular-nums">
+            {filtered.length} embarque{filtered.length === 1 ? '' : 's'}
+          </span>
+          <div className="relative flex-1 md:flex-none">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Buscar N° Embarque, SO o AWB…"
+              className="pl-8 pr-3 py-1.5 w-full md:w-72 rounded-md text-[11px] bg-[#0d0d0d] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#31AF4F]/50"
+            />
+          </div>
         </div>
       </div>
 
@@ -190,7 +195,7 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
             ) : filtered.map(s => (
               <tr key={s.embarqueNo} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
                 <td className="px-4 py-3">
-                  <Link href={`/embarques/${encodeURIComponent(s.embarqueNo)}`} className="font-mono font-semibold text-white hover:text-[#E30613] transition-colors">
+                  <Link href={`/embarques/${encodeURIComponent(s.embarqueNo)}`} className="font-mono font-semibold text-white hover:text-[#31AF4F] transition-colors">
                     {s.embarqueNo}
                   </Link>
                 </td>

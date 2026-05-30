@@ -11,8 +11,22 @@
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --font-display: var(--font-display);
-  --color-dji-red: #E30613;
-  --color-dji-dark: #0A0A0A;
+  /* ── Bidcom Agro brand tokens ─────────────────────────────────
+   * Verde signature #31AF4F (logo), highlight #44DA68, oscuros para
+   * surfaces. `--color-brand` es el alias canónico — los componentes
+   * usan literalmente #31AF4F porque Tailwind 4 lee literales en
+   * `bg-[#XXXXXX]/10`. Si en el futuro hay que cambiar la marca,
+   * sed sobre #31AF4F en todo el repo es la operación.
+   */
+  --color-brand:        #31AF4F;  /* principal — botones, links, acentos */
+  --color-brand-hover:  #44DA68;  /* highlight / hover */
+  --color-brand-dark:   #00803e;  /* shade más oscuro */
+  --color-brand-deep:   #0c2d14;  /* casi negro, para badges sutiles */
+  --color-brand-glow:   rgba(49, 175, 79, 0.4);  /* sombra del isotipo */
+
+  /* Legacy alias — quedó por compat con código que aún lo refiera */
+  --color-dji-red:      var(--color-brand);
+  --color-dji-dark:     #0A0A0A;
   --color-brand-compras: #8b5cf6;
   --color-status-ok: #10b981;
   --color-status-warn: #f59e0b;
@@ -142,3 +156,104 @@
     @apply font-sans;
   }
 }
+
+/* ── Premium ag-corporate design system ────────────────────────────
+ * Dirección elegida: inspirada en bidcomagro.com.ar — fondo casi
+ * negro con halo verde sutil, glassmorphism real, tipografía Inter
+ * Tight para titulares, IBM Plex Mono para data numérica.
+ */
+
+/* Halo radial de marca: usado en la página principal y en hero
+ * sections. Es un gradient cónico+radial que emana del top-left con
+ * verde brand y se disipa rápido. Aplicar con className="brand-halo".
+ */
+.brand-halo {
+  background:
+    radial-gradient(ellipse 80% 50% at 0% 0%, rgba(49, 175, 79, 0.12), transparent 50%),
+    radial-gradient(ellipse 60% 80% at 100% 100%, rgba(49, 175, 79, 0.04), transparent 50%),
+    #050505;
+}
+
+/* Glassmorphism real (no faux fill). Necesita un fondo detrás
+ * para que tenga sentido. Usar dentro de .brand-halo o sobre
+ * imágenes.
+ */
+.glass-card {
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(49, 175, 79, 0.25);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px -8px rgba(49, 175, 79, 0.15);
+}
+
+/* Hairline divider — usado en lugar de border-bottom estándar.
+ * El gradient lo hace fade en los extremos para look premium.
+ */
+.hairline {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.08) 20%,
+    rgba(49, 175, 79, 0.2) 50%,
+    rgba(255, 255, 255, 0.08) 80%,
+    transparent
+  );
+}
+
+/* Tipografía display — números enormes para hero KPIs */
+.display-xl {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(3.5rem, 8vw, 6rem);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.display-lg {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.5rem, 5vw, 3.75rem);
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+
+.display-md {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.875rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Stagger animation para los KPIs al entrar */
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-rise {
+  animation: fade-rise 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.fade-rise-1 { animation-delay: 60ms; }
+.fade-rise-2 { animation-delay: 120ms; }
+.fade-rise-3 { animation-delay: 180ms; }
+.fade-rise-4 { animation-delay: 240ms; }
+.fade-rise-5 { animation-delay: 300ms; }
+.fade-rise-6 { animation-delay: 360ms; }

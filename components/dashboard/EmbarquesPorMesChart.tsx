@@ -20,9 +20,9 @@ export function EmbarquesPorMesChart({ data }: { data: Datum[] }) {
         <Tooltip
           contentStyle={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 11 }}
           labelStyle={{ color: '#a1a1aa' }}
-          cursor={{ fill: 'rgba(227,6,19,0.06)' }}
+          cursor={{ fill: 'rgba(49,175,79,0.08)' }}
         />
-        <Bar dataKey="count" fill="#E30613" radius={[3, 3, 0, 0]} />
+        <Bar dataKey="count" fill="#31AF4F" radius={[3, 3, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )

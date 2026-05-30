@@ -112,7 +112,7 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
 
         <button
           onClick={addSource}
-          className="w-full px-4 py-3 rounded-lg border border-dashed border-white/[0.12] hover:border-[#E30613]/40 hover:bg-[#E30613]/[0.04] text-[12px] text-zinc-400 hover:text-white inline-flex items-center justify-center gap-2 transition-colors"
+          className="w-full px-4 py-3 rounded-lg border border-dashed border-white/[0.12] hover:border-[#31AF4F]/40 hover:bg-[#31AF4F]/[0.04] text-[12px] text-zinc-400 hover:text-white inline-flex items-center justify-center gap-2 transition-colors"
         >
           <Plus className="w-4 h-4" /> Agregar fuente
         </button>
@@ -123,7 +123,7 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
         <button
           onClick={handleSave}
           disabled={!canSave || saving}
-          className="px-4 py-2 rounded-md text-[12px] font-medium bg-[#E30613] hover:bg-[#E30613]/85 disabled:opacity-40 text-white inline-flex items-center gap-1.5"
+          className="px-4 py-2 rounded-md text-[12px] font-medium bg-[#31AF4F] hover:bg-[#31AF4F]/85 disabled:opacity-40 text-white inline-flex items-center gap-1.5"
         >
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
           Guardar todas las fuentes
@@ -224,7 +224,7 @@ function SourceCard({
   return (
     <div className={cn(
       'rounded-lg border bg-[#0a0a0a] overflow-hidden transition-colors',
-      isPrimary ? 'border-[#E30613]/40' : 'border-white/[0.08]',
+      isPrimary ? 'border-[#31AF4F]/40' : 'border-white/[0.08]',
       !source.enabled && 'opacity-50',
     )}>
       {/* Header de la card */}
@@ -245,7 +245,7 @@ function SourceCard({
         />
 
         {isPrimary && (
-          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#E30613]/15 text-[#E30613] font-bold inline-flex items-center gap-1">
+          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#31AF4F]/15 text-[#31AF4F] font-bold inline-flex items-center gap-1">
             <Star className="w-3 h-3 fill-current" /> Principal
           </span>
         )}
@@ -253,7 +253,7 @@ function SourceCard({
         {!isPrimary && (
           <button
             onClick={onSetPrimary}
-            className="text-[10px] text-zinc-500 hover:text-[#E30613] inline-flex items-center gap-1"
+            className="text-[10px] text-zinc-500 hover:text-[#31AF4F] inline-flex items-center gap-1"
             title="Marcar como fuente principal (la que tiene N° Embarque)"
           >
             <Star className="w-3 h-3" /> Marcar principal
@@ -292,7 +292,7 @@ function SourceCard({
                 value={source.url}
                 onChange={e => onChange({ url: e.target.value })}
                 placeholder="https://docs.google.com/spreadsheets/d/..."
-                className="w-full px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] placeholder:text-zinc-600 focus:outline-none focus:border-[#E30613]/50"
+                className="w-full px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] placeholder:text-zinc-600 focus:outline-none focus:border-[#31AF4F]/50"
               />
             </label>
             <label className="block">
@@ -301,7 +301,7 @@ function SourceCard({
                 value={source.sheetName ?? ''}
                 onChange={e => onChange({ sheetName: e.target.value })}
                 placeholder="Tracking"
-                className="w-full px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] placeholder:text-zinc-600 focus:outline-none focus:border-[#E30613]/50"
+                className="w-full px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] placeholder:text-zinc-600 focus:outline-none focus:border-[#31AF4F]/50"
               />
             </label>
           </div>
@@ -329,7 +329,7 @@ function SourceCard({
                 <select
                   value={source.joinCol}
                   onChange={e => onChange({ joinCol: e.target.value })}
-                  className="w-full md:w-72 px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] focus:outline-none focus:border-[#E30613]/50"
+                  className="w-full md:w-72 px-3 py-2 rounded-md bg-[#0d0d0d] border border-white/[0.08] text-white text-[12px] focus:outline-none focus:border-[#31AF4F]/50"
                 >
                   <option value="">— Elegí columna —</option>
                   {headers.map(h => <option key={h} value={h}>{h}</option>)}
@@ -410,7 +410,7 @@ function MilestoneSelect({
         }
         onChange(v as MilestoneField)
       }}
-      className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[11px] focus:outline-none focus:border-[#E30613]/50"
+      className="w-full px-2 py-1 rounded bg-[#0d0d0d] border border-white/[0.08] text-white text-[11px] focus:outline-none focus:border-[#31AF4F]/50"
     >
       <option value="__ignore__">— Ignorar —</option>
       {isPrimary && (

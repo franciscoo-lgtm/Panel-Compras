@@ -10,6 +10,7 @@ import { Step2AssignSOs } from './_components/Step2AssignSOs'
 import { Step3Photos } from './_components/Step3Photos'
 import { Step4Control } from './_components/Step4Control'
 import { Step5Confirm } from './_components/Step5Confirm'
+import { PageHeader } from '@/components/shared/PageHeader'
 
 const EMPTY_LINKS: DriveLinks = { excel: null, ci: null, pl: null }
 
@@ -61,31 +62,30 @@ export default function ComercialPage() {
   }
 
   return (
-    <div className="px-6 py-5 max-w-[1600px] mx-auto">
-      <div className="mb-6">
-        <div className="flex items-start gap-4 flex-wrap">
-          <div className="flex-1 min-w-[200px]">
-            <h1 className="text-2xl font-display font-bold text-white tracking-tight mb-1">Carga CIPL</h1>
-            <p className="text-[12px] text-zinc-500">Extraé y guardá CIPLs de Repuestos o Mercadería DJI</p>
-          </div>
+    <div className="px-8 py-10 max-w-[1500px] mx-auto">
+      <PageHeader
+        eyebrow="Bidcom Agro · Operación"
+        title="Carga CIPL."
+        description="Extracción asistida por IA del Commercial Invoice y Packing List, con vinculación automática a la orden de compra."
+        action={
           <div className="flex items-center gap-2 flex-wrap">
             <Link
               href="/comercial/consolidar"
-              className="px-3 py-2 rounded-md text-[11px] font-medium border border-white/[0.08] hover:border-[#E30613]/40 hover:bg-[#E30613]/10 text-zinc-300 hover:text-white inline-flex items-center gap-1.5 transition-colors"
+              className="px-3 py-2 rounded-lg text-[11px] font-medium border border-white/[0.08] hover:border-[#31AF4F]/40 hover:bg-[#31AF4F]/10 text-white/65 hover:text-white inline-flex items-center gap-1.5 transition-colors"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              Exportar PL Consolidado
+              Exportar PL consolidado
             </Link>
             <Link
               href="/comercial/fotos"
-              className="px-3 py-2 rounded-md text-[11px] font-medium border border-white/[0.08] hover:border-[#E30613]/40 hover:bg-[#E30613]/10 text-zinc-300 hover:text-white inline-flex items-center gap-1.5 transition-colors"
+              className="px-3 py-2 rounded-lg text-[11px] font-medium border border-white/[0.08] hover:border-[#31AF4F]/40 hover:bg-[#31AF4F]/10 text-white/65 hover:text-white inline-flex items-center gap-1.5 transition-colors"
             >
               <Camera className="w-3.5 h-3.5" />
-              Subir fotos a un CIPL ya cargado
+              Subir fotos
             </Link>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="flex items-center gap-1 mb-6 text-[11px] overflow-x-auto pb-1">
         {STEPS.map(({ n, label, icon: Icon }, idx) => {
@@ -95,12 +95,12 @@ export default function ComercialPage() {
             <React.Fragment key={n}>
               {idx > 0 && <ChevronRight className="w-3 h-3 text-zinc-700 shrink-0" />}
               <div className={`flex items-center gap-1.5 px-2 py-1 rounded font-medium whitespace-nowrap ${
-                active ? 'text-[#E30613] bg-[#E30613]/10' :
+                active ? 'text-[#31AF4F] bg-[#31AF4F]/10' :
                 done   ? 'text-emerald-400' : 'text-zinc-500'
               }`}>
                 <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
                   done   ? 'bg-emerald-500/20 text-emerald-400' :
-                  active ? 'bg-[#E30613]/20 text-[#E30613]' :
+                  active ? 'bg-[#31AF4F]/20 text-[#31AF4F]' :
                           'bg-white/[0.06] text-zinc-500'
                 }`}>{n}</span>
                 <Icon className="w-3.5 h-3.5" />

@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 
 type Datum = { name: string; value: number }
 
-const COLORS = ['#E30613', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
+const COLORS = ['#31AF4F', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
 
 export function TipoCargaDonut({ data }: { data: Datum[] }) {
   if (data.length === 0) {

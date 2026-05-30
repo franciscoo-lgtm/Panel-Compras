@@ -29,7 +29,7 @@ export function ComprasTab({ compras, sos }: { compras: EmbarqueCompra[]; sos: s
           <div key={c.id} className="rounded-lg border border-white/[0.06] bg-[#0a0a0a] overflow-hidden">
             <div className="px-4 py-3 bg-[#0d0d0d] border-b border-white/[0.06] flex items-center gap-3">
               <ShoppingCart className="w-4 h-4 text-purple-400" />
-              <Link href={`/compras/${c.id}`} className="text-[13px] font-medium text-white hover:text-[#E30613] transition-colors">
+              <Link href={`/compras/${c.id}`} className="text-[13px] font-medium text-white hover:text-[#31AF4F] transition-colors">
                 {c.piNo ?? c.id.slice(0, 8)}
               </Link>
               {c.supplierName && (

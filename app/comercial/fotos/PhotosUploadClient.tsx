@@ -124,7 +124,7 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
             <button
               onClick={handleSave}
               disabled={saving || matchedCount === 0}
-              className="ml-auto px-3 py-1.5 rounded-md text-[11px] font-medium bg-[#E30613] hover:bg-[#E30613]/85 disabled:opacity-40 text-white inline-flex items-center gap-1.5"
+              className="ml-auto px-3 py-1.5 rounded-md text-[11px] font-medium bg-[#31AF4F] hover:bg-[#31AF4F]/85 disabled:opacity-40 text-white inline-flex items-center gap-1.5"
             >
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               Guardar {matchedCount} foto{matchedCount === 1 ? '' : 's'}
@@ -168,7 +168,7 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
                       <td className="px-3 py-2">
                         <button
                           onClick={() => setLightbox(`data:${m.mediaType};base64,${m.base64}`)}
-                          className="w-16 h-16 rounded overflow-hidden bg-black border border-white/[0.04] hover:border-[#E30613]/40 cursor-zoom-in transition-colors group block"
+                          className="w-16 h-16 rounded overflow-hidden bg-black border border-white/[0.04] hover:border-[#31AF4F]/40 cursor-zoom-in transition-colors group block"
                           title="Click para agrandar"
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -211,7 +211,7 @@ export function PhotosUploadClient({ items }: { items: Item[] }) {
                           value={m.matchedItemId ?? ''}
                           onChange={e => overrideMatch(idx, e.target.value)}
                           className={cn(
-                            'w-full px-2 py-1 rounded bg-[#0d0d0d] border text-white text-[11px] focus:outline-none focus:border-[#E30613]/50',
+                            'w-full px-2 py-1 rounded bg-[#0d0d0d] border text-white text-[11px] focus:outline-none focus:border-[#31AF4F]/50',
                             cartonMismatch ? 'border-amber-500/50' : 'border-white/[0.08]',
                           )}
                         >
