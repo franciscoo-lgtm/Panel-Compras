@@ -2,6 +2,11 @@
 
 import { prisma } from '@/lib/prisma'
 import { buildGSOMap } from '@/app/lib/sheets'
+import {
+  getDriveAccessToken,
+  deleteDriveFile,
+  extractDriveFileId,
+} from '@/app/lib/drive-auth'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -141,6 +146,39 @@ export async function guardarCIPL(formData: FormData): Promise<SaveResult> {
     return { success: true, count }
   } catch (err) {
     console.error('[ETL] guardarCIPL error:', err)
-    return { success: false, error: String(err) }
+
+    // Rollback: si la DB falló y ya teníamos archivos subidos a Drive,
+    // borrarlos para no dejarlos huérfanos. Si el rollback también falla
+    // (Drive token expirado, red caída, etc), reportamos los links al
+    // user en el error para que pueda borrarlos manualmente.
+    let rollbackNote = ''
+    try {
+      const driveLinksRaw = formData.get('driveLinks')
+      const driveLinks    = JSON.parse((driveLinksRaw as string) ?? '{}') as Partial<DriveLinks>
+      const links: (string | null | undefined)[] = [driveLinks.excel, driveLinks.ci, driveLinks.pl]
+      const fileIds = links
+        .map(l => extractDriveFileId(l))
+        .filter((id): id is string => !!id)
+
+      if (fileIds.length > 0) {
+        const token = await getDriveAccessToken()
+        const failed: string[] = []
+        for (const id of fileIds) {
+          const r = await deleteDriveFile(id, token)
+          if (!r.ok) failed.push(`${id} (${r.error})`)
+        }
+        if (failed.length > 0) {
+          rollbackNote = ` Drive rollback parcial: ${failed.length}/${fileIds.length} no pudieron borrarse: ${failed.join(', ')}`
+        } else {
+          rollbackNote = ` (Drive rollback OK: ${fileIds.length} archivo${fileIds.length === 1 ? '' : 's'} borrado${fileIds.length === 1 ? '' : 's'})`
+        }
+        console.log('[ETL] rollback Drive', { fileIds, failed })
+      }
+    } catch (rbErr) {
+      console.error('[ETL] rollback Drive failed:', rbErr)
+      rollbackNote = ` ATENCIÓN: rollback Drive falló — los archivos quedan en Drive. Error: ${String(rbErr)}`
+    }
+
+    return { success: false, error: String(err) + rollbackNote }
   }
 }

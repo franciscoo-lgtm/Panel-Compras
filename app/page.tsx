@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { Anchor, AlertTriangle, ArrowUpRight, Plane, Boxes, Layers, Activity, TrendingUp, BarChart3 } from 'lucide-react'
+import { Anchor, AlertTriangle, ArrowUpRight, Plane, Boxes, Layers, TrendingUp, BarChart3, Download } from 'lucide-react'
 import { listEmbarques } from '@/app/lib/embarques'
 import { getExecutiveKPIs, getAlerts, type AlertItem } from '@/app/lib/dashboard'
 import { AlertasBandeja } from '@/components/dashboard/AlertasBandeja'
@@ -36,7 +36,17 @@ export default async function HomePage() {
           <span className="eyebrow">Bidcom Agro · Panel de Compras</span>
           <span className="eyebrow tabular-nums">{monthLabel}</span>
         </div>
-        <h1 className="display-lg text-white">Panel ejecutivo.</h1>
+        <div className="flex items-end justify-between gap-6 flex-wrap">
+          <h1 className="display-lg text-white">Panel ejecutivo.</h1>
+          <a
+            href="/api/dashboard/export?format=csv"
+            download
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-medium bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white hover:border-white/[0.15] transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Exportar CSV
+          </a>
+        </div>
         <p className="mt-3 text-[13px] text-white/45 max-w-2xl leading-relaxed">
           Resumen operativo de embarques activos con CIPL cargado. Un embarque se considera <em className="text-white/70 not-italic">arribado</em> cuando alcanza el depósito final.
         </p>

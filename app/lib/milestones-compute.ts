@@ -46,9 +46,13 @@ export function getMilestoneDateForCompra(
 /**
  * Devuelve la fecha de un hito agregado para un Embarque (puede tener N compras).
  *
- * - comex: igual lógica (lookup por SO en bySO)
- * - manual: toma el valor de la Compra más reciente que lo tenga seteado
- * - auto: usa el firstCiplCreatedAt agregado del embarque entero
+ * - **comex**: lookup por SO en bySO (la primera shipment con valor gana).
+ * - **manual**: si hay múltiples compras con el hito seteado, retorna la
+ *   fecha MÁS RECIENTE (LATEST). Esta decisión es por convención — un
+ *   embarque que cubre múltiples compras se considera "pagado / instruido /
+ *   etc" cuando la última compra completó el hito. Para detectar este
+ *   caso y mostrar tooltip de conflict, usar `getMilestoneAllDatesForEmbarque`.
+ * - **auto**: usa el firstCiplCreatedAt agregado del embarque entero.
  */
 export function getMilestoneDateForEmbarque(
   milestone: MilestoneConfig,
@@ -81,4 +85,32 @@ export function getMilestoneDateForEmbarque(
     return null
   }
   return null
+}
+
+/**
+ * Variante de `getMilestoneDateForEmbarque` que retorna TODAS las fechas
+ * de un hito manual para detectar conflicts (cuando varias compras del
+ * mismo embarque tienen el mismo hito con valores distintos).
+ *
+ * Retorna `null` si no es un hito manual o no hay valores.
+ * Retorna `{ shown, all }` donde `shown` es la fecha visible (latest)
+ * y `all` son TODAS las fechas (en orden ascendente) para mostrar
+ * tooltip / advertencia visual si all.length > 1.
+ */
+export function getMilestoneAllDatesForEmbarque(
+  milestone: MilestoneConfig,
+  compras: CompraLike[],
+): { shown: string; all: string[] } | null {
+  if (milestone.source !== 'manual' || !milestone.compraField) return null
+
+  const dates: string[] = []
+  for (const c of compras) {
+    const v = c[milestone.compraField]
+    if (v == null) continue
+    const s = typeof v === 'string' ? v : v instanceof Date ? v.toISOString() : null
+    if (s) dates.push(s)
+  }
+  if (dates.length === 0) return null
+  dates.sort()
+  return { shown: dates[dates.length - 1]!, all: dates }
 }
