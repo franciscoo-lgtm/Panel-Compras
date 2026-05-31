@@ -1,7 +1,14 @@
 'use server'
 
-const SHEET_CSV_URL =
+/**
+ * URL del Google Sheet GSO V4. Configurable vía env var GSO_SHEET_CSV_URL
+ * (Vercel y .env), con fallback al valor histórico para no romper setups
+ * existentes. Si Comex cambia la sheet, basta con actualizar la env var.
+ */
+const DEFAULT_GSO_SHEET_URL =
   'https://docs.google.com/spreadsheets/d/1JT0EjHrEUIGhm4RBSVQq2sntS6naiQ30b7u63gnMaZI/export?format=csv&gid=1292277028'
+
+const SHEET_CSV_URL = process.env.GSO_SHEET_CSV_URL || DEFAULT_GSO_SHEET_URL
 
 const SO_PATTERN = /^SO[-\s]?\d+/i
 

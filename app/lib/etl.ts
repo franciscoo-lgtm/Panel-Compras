@@ -108,29 +108,37 @@ export async function guardarCIPL(formData: FormData): Promise<SaveResult> {
       ci:    rows[0]?.driveLinkCi    ?? 'NULL',
       pl:    rows[0]?.driveLinkPl    ?? 'NULL',
     })
-    const result = await prisma.cIPLItem.createMany({ data: rows })
-    console.log('[guardarCIPL] created', result.count, 'rows')
 
-    // Auto-link new CIPLItems to a Compra if SO matches
+    // Transacción atómica: createMany + auto-linking en una sola operación.
+    // Si falla el linking a Compra, no quedan CIPLItems huérfanos (sin
+    // compraId) — todo se revierte o todo queda. Antes era 1 createMany +
+    // 1 findMany + N updateMany sin transaction, y un fallo a mitad
+    // dejaba data inconsistente.
     const savedSOs = [...new Set(sosPrincipal.filter(Boolean).map(s => s.trim().toUpperCase()))]
-    if (savedSOs.length > 0) {
-      const compraSOItems = await prisma.compraSOItem.findMany({
-        where: { soNumber: { in: savedSOs } },
-        select: { compraId: true, soNumber: true },
-      })
-      if (compraSOItems.length > 0) {
-        const soToCompra = new Map(compraSOItems.map(c => [c.soNumber.toUpperCase(), c.compraId]))
-        for (const [so, compraId] of soToCompra) {
-          await prisma.cIPLItem.updateMany({
-            where: { soPrincipal: { equals: so, mode: 'insensitive' }, compraId: null },
-            data:  { compraId },
-          })
-        }
-        console.log(`[ETL] Auto-linked CIPLItems to compras for SOs: ${[...soToCompra.keys()].join(', ')}`)
-      }
-    }
+    const count = await prisma.$transaction(async (tx) => {
+      const result = await tx.cIPLItem.createMany({ data: rows })
 
-    return { success: true, count: result.count }
+      if (savedSOs.length > 0) {
+        const compraSOItems = await tx.compraSOItem.findMany({
+          where: { soNumber: { in: savedSOs } },
+          select: { compraId: true, soNumber: true },
+        })
+        if (compraSOItems.length > 0) {
+          const soToCompra = new Map(compraSOItems.map(c => [c.soNumber.toUpperCase(), c.compraId]))
+          for (const [so, compraId] of soToCompra) {
+            await tx.cIPLItem.updateMany({
+              where: { soPrincipal: { equals: so, mode: 'insensitive' }, compraId: null },
+              data:  { compraId },
+            })
+          }
+        }
+      }
+      return result.count
+    })
+
+    console.log('[guardarCIPL] created', count, 'rows; auto-linked SOs:', savedSOs.join(', ') || 'ninguno')
+
+    return { success: true, count }
   } catch (err) {
     console.error('[ETL] guardarCIPL error:', err)
     return { success: false, error: String(err) }

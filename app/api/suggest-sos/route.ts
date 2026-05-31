@@ -25,8 +25,12 @@ type GSORow = { id: string; modelo: string; codigo: string; invoice: string }
 
 // ─── CSV helpers ──────────────────────────────────────────────────────────────
 
+// Misma fuente que app/lib/sheets.ts — ambos consumen GSO V4. Mantener
+// el fallback histórico por compat; si Comex cambia la sheet, actualizar
+// la env var GSO_SHEET_CSV_URL en Vercel.
 const SHEET_CSV_URL =
-  'https://docs.google.com/spreadsheets/d/1JT0EjHrEUIGhm4RBSVQq2sntS6naiQ30b7u63gnMaZI/export?format=csv&gid=1292277028'
+  process.env.GSO_SHEET_CSV_URL
+  || 'https://docs.google.com/spreadsheets/d/1JT0EjHrEUIGhm4RBSVQq2sntS6naiQ30b7u63gnMaZI/export?format=csv&gid=1292277028'
 
 const SO_PATTERN = /^SO[-\s]?\d+/i
 
@@ -270,9 +274,24 @@ ${histSection}Para Mercadería: el campo "modelo" del SO debe coincidir con la d
         const text   = data.content?.[0]?.type === 'text' ? (data.content[0].text ?? '').trim() : ''
         const parsed = extractSOArray(text)
         if (parsed) {
+          // Si la IA cortó el output a mitad (max_tokens, JSON inválido, etc),
+          // parsed.length < unmatchedItems.length y los faltantes quedaban null
+          // silenciosamente. Avisamos como warning para que la UI lo muestre.
+          if (parsed.length < unmatchedItems.length) {
+            console.warn(`[suggest-sos] LLM incomplete: ${parsed.length}/${unmatchedItems.length} items returned`)
+          }
           unmatchedIdx.forEach((origIdx, j) => {
             suggestions[origIdx] = parsed[j] ?? null
           })
+          const missingCount = unmatchedItems.length - parsed.length
+          if (missingCount > 0) {
+            const result: RouteResult = {
+              suggestions,
+              soCount: suggestions.filter(Boolean).length,
+              error: `La IA solo respondió por ${parsed.length} de ${unmatchedItems.length} ítems. Revisá los que quedaron sin SO y asignalos manualmente.`,
+            }
+            return Response.json(result)
+          }
         }
       }
     }

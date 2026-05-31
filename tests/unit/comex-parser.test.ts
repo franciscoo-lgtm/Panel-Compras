@@ -17,6 +17,14 @@ describe('parseCSVRow', () => {
   it('trims whitespace and surrounding quotes', () => {
     expect(parseCSVRow(' "value" , other ')).toEqual(['value', 'other'])
   })
+
+  it('handles escaped double-quote inside quoted field ("")', () => {
+    expect(parseCSVRow('"Proveedor ""DJI"" SA",1')).toEqual(['Proveedor "DJI" SA', '1'])
+  })
+
+  it('handles multiple "" sequences in a single field', () => {
+    expect(parseCSVRow('"a""b""c",d')).toEqual(['a"b"c', 'd'])
+  })
 })
 
 describe('buildCsvUrl', () => {

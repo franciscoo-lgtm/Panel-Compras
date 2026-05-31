@@ -6,16 +6,38 @@ export type ComexShipment = {
   extras: Record<string, string | null>
 }
 
+/**
+ * Parser CSV mínimo. Maneja:
+ * - Campos entre comillas que pueden contener comas: `"a,b",c` → `['a,b', 'c']`
+ * - Comillas escapadas (`""` dentro de un campo entre quotes representa
+ *   una comilla literal): `"Proveedor ""DJI"" SA",1` → `['Proveedor "DJI" SA', '1']`
+ *
+ * No maneja line breaks dentro de quotes (Google Sheets export no los
+ * genera por default).
+ */
 export function parseCSVRow(line: string): string[] {
   const cols: string[] = []
   let cur = ''
   let inQ = false
-  for (const c of line) {
-    if (c === '"') { inQ = !inQ }
-    else if (c === ',' && !inQ) { cols.push(cur.trim().replace(/^"|"$/g, '')); cur = '' }
-    else cur += c
+
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]
+    if (c === '"') {
+      // Dentro de quotes: "" es una comilla literal; sino, cierra el quote.
+      if (inQ && line[i + 1] === '"') {
+        cur += '"'
+        i++   // saltar la segunda comilla
+      } else {
+        inQ = !inQ
+      }
+    } else if (c === ',' && !inQ) {
+      cols.push(cur.trim())
+      cur = ''
+    } else {
+      cur += c
+    }
   }
-  cols.push(cur.trim().replace(/^"|"$/g, ''))
+  cols.push(cur.trim())
   return cols
 }
 

@@ -123,16 +123,34 @@ async function callHaiku(
 
 // ─── Enforce single primary row per carton ────────────────────────────────────
 // Claude sometimes fills dimensions on all sub-rows; this corrects it.
+//
+// Bug fix: si Claude omite caseNo en una sub-row, antes pasaba sin tocar y
+// la dedupe fallaba (sumábamos cbm/gwKg duplicado en el consolidado).
+// Ahora hacemos fill-down: si una row no tiene caseNo, hereda el de la
+// row anterior con caseNo no-null.
 
 function enforcePrimaryRow(items: ExtractedItem[]): ExtractedItem[] {
   const seen = new Set<string>()
+  let lastSeenCase: string | null = null
+
   return items.map(item => {
-    if (!item.caseNo) return item
-    if (seen.has(item.caseNo)) {
-      return { ...item, qBultos: null, w: null, l: null, h: null, cbm: null, gwKg: null, cbmXBulto: null }
+    const effectiveCase = item.caseNo ?? lastSeenCase
+    if (!effectiveCase) return item    // sin caseNo conocido todavía, primer item del PL
+
+    if (seen.has(effectiveCase)) {
+      // Sub-row del mismo carton: vaciar dimensiones que solo viven en la primary
+      return {
+        ...item,
+        // Inyectamos el caseNo heredado si la original era null (sin perder la dedupe)
+        caseNo: item.caseNo ?? effectiveCase,
+        qBultos: null, w: null, l: null, h: null, cbm: null, gwKg: null, cbmXBulto: null,
+      }
     }
-    seen.add(item.caseNo)
-    return item
+    seen.add(effectiveCase)
+    lastSeenCase = effectiveCase
+    // Primary row del carton: el caseNo puede haber faltado en input pero
+    // se completa para que el consolidado tenga la referencia.
+    return item.caseNo ? item : { ...item, caseNo: effectiveCase }
   })
 }
 

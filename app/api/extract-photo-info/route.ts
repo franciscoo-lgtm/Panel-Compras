@@ -33,10 +33,27 @@ Respondé ÚNICAMENTE con UN JSON object sin markdown. Campos no aplicables o il
 Ejemplo box: {"labelType":"box","cartonNo":"73122612604290000563","asn":"JDS260428M24N","caseNo":null,"partCode":null,"partDescription":null,"partQty":null,"soNo":null,"modelo":null,"confidence":"high"}
 Ejemplo part: {"labelType":"part","cartonNo":null,"asn":"JDS260428M24N","caseNo":null,"partCode":"CP.MA.00000691.01","partDescription":"DJI Mini 4 Pro Battery","partQty":2,"soNo":"SO-40100","modelo":"DJI Mini 4 Pro","confidence":"high"}`
 
+const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
+type AllowedMediaType = typeof ALLOWED_MEDIA_TYPES[number]
+
+function isAllowedMediaType(v: string): v is AllowedMediaType {
+  return (ALLOWED_MEDIA_TYPES as readonly string[]).includes(v)
+}
+
 export async function POST(req: Request) {
   try {
     const { base64, mediaType } = await req.json() as { base64: string; mediaType: string }
     if (!base64) return NextResponse.json({ ok: false, error: 'base64 requerido' }, { status: 400 })
+
+    // Validar mediaType contra allowlist — antes se hacía un cast ciego,
+    // permitiendo que un cliente mandara `application/pdf` u otros tipos
+    // que Anthropic igual cobra como input pero rechaza.
+    if (!isAllowedMediaType(mediaType)) {
+      return NextResponse.json(
+        { ok: false, error: `mediaType no soportado: ${mediaType}. Permitidos: ${ALLOWED_MEDIA_TYPES.join(', ')}` },
+        { status: 400 },
+      )
+    }
 
     const { text, usage } = await callClaudeWithCache({
       model: 'claude-haiku-4-5-20251001',
@@ -46,7 +63,7 @@ export async function POST(req: Request) {
           type: 'image',
           source: {
             type: 'base64',
-            media_type: mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+            media_type: mediaType,
             data: base64,
           },
         },

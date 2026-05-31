@@ -68,9 +68,20 @@ export async function getDriveAccessToken(): Promise<string> {
  *   https://drive.google.com/file/d/FILE_ID/view
  *   https://drive.google.com/file/d/FILE_ID/view?usp=drivesdk
  *   https://drive.google.com/open?id=FILE_ID
+ *
+ * IMPORTANTE: rechaza links a CARPETAS (`/drive/folders/...`) — si alguien
+ * pega un folder link por error, devolvemos null para evitar que
+ * deleteDriveFile termine borrando una carpeta completa.
  */
 export function extractDriveFileId(url: string | null | undefined): string | null {
   if (!url) return null
+
+  // Hard reject: si el URL referencia una carpeta, NO devolver el id.
+  // Esto previene que un user pegue por accidente un link de carpeta
+  // (https://drive.google.com/drive/folders/XXX) y el panel termine
+  // borrando archivos masivamente.
+  if (/\/(drive\/)?folders\//.test(url)) return null
+
   const m1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)
   if (m1) return m1[1]
   const m2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)
