@@ -250,8 +250,11 @@ export async function matchPhotosToItems(
 /**
  * Persiste fotos a Drive + DB. Para cada foto:
  * 1. Decodifica el dataUrl (base64) a buffer
- * 2. Sube el buffer a Drive en una carpeta por ASN
- * 3. Guarda el link de Drive en CIPLPhoto.driveLink
+ * 2. Sube el buffer a la MISMA carpeta del CIPL en Drive:
+ *    <root>/<año>/<MMYYYY>/<invoice>/fotos/
+ *    (mismo patrón que /api/upload-drive — toda la documentación
+ *    del invoice queda junta)
+ * 3. Guarda la URL de thumbnail en CIPLPhoto.driveLink
  *
  * Fotos sin itemId, sin dataUrl válido, o que fallen el upload se
  * saltean. El resultado reporta cuántas se guardaron y errores
@@ -265,11 +268,11 @@ export async function saveCIPLPhotos(
     const valid = photos.filter(p => p.ciplItemId && p.dataUrl)
     if (valid.length === 0) return { ok: true, saved: 0 }
 
-    // Lookup ASN + SO de cada ciplItem para nombrar el archivo y elegir folder.
+    // Lookup datos del CIPLItem para armar la ruta del invoice.
     const itemIds = [...new Set(valid.map(p => p.ciplItemId))]
     const items = await prisma.cIPLItem.findMany({
       where: { id: { in: itemIds } },
-      select: { id: true, asn: true, soPrincipal: true, caseNo: true },
+      select: { id: true, asn: true, piNo: true, date: true, soPrincipal: true, caseNo: true },
     })
     const itemInfo = new Map(items.map(i => [i.id, i] as const))
 
@@ -293,9 +296,26 @@ export async function saveCIPLPhotos(
 
     const token = await getDriveAccessToken()
 
-    // Carpeta dedicada: <root>/Inspeccion-Fotos/<ASN>
-    const inspeccionFolderId = await driveFindOrCreateFolder(token, 'Inspeccion-Fotos', rootId!)
-    const folderByAsn = new Map<string, string>()
+    // Cache de carpetas resueltas, dedupea cuando varias fotos van al mismo invoice.
+    // Key = "<year>/<month>/<invoice>" — identifica el folder "fotos/" final.
+    const fotosFolderByInvoice = new Map<string, string>()
+
+    async function resolveFotosFolder(
+      year: string, month: string, invoice: string,
+    ): Promise<string> {
+      const key = `${year}/${month}/${invoice}`
+      const cached = fotosFolderByInvoice.get(key)
+      if (cached) return cached
+
+      const yearFolder    = await driveFindOrCreateFolder(token, year,    rootId!)
+      const monthFolder   = await driveFindOrCreateFolder(token, month,   yearFolder)
+      const invoiceFolder = await driveFindOrCreateFolder(token, invoice, monthFolder)
+      const fotosFolder   = await driveFindOrCreateFolder(token, 'fotos', invoiceFolder)
+      fotosFolderByInvoice.set(key, fotosFolder)
+      return fotosFolder
+    }
+
+    const sanitizeFolder = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '-').trim() || 'Sin-Invoice'
 
     const errors: string[] = []
     const rows: { ciplItemId: string; driveLink: string; rowIndex: number; colIndex: number }[] = []
@@ -309,19 +329,24 @@ export async function saveCIPLPhotos(
         }
 
         const info = itemInfo.get(p.ciplItemId)
-        const asnKey = (info?.asn ?? 'sin-asn').trim() || 'sin-asn'
 
-        let asnFolder = folderByAsn.get(asnKey)
-        if (!asnFolder) {
-          asnFolder = await driveFindOrCreateFolder(token, asnKey.replace(/[/\\?%*:|"<>]/g, '-'), inspeccionFolderId)
-          folderByAsn.set(asnKey, asnFolder)
-        }
+        // Misma lógica que /api/upload-drive para que las fotos caigan
+        // en EXACTAMENTE el mismo invoice folder donde está el CIPL.
+        const ref     = info?.date ? new Date(info.date) : new Date()
+        const year    = ref.getFullYear().toString()
+        const mm      = String(ref.getMonth() + 1).padStart(2, '0')
+        const month   = `${mm}${year}`                                // ej: "052026"
+        const rawInv  = info?.piNo ?? info?.asn ?? 'Sin-Invoice'
+        const invoice = sanitizeFolder(rawInv.split(',')[0]!.trim())
 
+        const fotosFolder = await resolveFotosFolder(year, month, invoice)
+
+        const asnLabel = (info?.asn ?? 'sin-asn').trim() || 'sin-asn'
         const ext = decoded.mimeType.split('/')[1] ?? 'jpg'
-        const fileName = `${asnKey}_r${p.rowIndex}c${p.colIndex}_${Date.now()}.${ext}`
+        const fileName = `${asnLabel}_r${p.rowIndex}c${p.colIndex}_${Date.now()}.${ext}`
 
         const uploaded = await driveUploadBytes(
-          token, decoded.bytes, fileName, decoded.mimeType, asnFolder,
+          token, decoded.bytes, fileName, decoded.mimeType, fotosFolder,
           { makePublic: true },
         )
         rows.push({
