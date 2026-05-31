@@ -43,16 +43,20 @@ export function FotosTab({ items }: { items: EmbarqueItem[] }) {
             <span className="ml-auto text-[10px] text-zinc-500">{it.photos.length} foto{it.photos.length === 1 ? '' : 's'}</span>
           </div>
           <div className="p-3 grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-2">
-            {it.photos.map(p => (
-              <button
-                key={p.id}
-                onClick={() => setLightbox(p.dataUrl)}
-                className="aspect-square rounded-md overflow-hidden bg-black border border-white/[0.04] hover:border-[#31AF4F]/40 transition-colors group"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.dataUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-              </button>
-            ))}
+            {it.photos.map(p => {
+              const src = p.driveLink ?? p.dataUrl
+              if (!src) return null
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setLightbox(src)}
+                  className="aspect-square rounded-md overflow-hidden bg-black border border-white/[0.04] hover:border-[#31AF4F]/40 transition-colors group"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                </button>
+              )
+            })}
           </div>
         </div>
       ))}

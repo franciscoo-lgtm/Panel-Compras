@@ -13,7 +13,7 @@ export type EmbarqueItem = {
   diferenciaPiPl: number | null
   cbm: number | null
   gwKg: number | null
-  photos: { id: string; dataUrl: string }[]
+  photos: { id: string; driveLink: string | null; dataUrl: string | null }[]
   // ── Control (Fase 2) ──────────────────────────────────────────────────────
   controlReviewed: boolean
   controlReviewedAt: string | null   // ISO string after JSON.parse(JSON.stringify(...))

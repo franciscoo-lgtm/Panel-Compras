@@ -178,28 +178,19 @@ model CompraSOItem {
 }
 
 // ─── Fotos de inspección ─────────────────────────────────────────────────────
+// Nuevas fotos: se suben a Google Drive y solo se guarda el link.
+// Campo legacy `dataUrl` (base64 inline) mantenido como nullable por compat
+// retro con código que aún lo refiere — se va a borrar una vez sin call sites.
 
 model CIPLPhoto {
   id         String   @id @default(cuid())
   createdAt  DateTime @default(now())
   ciplItemId String
   ciplItem   CIPLItem @relation(fields: [ciplItemId], references: [id], onDelete: Cascade)
-  dataUrl    String   // "data:image/jpeg;base64,..."
+  driveLink  String?  // URL pública del archivo en Drive (nuevo formato)
+  dataUrl    String?  // base64 inline (legacy — deprecated)
   rowIndex   Int      // fila en el Excel (= caja física)
   colIndex   Int      // posición dentro de la fila
-}
-
-// ─── Fotos temporales de inspección (se guardan en análisis, se mueven al guardar) ──
-
-model InspeccionTemp {
-  id        String   @id @default(cuid())
-  sessionId String
-  rowIndex  Int
-  colIndex  Int
-  dataUrl   String
-  createdAt DateTime @default(now())
-
-  @@index([sessionId, rowIndex])
 }
 
 // ─── Configuración del sistema ────────────────────────────────────────────────

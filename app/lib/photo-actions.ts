@@ -2,6 +2,12 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import {
+  getDriveAccessToken,
+  driveFindOrCreateFolder,
+  driveUploadBytes,
+  decodeDataUrl,
+} from '@/app/lib/drive-auth'
 
 export type PhotoToSave = {
   ciplItemId: string
@@ -242,26 +248,103 @@ export async function matchPhotosToItems(
 }
 
 /**
- * Persist photos to DB. Photos without itemId are skipped.
+ * Persiste fotos a Drive + DB. Para cada foto:
+ * 1. Decodifica el dataUrl (base64) a buffer
+ * 2. Sube el buffer a Drive en una carpeta por ASN
+ * 3. Guarda el link de Drive en CIPLPhoto.driveLink
+ *
+ * Fotos sin itemId, sin dataUrl válido, o que fallen el upload se
+ * saltean. El resultado reporta cuántas se guardaron y errores
+ * individuales si los hubo. Si Drive no está configurado, las fotos
+ * se guardan con dataUrl como fallback (compat con setups viejos).
  */
 export async function saveCIPLPhotos(
   photos: PhotoToSave[],
-): Promise<{ ok: true; saved: number } | { ok: false; error: string }> {
+): Promise<{ ok: true; saved: number; errors?: string[] } | { ok: false; error: string }> {
   try {
     const valid = photos.filter(p => p.ciplItemId && p.dataUrl)
     if (valid.length === 0) return { ok: true, saved: 0 }
 
-    await prisma.cIPLPhoto.createMany({
-      data: valid.map(p => ({
-        ciplItemId: p.ciplItemId,
-        dataUrl: p.dataUrl,
-        rowIndex: p.rowIndex,
-        colIndex: p.colIndex,
-      })),
+    // Lookup ASN + SO de cada ciplItem para nombrar el archivo y elegir folder.
+    const itemIds = [...new Set(valid.map(p => p.ciplItemId))]
+    const items = await prisma.cIPLItem.findMany({
+      where: { id: { in: itemIds } },
+      select: { id: true, asn: true, soPrincipal: true, caseNo: true },
     })
+    const itemInfo = new Map(items.map(i => [i.id, i] as const))
+
+    // Drive setup: si falta config, fallback a guardar dataUrl (no rompe nada).
+    const rootId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID
+    const driveConfigured = !!(rootId && process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY)
+
+    if (!driveConfigured) {
+      console.warn('[saveCIPLPhotos] Drive no configurado — guardando fotos como base64 inline')
+      await prisma.cIPLPhoto.createMany({
+        data: valid.map(p => ({
+          ciplItemId: p.ciplItemId,
+          dataUrl: p.dataUrl,
+          rowIndex: p.rowIndex,
+          colIndex: p.colIndex,
+        })),
+      })
+      revalidatePath('/embarques', 'layout')
+      return { ok: true, saved: valid.length }
+    }
+
+    const token = await getDriveAccessToken()
+
+    // Carpeta dedicada: <root>/Inspeccion-Fotos/<ASN>
+    const inspeccionFolderId = await driveFindOrCreateFolder(token, 'Inspeccion-Fotos', rootId!)
+    const folderByAsn = new Map<string, string>()
+
+    const errors: string[] = []
+    const rows: { ciplItemId: string; driveLink: string; rowIndex: number; colIndex: number }[] = []
+
+    for (const p of valid) {
+      try {
+        const decoded = decodeDataUrl(p.dataUrl)
+        if (!decoded) {
+          errors.push(`Foto rowIndex=${p.rowIndex}: dataUrl inválido`)
+          continue
+        }
+
+        const info = itemInfo.get(p.ciplItemId)
+        const asnKey = (info?.asn ?? 'sin-asn').trim() || 'sin-asn'
+
+        let asnFolder = folderByAsn.get(asnKey)
+        if (!asnFolder) {
+          asnFolder = await driveFindOrCreateFolder(token, asnKey.replace(/[/\\?%*:|"<>]/g, '-'), inspeccionFolderId)
+          folderByAsn.set(asnKey, asnFolder)
+        }
+
+        const ext = decoded.mimeType.split('/')[1] ?? 'jpg'
+        const fileName = `${asnKey}_r${p.rowIndex}c${p.colIndex}_${Date.now()}.${ext}`
+
+        const uploaded = await driveUploadBytes(
+          token, decoded.bytes, fileName, decoded.mimeType, asnFolder,
+          { makePublic: true },
+        )
+        rows.push({
+          ciplItemId: p.ciplItemId,
+          // Guardamos la URL de thumbnail (renderea directo en <img src>).
+          // El webViewLink se puede reconstruir desde el id si hace falta.
+          driveLink: uploaded.thumbnailUrl,
+          rowIndex: p.rowIndex,
+          colIndex: p.colIndex,
+        })
+      } catch (err) {
+        errors.push(`Foto rowIndex=${p.rowIndex}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    if (rows.length === 0) {
+      return { ok: false, error: errors.join(' | ') || 'No se subieron fotos a Drive' }
+    }
+
+    await prisma.cIPLPhoto.createMany({ data: rows })
 
     revalidatePath('/embarques', 'layout')
-    return { ok: true, saved: valid.length }
+    return { ok: true, saved: rows.length, ...(errors.length > 0 ? { errors } : {}) }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
