@@ -1,7 +1,9 @@
 'use server'
 
+import { cache as reactCache } from 'react'
 import { prisma } from '@/lib/prisma'
 import { parseCSVRow as parsePure, buildCsvUrl as buildUrlPure, expandRowToShipments } from '@/app/lib/comex-internals'
+import { cachedFetchText } from '@/app/lib/csv-cache'
 import type { MilestoneField } from '@/app/lib/milestone-catalog'
 
 // ─── Tipos públicos ──────────────────────────────────────────────────────────
@@ -165,6 +167,8 @@ export async function previewSheetHeaders(
   if (!url.trim()) return { ok: false, error: 'URL vacía' }
   try {
     const csvUrl = buildUrlPure(url, sheetName)
+    // No cacheamos esta — el preview se usa para verificar cambios manuales
+    // en la sheet, queremos data fresca.
     const res = await fetch(csvUrl, { cache: 'no-store' })
     if (!res.ok) return { ok: false, error: `HTTP ${res.status} al leer la planilla` }
     const text = await res.text()
@@ -206,12 +210,13 @@ async function fetchOneSource(source: ComexSource, isPrimary: boolean): Promise<
 
   try {
     const csvUrl = buildUrlPure(source.url, source.sheetName)
-    const res = await fetch(csvUrl, { cache: 'no-store' })
-    if (!res.ok) {
-      result.errors.push(`Fuente "${source.name}": HTTP ${res.status}`)
+    let text: string
+    try {
+      text = await cachedFetchText(csvUrl, { key: `comex:${source.id}` })
+    } catch (err) {
+      result.errors.push(`Fuente "${source.name}": ${err instanceof Error ? err.message : String(err)}`)
       return result
     }
-    const text = await res.text()
     const lines = text.replace(/\r\n/g, '\n').split('\n')
     const headers = parsePure(lines[0] ?? '').map(h => h.trim())
 
@@ -300,8 +305,13 @@ async function fetchOneSource(source: ComexSource, isPrimary: boolean): Promise<
 }
 
 // ─── Public: fetch live data (mergea todas las fuentes) ──────────────────────
+// El export usa React.cache para dedupear llamadas dentro de la misma
+// request (ej: home page hace listEmbarques + getExecutiveKPIs, ambos
+// invocan fetchComexData → con cache, el segundo reusa el primero).
 
-export async function fetchComexData(): Promise<ComexData> {
+export const fetchComexData = reactCache(_fetchComexDataInner)
+
+async function _fetchComexDataInner(): Promise<ComexData> {
   const empty: ComexData = {
     bySO: new Map(),
     byEmbarque: new Map(),

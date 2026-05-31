@@ -121,6 +121,13 @@ model CIPLItem {
   // ── Orden de Compra ─────────────────────────────────────────────────────────
   compraId  String?
   compra    Compra?  @relation(fields: [compraId], references: [id])
+
+  // Índices: las queries más frecuentes filtran/agrupan por estos campos.
+  // Sin estos, el panel hace table scan en cada page load.
+  @@index([soPrincipal])  // listEmbarques, search, suggest-sos historical
+  @@index([asn])          // search, /comercial flow, fuzzy matching
+  @@index([compraId])     // detail de compras, dashboard
+  @@index([createdAt])    // dashboard "últimos N días"
 }
 
 // ─── Órdenes de Compra ────────────────────────────────────────────────────────

@@ -97,13 +97,38 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
   const activeSOs = new Set<string>()
   for (const s of activeEmbarques) for (const so of s.sos) activeSOs.add(so)
 
-  const activeItems = activeSOs.size > 0
+  // ── Single query: TODAS las SOs que aparecen en summaries ──────────────────
+  // Antes hacíamos 4 queries separadas a compraSOItem (activos, arribados,
+  // anticipación, lms). Ahora una sola con todos los fields que se necesitan
+  // y filtramos en memoria.
+  const allSummariesSOs = new Set<string>()
+  for (const s of summaries) for (const so of s.sos) allSummariesSOs.add(so)
+
+  const compraItems = allSummariesSOs.size > 0
     ? await prisma.compraSOItem.findMany({
-        where: { soNumber: { in: Array.from(activeSOs) } },
-        select: { fobTotal: true },
+        where: { soNumber: { in: Array.from(allSummariesSOs) } },
+        select: {
+          soNumber: true,
+          fobTotal: true,
+          compra: { select: { fechaPago: true, fechaInstruccionCat: true, fechaLMS: true } },
+        },
       })
     : []
-  const valorEnTransitoUSD = activeItems.reduce((s, i) => s + (i.fobTotal ?? 0), 0)
+
+  const fobBySO = new Map<string, number>()              // soNumber → fobTotal (activos)
+  const fechasPago: Record<string, Date | null> = {}     // soNumber → fechaPago
+  const fechasInstr: Record<string, Date | null> = {}    // soNumber → fechaInstruccionCat
+  const fechasLMS: Record<string, Date | null> = {}      // soNumber → fechaLMS
+  for (const ci of compraItems) {
+    if (ci.fobTotal != null && activeSOs.has(ci.soNumber)) {
+      fobBySO.set(ci.soNumber, (fobBySO.get(ci.soNumber) ?? 0) + ci.fobTotal)
+    }
+    fechasPago[ci.soNumber]  = ci.compra.fechaPago           ?? fechasPago[ci.soNumber]  ?? null
+    fechasInstr[ci.soNumber] = ci.compra.fechaInstruccionCat ?? fechasInstr[ci.soNumber] ?? null
+    fechasLMS[ci.soNumber]   = ci.compra.fechaLMS            ?? fechasLMS[ci.soNumber]   ?? null
+  }
+
+  const valorEnTransitoUSD = Array.from(fobBySO.values()).reduce((s, v) => s + v, 0)
   const cbmEnTransito = activeEmbarques.reduce((s, e) => s + e.totalCbm, 0)
 
   // ── Próximos / Retrasados ──────────────────────────────────────────────────
@@ -170,21 +195,8 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
     : Math.round((demoraVsPlan.reduce((a, b) => a + b, 0) / demoraVsPlan.length) * 100)
 
   // ── Lead time pago → arribo depósito ──────────────────────────────────────
-  // Necesitamos buscar la Compra de cada arribado y su fechaPago
-  const arribadoSOs = new Set<string>()
-  for (const s of arribados) for (const so of s.sos) arribadoSOs.add(so)
-
-  const fechasPago: Record<string, Date | null> = {}    // soNumber → fechaPago
-  if (arribadoSOs.size > 0) {
-    const compraSOItems = await prisma.compraSOItem.findMany({
-      where: { soNumber: { in: Array.from(arribadoSOs) } },
-      select: { soNumber: true, compra: { select: { fechaPago: true, fechaInstruccionCat: true, fechaLMS: true } } },
-    })
-    for (const x of compraSOItems) {
-      fechasPago[x.soNumber] = x.compra.fechaPago ?? null
-    }
-  }
-  // Para cada arribado, fechaPago = la más temprana entre las compras de sus SOs
+  // Las fechas ya están en fechasPago (cargadas arriba en la query única).
+  // Para cada arribado, fechaPago = la más temprana entre las compras de sus SOs.
   const leadTimes: number[] = []
   for (const s of arribados) {
     const ship = shipmentFor(s)
@@ -204,21 +216,7 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
   const leadTimePagoArriboDias = mean(leadTimes)
 
   // ── Anticipación Comex (Instrucción Category → ETD) ───────────────────────
-  // Necesitamos fechas de Instrucción Category de las compras
-  const fechasInstr: Record<string, Date | null> = {}
-  if (arribadoSOs.size > 0 || summaries.length > 0) {
-    const allSOs = new Set<string>()
-    for (const s of summaries) for (const so of s.sos) allSOs.add(so)
-    if (allSOs.size > 0) {
-      const compraSOItems = await prisma.compraSOItem.findMany({
-        where: { soNumber: { in: Array.from(allSOs) } },
-        select: { soNumber: true, compra: { select: { fechaInstruccionCat: true, fechaLMS: true } } },
-      })
-      for (const x of compraSOItems) {
-        fechasInstr[x.soNumber] = x.compra.fechaInstruccionCat ?? null
-      }
-    }
-  }
+  // fechasInstr ya está cargada en la query única de arriba.
   const anticipaciones: number[] = []
   for (const s of summaries) {
     const etd = parseDateLoose(s.etd)
@@ -236,27 +234,7 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
   const anticipacionComexDias = mean(anticipaciones)
 
   // ── Días entre etapas (promedios por step) ────────────────────────────────
-  // Para cada embarque con fechas de cada etapa, calculamos diferencias
-  const fechasLMS: Record<string, Date | null> = {}
-  for (const s of summaries) {
-    for (const so of s.sos) {
-      if (so in fechasLMS) continue
-      // Ya cargamos fechasInstr arriba, agregamos fechaLMS también
-    }
-  }
-  // Re-fetch para LMS (lo hacemos junto)
-  const allSOsForStages = new Set<string>()
-  for (const s of summaries) for (const so of s.sos) allSOsForStages.add(so)
-  if (allSOsForStages.size > 0) {
-    const compraSOItems = await prisma.compraSOItem.findMany({
-      where: { soNumber: { in: Array.from(allSOsForStages) } },
-      select: { soNumber: true, compra: { select: { fechaLMS: true } } },
-    })
-    for (const x of compraSOItems) {
-      fechasLMS[x.soNumber] = x.compra.fechaLMS ?? null
-    }
-  }
-
+  // fechasLMS ya está cargada en la query única de arriba.
   // Por cada embarque, recolectamos las 6 fechas de etapas
   const stageDiffs: Record<string, number[]> = {
     'Instr → LMS':       [],
