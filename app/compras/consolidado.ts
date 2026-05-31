@@ -95,9 +95,50 @@ export async function generarConsolidado(
       {wch:12},{wch:16},{wch:36},{wch:20},{wch:14},{wch:16},
     ]
 
-    ws['!merges'] = [
+    // Merges del Excel:
+    // 1) "Dimension (cm)" en el header span W/L/H (existente)
+    // 2) Para cada grupo de items consecutivos con el mismo caseNo (mismo
+    //    bulto físico), mergeamos verticalmente las columnas que aplican
+    //    AL BULTO. Sin esto, las sub-rows mostraban celdas vacías sueltas
+    //    en CTNS, Weight, Dimensiones, etc — visualmente fragmentado.
+    //
+    // El primer item del grupo (primary row) tiene los valores; las
+    // sub-rows ya vienen con null en esas columnas (gracias a
+    // enforcePrimaryRow al guardar el CIPL).
+
+    const merges: XLSX.Range[] = [
       { s: { r:0, c:17 }, e: { r:0, c:19 } },
     ]
+
+    // Columnas del Excel que aplican al BULTO (no al item individual):
+    // 9=PALLET, 12=CTNS, 16=Weight/CTN, 17/18/19=W/L/H, 20=TOTAL CBM,
+    // 21=TOTAL WEIGHT, 22=M3 por Bulto, 23=Kg* Bulto Deposito, 24=PL Original
+    const BULTO_COLS = [9, 12, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+
+    // Las filas de data arrancan en r=2 (después de headers1 y headers2)
+    const DATA_OFFSET = 2
+
+    let groupStart = 0
+    for (let i = 1; i <= items.length; i++) {
+      const currentCase = items[i]?.caseNo ?? null
+      const groupCase = items[groupStart]?.caseNo ?? null
+      const isEndOfGroup = i === items.length || currentCase !== groupCase
+      if (!isEndOfGroup) continue
+
+      const groupLen = i - groupStart
+      // Solo mergeamos si hay sub-rows (groupLen > 1) Y si el caseNo no es vacío
+      // (sin caseNo no podemos garantizar que sean del mismo bulto).
+      if (groupLen > 1 && groupCase) {
+        const rStart = DATA_OFFSET + groupStart
+        const rEnd   = DATA_OFFSET + i - 1
+        for (const col of BULTO_COLS) {
+          merges.push({ s: { r: rStart, c: col }, e: { r: rEnd, c: col } })
+        }
+      }
+      groupStart = i
+    }
+
+    ws['!merges'] = merges
 
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'PL Consolidado Mercaderia')
