@@ -3,7 +3,8 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { Anchor, AlertTriangle, ArrowUpRight, Plane, Boxes, Layers, Activity, TrendingUp, BarChart3 } from 'lucide-react'
 import { listEmbarques } from '@/app/lib/embarques'
-import { getExecutiveKPIs, getAlerts } from '@/app/lib/dashboard'
+import { getExecutiveKPIs, getAlerts, type AlertItem } from '@/app/lib/dashboard'
+import { AlertasBandeja } from '@/components/dashboard/AlertasBandeja'
 import { StatusPill } from '@/components/shared/StatusPill'
 import { DateRange } from '@/components/shared/DateRange'
 import { EmbarquesPorMesChart } from '@/components/dashboard/EmbarquesPorMesChart'
@@ -144,28 +145,7 @@ export default async function HomePage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <article className="lg:col-span-2 glass-card overflow-hidden">
-            <div className="px-6 py-4 flex items-center gap-3 border-b border-white/[0.04]">
-              <Activity className="w-3.5 h-3.5 text-amber-300/80" />
-              <span className="text-[11px] font-medium text-white/70 tracking-wide">Bandeja de alertas</span>
-              <span className="ml-auto text-[10px] text-white/30 tabular-nums">{alerts.length}</span>
-            </div>
-            <div className="divide-y divide-white/[0.03]">
-              {alerts.length === 0 ? (
-                <p className="px-6 py-12 text-center text-white/30 text-[12px]">Sin alertas. Todo en orden.</p>
-              ) : alerts.slice(0, 8).map((a, i) => {
-                const dotColor = a.kind === 'critical' ? 'bg-red-400' : a.kind === 'warn' ? 'bg-amber-300' : 'bg-emerald-400'
-                const body = (
-                  <div className="px-6 py-3 flex items-center gap-3 hover:bg-white/[0.02] transition-colors group">
-                    <span className={`w-1.5 h-1.5 rounded-full ${dotColor} shrink-0`} />
-                    <span className="text-[12px] text-white/75 flex-1 truncate">{a.text}</span>
-                    {a.href && <ArrowUpRight className="w-3.5 h-3.5 text-white/20 group-hover:text-[#31AF4F] transition-colors" />}
-                  </div>
-                )
-                return a.href
-                  ? <Link key={i} href={a.href}>{body}</Link>
-                  : <div key={i}>{body}</div>
-              })}
-            </div>
+            <AlertasBandeja alerts={alerts} />
           </article>
 
           <article className="glass-card overflow-hidden">

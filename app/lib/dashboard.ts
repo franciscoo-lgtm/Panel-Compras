@@ -415,7 +415,11 @@ export async function getAlerts(summaries: EmbarqueSummary[]): Promise<AlertItem
   const alerts: AlertItem[] = []
   const now = new Date()
 
-  for (const s of filtered.slice(0, 50)) {
+  // Antes había un .slice(0, 50) silencioso. Ahora recorremos todos los
+  // embarques con CIPL — el filtro previo a lugar (estado en-tránsito + ETA
+  // existente) ya limita el ruido. El UI del home muestra los primeros N y
+  // tiene "Ver todas" si hace falta.
+  for (const s of filtered) {
     const eta = parseDateLoose(s.eta)
     if (!eta) continue
     const days = Math.round((eta.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
@@ -430,6 +434,10 @@ export async function getAlerts(summaries: EmbarqueSummary[]): Promise<AlertItem
   if (itemsSinFoto > 0) {
     alerts.push({ kind: 'warn', text: `${itemsSinFoto} ítems sin foto cargada`, href: '/comercial' })
   }
+
+  // Sort: críticas primero, después warn, después info
+  const KIND_PRIORITY: Record<AlertItem['kind'], number> = { critical: 0, warn: 1, info: 2 }
+  alerts.sort((a, b) => KIND_PRIORITY[a.kind] - KIND_PRIORITY[b.kind])
 
   return alerts
 }

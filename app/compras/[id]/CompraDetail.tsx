@@ -198,82 +198,96 @@ export function CompraDetail({ compra, bySO }: { compra: CompraSerial; bySO: Rec
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
-      {/* Header */}
-      <div className="border-b border-white/[0.06] px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/compras')} className="text-white/30 hover:text-white/70 transition-colors">
-            <ChevronLeft className="w-5 h-5" />
-          </button>
+    <div className="min-h-screen px-8 py-10 max-w-[1500px] mx-auto">
+      {/* Breadcrumb */}
+      <button
+        onClick={() => router.push('/compras')}
+        className="inline-flex items-center gap-1 text-[11px] text-white/35 hover:text-white/70 transition-colors mb-6"
+      >
+        <ChevronLeft className="w-3 h-3" />
+        Compras
+      </button>
+
+      {/* Header editorial */}
+      <header className="mb-10 fade-rise">
+        <div className="flex items-baseline justify-between mb-3 gap-4 flex-wrap">
+          <span className="eyebrow">Bidcom Agro · Orden de compra</span>
+          <span className="eyebrow tabular-nums">Creada {fmtDate(compra.fechaOrden)}</span>
+        </div>
+
+        <div className="flex items-end justify-between gap-6 flex-wrap">
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-[15px] font-semibold text-white">{compra.piNo ?? `OC-${compra.id.slice(-6).toUpperCase()}`}</h1>
+            <div className="flex items-center gap-3 flex-wrap mb-2">
+              <h1 className="display-md text-white font-mono tracking-tight">{compra.piNo ?? `OC-${compra.id.slice(-6).toUpperCase()}`}</h1>
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getStatusBadgeClass(status)}`}>
                 <span className="w-1.5 h-1.5 rounded-full bg-current" />{status}
               </span>
             </div>
-            <p className="text-[11px] text-white/30 mt-0.5">
-              {compra.supplierName ?? 'Sin proveedor'} · Creada {fmtDate(compra.fechaOrden)}
+            <p className="text-[13px] text-white/45">
+              {compra.supplierName ?? 'Sin proveedor'}
             </p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {embarques.map(emb => (
-            <button
-              key={emb}
-              onClick={() => handleConsolidado(emb)}
-              disabled={dlPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white/[0.05] border border-white/[0.08] text-white/50 hover:text-white/80 transition-colors"
-            >
-              {dlPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-              PL Consolidado {emb}
-            </button>
-          ))}
 
-          {!confirmDelete ? (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white/[0.03] border border-white/[0.06] text-white/40 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-colors"
-              title="Eliminar esta compra"
-            >
-              <Trash2 className="w-3 h-3" />
-              Eliminar
-            </button>
-          ) : (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30">
-              <span className="text-[11px] text-red-300">¿Eliminar {compra.piNo ?? 'esta compra'}?</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {embarques.map(emb => (
               <button
-                onClick={handleDelete}
-                disabled={delPending}
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-red-500/20 text-red-300 hover:bg-red-500/30"
+                key={emb}
+                onClick={() => handleConsolidado(emb)}
+                disabled={dlPending}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.04] border border-white/[0.06] text-white/65 hover:bg-white/[0.08] hover:text-white transition-colors"
               >
-                {delPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                Sí
+                {dlPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                PL Consolidado {emb}
               </button>
+            ))}
+
+            {!confirmDelete ? (
               <button
-                onClick={() => { setConfirmDelete(false); setDelError(null) }}
-                disabled={delPending}
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-white/50 hover:text-white/80"
+                onClick={() => setConfirmDelete(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.03] border border-white/[0.06] text-white/40 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-300 transition-colors"
+                title="Eliminar esta compra"
               >
-                <X className="w-3 h-3" />
-                No
+                <Trash2 className="w-3 h-3" />
+                Eliminar
               </button>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30">
+                <span className="text-[11px] text-red-300">¿Eliminar {compra.piNo ?? 'esta compra'}?</span>
+                <button
+                  onClick={handleDelete}
+                  disabled={delPending}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-red-500/20 text-red-300 hover:bg-red-500/30"
+                >
+                  {delPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                  Sí
+                </button>
+                <button
+                  onClick={() => { setConfirmDelete(false); setDelError(null) }}
+                  disabled={delPending}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-white/50 hover:text-white/80"
+                >
+                  <X className="w-3 h-3" />
+                  No
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+
+        <div className="hairline mt-7" />
+      </header>
 
       {dlError && (
-        <div className="mx-6 mt-4 text-[12px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{dlError}</div>
+        <div className="mb-4 text-[12px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{dlError}</div>
       )}
 
       {delError && (
-        <div className="mx-6 mt-4 text-[12px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+        <div className="mb-4 text-[12px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
           Error al eliminar: {delError}
         </div>
       )}
 
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
         {/* KPI strip */}
         <div className="grid grid-cols-4 gap-3">
           {[

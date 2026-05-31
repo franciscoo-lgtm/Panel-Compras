@@ -4,8 +4,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { Home, Anchor, Upload, ChevronLeft, ChevronRight, ShoppingCart, Settings, LogOut } from 'lucide-react'
+import { Home, Anchor, Upload, ChevronLeft, ChevronRight, ShoppingCart, Settings, LogOut, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { openCmdK } from './shared/CmdK'
 
 const nav = [
   { href: '/',              label: 'Inicio',        icon: Home,         legacy: false, badge: null },
@@ -45,6 +46,28 @@ export function Sidebar({ collapsed, onToggle }: Props) {
           </div>
         )}
       </Link>
+
+      {/* Search trigger */}
+      <div className={cn('pt-3', collapsed ? 'px-1.5' : 'px-2.5')}>
+        <button
+          onClick={openCmdK}
+          title={collapsed ? 'Buscar (⌘K)' : undefined}
+          className={cn(
+            'w-full flex items-center rounded-md text-[12px] transition-colors group',
+            collapsed
+              ? 'justify-center px-0 py-2 text-white/40 hover:text-white/80 hover:bg-white/[0.04]'
+              : 'gap-2.5 px-2.5 py-1.5 bg-white/[0.02] border border-white/[0.06] text-white/45 hover:bg-white/[0.04] hover:border-white/[0.1]',
+          )}
+        >
+          <Search className="w-3.5 h-3.5 shrink-0" />
+          {!collapsed && (
+            <>
+              <span className="truncate text-[11px]">Buscar…</span>
+              <kbd className="ml-auto font-mono text-[9px] text-white/35 border border-white/[0.06] rounded px-1 py-0.5">⌘K</kbd>
+            </>
+          )}
+        </button>
+      </div>
 
       {/* Nav */}
       <nav className={cn('flex-1 py-3 space-y-0.5', collapsed ? 'px-1.5' : 'px-2.5')}>

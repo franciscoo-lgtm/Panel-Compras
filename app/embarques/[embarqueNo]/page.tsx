@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, Download, Anchor } from 'lucide-react'
+import { ChevronLeft, Download } from 'lucide-react'
 import { getEmbarqueDetail } from '@/app/lib/embarques'
 import { getMilestonesConfig } from '@/app/lib/milestones-config'
 import { getMilestoneDateForEmbarque } from '@/app/lib/milestones-compute'
+import { detectTipoTransporte, slaThresholdDays } from '@/app/lib/comex-internals'
 import { StatusPill } from '@/components/shared/StatusPill'
 import { DateRange } from '@/components/shared/DateRange'
 import { MilestonesTimeline } from '@/components/shared/MilestonesTimeline'
@@ -62,39 +63,56 @@ export default async function EmbarqueDetailPage({ params }: Props) {
     date: getMilestoneDateForEmbarque(m, comprasPlain, firstCiplCreatedAt, detail.sos, bySORecord),
   }))
 
+  const tipo = detectTipoTransporte(detail.embarqueNo)
+  const tipoLabel = tipo === 'AIR' ? 'AIR · vuelo' : tipo === 'FCL' ? 'FCL · barco' : tipo === 'LCL' ? 'LCL · consolidado' : 'Sin tipo'
+  const slaDays = slaThresholdDays(tipo)
+
   return (
-    <div className="px-6 py-5">
-      <div className="flex items-center gap-2 mb-3 text-[11px] text-zinc-500">
-        <Link href="/embarques" className="hover:text-white transition-colors inline-flex items-center gap-1">
-          <ChevronLeft className="w-3 h-3" />
-          Embarques
-        </Link>
-      </div>
+    <div className="px-8 py-10 max-w-[1500px] mx-auto">
+      {/* Breadcrumb */}
+      <Link
+        href="/embarques"
+        className="inline-flex items-center gap-1 text-[11px] text-white/35 hover:text-white/70 transition-colors mb-6"
+      >
+        <ChevronLeft className="w-3 h-3" />
+        Embarques
+      </Link>
 
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <Anchor className="w-5 h-5 text-[#31AF4F] shrink-0" />
-        <h1 className="text-2xl font-display font-bold text-white tracking-tight">{detail.embarqueNo}</h1>
-        <StatusPill estado={detail.estado} />
-
-        <div className="ml-auto flex items-center gap-2">
-          <DateRange etd={detail.etd} eta={detail.eta} />
-          {detail.awb && (
-            <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-white/[0.04] text-zinc-400 border border-white/[0.06]">
-              AWB {detail.awb}
-            </span>
-          )}
-          <a
-            href={`/api/embarques/${encodeURIComponent(detail.embarqueNo)}/export`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-[#31AF4F] hover:bg-[#31AF4F]/85 text-white transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Exportar CIPL consolidado
-          </a>
+      {/* Header editorial */}
+      <header className="mb-10 fade-rise">
+        <div className="flex items-baseline justify-between mb-3 gap-4 flex-wrap">
+          <span className="eyebrow">Bidcom Agro · Embarque</span>
+          <span className="eyebrow tabular-nums">{tipoLabel} · SLA {slaDays}d</span>
         </div>
-      </div>
+
+        <div className="flex items-end justify-between gap-6 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="display-md text-white font-mono tracking-tight">{detail.embarqueNo}</h1>
+            <StatusPill estado={detail.estado} />
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <DateRange etd={detail.etd} eta={detail.eta} />
+            {detail.awb && (
+              <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-white/[0.04] text-white/55 border border-white/[0.06]">
+                AWB {detail.awb}
+              </span>
+            )}
+            <a
+              href={`/api/embarques/${encodeURIComponent(detail.embarqueNo)}/export`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#31AF4F] hover:bg-[#44DA68] text-white transition-colors shadow-[0_0_18px_rgba(49,175,79,0.25)]"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Exportar CIPL consolidado
+            </a>
+          </div>
+        </div>
+
+        <div className="hairline mt-7" />
+      </header>
 
       {milestoneItems.length > 0 && (
-        <div className="mb-5">
+        <div className="mb-8 fade-rise fade-rise-1">
           <MilestonesTimeline items={milestoneItems} />
         </div>
       )}

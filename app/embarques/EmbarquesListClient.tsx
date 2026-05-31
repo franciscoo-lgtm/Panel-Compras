@@ -2,10 +2,33 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Search, HelpCircle, Package } from 'lucide-react'
+import { Search, HelpCircle, Package, AlertTriangle } from 'lucide-react'
 import { StatusPill, type EmbarqueEstado } from '@/components/shared/StatusPill'
 import { DateRange } from '@/components/shared/DateRange'
+import { detectTipoTransporte, slaThresholdDays, parseDateLoose } from '@/app/lib/comex-internals'
 import { cn } from '@/lib/utils'
+
+/**
+ * Calcula días en tránsito vs threshold del SLA del tipo (AIR 30d / FCL 65d).
+ * - `daysOver` > 0 significa "se pasó del SLA" (rojo)
+ * - `daysOver` = 0 sin warning
+ * - Solo se calcula para embarques activos (no arribados)
+ */
+function slaInfo(embarqueNo: string, etd: string | null, estado: EmbarqueEstado): {
+  threshold: number
+  daysOver: number
+  inDanger: boolean
+} | null {
+  if (estado === 'arribado' || estado === 'desconocido') return null
+  const etdDate = parseDateLoose(etd)
+  if (!etdDate) return null
+  const tipo = detectTipoTransporte(embarqueNo)
+  if (tipo === 'unknown') return null
+  const threshold = slaThresholdDays(tipo)
+  const daysSinceEtd = Math.floor((Date.now() - etdDate.getTime()) / (1000 * 60 * 60 * 24))
+  const daysOver = daysSinceEtd - threshold
+  return { threshold, daysOver, inDanger: daysOver > 0 }
+}
 
 type Summary = {
   embarqueNo: string
@@ -142,7 +165,9 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
           <p className="px-4 py-10 text-center text-zinc-500 text-[12px] rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
             No hay embarques que coincidan con el filtro.
           </p>
-        ) : filtered.map(s => (
+        ) : filtered.map(s => {
+          const sla = slaInfo(s.embarqueNo, s.etd, s.estado)
+          return (
           <Link
             key={s.embarqueNo}
             href={`/embarques/${encodeURIComponent(s.embarqueNo)}`}
@@ -150,6 +175,7 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
           >
             <div className="flex items-center gap-2 mb-2">
               <span className="font-mono font-semibold text-white text-[13px]">{s.embarqueNo}</span>
+              {sla?.inDanger && <SLABadge sla={sla} compact />}
               <StatusPill estado={s.estado} className="ml-auto" />
             </div>
             <div className="flex items-center gap-2 mb-1.5">
@@ -167,7 +193,8 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
               <span>{s.totalCbm.toFixed(2)} CBM</span>
             </div>
           </Link>
-        ))}
+          )
+        })}
       </div>
 
       {/* Desktop: table */}
@@ -179,6 +206,7 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
               <th className="text-left text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-4 py-2.5">N° Embarque</th>
               <th className="text-left text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-4 py-2.5">Estado</th>
               <th className="text-left text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-4 py-2.5">ETD → ETA</th>
+              <th className="text-left text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-4 py-2.5">SLA</th>
               <th className="text-left text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-4 py-2.5">AWB</th>
               <th className="text-left text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-4 py-2.5">SOs</th>
               <th className="text-right text-[10px] uppercase tracking-wider font-semibold text-zinc-500 px-4 py-2.5">Unidades</th>
@@ -188,11 +216,13 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-zinc-500 text-[12px]">
+                <td colSpan={8} className="px-4 py-10 text-center text-zinc-500 text-[12px]">
                   No hay embarques que coincidan con el filtro.
                 </td>
               </tr>
-            ) : filtered.map(s => (
+            ) : filtered.map(s => {
+              const sla = slaInfo(s.embarqueNo, s.etd, s.estado)
+              return (
               <tr key={s.embarqueNo} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
                 <td className="px-4 py-3">
                   <Link href={`/embarques/${encodeURIComponent(s.embarqueNo)}`} className="font-mono font-semibold text-white hover:text-[#31AF4F] transition-colors">
@@ -201,6 +231,7 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
                 </td>
                 <td className="px-4 py-3"><StatusPill estado={s.estado} /></td>
                 <td className="px-4 py-3"><DateRange etd={s.etd} eta={s.eta} /></td>
+                <td className="px-4 py-3">{sla ? <SLABadge sla={sla} /> : <span className="text-zinc-700 text-[10px]">—</span>}</td>
                 <td className="px-4 py-3 font-mono text-[11px] text-zinc-500">{s.awb ?? '—'}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-1">
@@ -213,11 +244,39 @@ export function EmbarquesListClient({ summaries }: { summaries: Summary[] }) {
                 <td className="px-4 py-3 text-right text-zinc-300 tabular-nums">{s.totalQty.toLocaleString()}</td>
                 <td className="px-4 py-3 text-right text-zinc-500 tabular-nums">{s.totalCbm.toFixed(2)}</td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
         </div>
       </div>
     </div>
+  )
+}
+
+function SLABadge({ sla, compact = false }: {
+  sla: NonNullable<ReturnType<typeof slaInfo>>
+  compact?: boolean
+}) {
+  if (sla.inDanger) {
+    return (
+      <span
+        className={cn(
+          'inline-flex items-center gap-1 rounded font-mono font-semibold tabular-nums',
+          compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-1 text-[10px]',
+          'bg-red-500/10 text-red-300 border border-red-500/30',
+        )}
+        title={`Lleva ${sla.daysOver} día${sla.daysOver === 1 ? '' : 's'} sobre el SLA de ${sla.threshold}d`}
+      >
+        <AlertTriangle className={cn(compact ? 'w-2.5 h-2.5' : 'w-3 h-3')} />
+        +{sla.daysOver}d
+      </span>
+    )
+  }
+  // Dentro del threshold: mostrar threshold como ref discreto
+  return (
+    <span className="font-mono text-[10px] text-zinc-500 tabular-nums" title={`SLA ${sla.threshold} días`}>
+      ≤ {sla.threshold}d
+    </span>
   )
 }
