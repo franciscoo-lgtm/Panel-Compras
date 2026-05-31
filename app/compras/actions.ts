@@ -7,6 +7,7 @@ import { buildGSOMap } from '@/app/lib/sheets'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type CompraManualField =
+  | 'fechaOrden'
   | 'fechaEnvio'
   | 'fechaPago'
   | 'fechaSegundaValPA'
@@ -80,6 +81,12 @@ export async function marcarHito(
   isoDate: string | null,
 ): Promise<ActionResult> {
   try {
+    // fechaOrden no es nullable en el schema (siempre tiene un default).
+    // Si el user borra el input, lo dejamos como fecha actual en vez de
+    // dejarlo en null que Prisma rechaza.
+    if (field === 'fechaOrden' && !isoDate) {
+      return { ok: false, error: 'La fecha de creación de orden no puede estar vacía.' }
+    }
     await prisma.compra.update({
       where: { id: compraId },
       data:  { [field]: isoDate ? new Date(isoDate) : null },

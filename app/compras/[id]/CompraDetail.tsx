@@ -57,7 +57,7 @@ const MILESTONES: Milestone[] = [
   { key: '_arriboDeposito',     label: 'Arribo Depósito',       source: 'comex',  comexFieldKey: 'fechaArriboDeposito' },
 ]
 
-const EDITABLE_MANUAL = new Set<string>(['fechaEnvio','fechaPago','fechaSegundaValPA','fechaInstruccionCat','fechaLMS'])
+const EDITABLE_MANUAL = new Set<string>(['fechaOrden','fechaEnvio','fechaPago','fechaSegundaValPA','fechaInstruccionCat','fechaLMS'])
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
