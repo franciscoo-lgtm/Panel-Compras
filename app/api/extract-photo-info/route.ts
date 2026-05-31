@@ -6,32 +6,100 @@ export const dynamic = 'force-dynamic'
 
 const PROMPT = `Sos un asistente que analiza fotos de etiquetas en importaciones DJI Argentina.
 
-PRIMERO, decidí qué tipo de etiqueta estás viendo:
-- "box": etiqueta de CAJA — tiene "Ctn N°", "Carton N°", "CTN", "箱号" o "(CarTon No)" visible, y un número/barcode de carton (puede ser largo, tipo 73122612604290000563, o corto tipo 1/24)
-- "part": etiqueta de REPUESTO individual — describe un producto (con código, descripción, cantidad). NO tiene "Ctn N°".
-- "unknown": no podés decidir.
+═══════════════════════════════════════════════════════════════════
+PASO 1 — Identificá el tipo de etiqueta
+═══════════════════════════════════════════════════════════════════
 
-LUEGO, extraé los campos según el tipo:
+"box" (etiqueta de CAJA):
+- Suele ser una etiqueta GRANDE pegada al exterior de la caja
+- Tiene texto en chino "跨境订单" (Cross-border order) Y "箱号" (Carton No) o "(CarTon No)"
+- Tiene MÚLTIPLES números/códigos en una grilla:
+  * SO.No (número de SO, ej "AR SO09858876")
+  * 出货单号 / Shipment No (ej "JDS260506M5LP")
+  * Un código tipo "ESI.0000002487040441"
+  * 箱号 / Carton No (un BARCODE LARGO de 20+ dígitos, ej "7312261260507000000403")
+- Generalmente tiene el texto "第 N 箱" arriba (caja número N)
 
-Si es "box":
-- cartonNo: el número de carton (string, puede ser barcode largo o corto)
-- asn: si lo ves (formato 3 letras + 6 dígitos + 4 alfanuméricos)
-- caseNo: si hay un caso interno visible (suele coincidir con cartonNo o ser un sub-código)
+"part" (etiqueta de REPUESTO individual):
+- Etiqueta MÁS CHICA, pegada directamente sobre el producto o en bolsa plástica
+- Suele tener logo "JDL Express" o "京东快递"
+- Tiene texto chino "物料标识卡" / "Shipping Label" o "物料信息"
+- Tiene:
+  * 货品编号 / Item Code (ej "JDS260506M5LP")
+  * 物料代码 / Material Code (ej "YC.KC.0Q000797.04")
+  * Descripción del producto en inglés (ej "Aircraft Arm Power Cable (Rear)")
+  * 数量 / Quantity (número pequeño, suele ser 1-50)
+  * "Made in China"
 
-Si es "part":
-- partCode: código del repuesto / EAN / SKU (string)
-- partDescription: descripción del producto tal como aparece en la etiqueta
-- partQty: cantidad visible en la etiqueta (entero)
-- asn: si lo ves
-- soNo: número de SO si aparece (ej "SO-1234", "SO40100")
-- modelo: nombre del modelo si aparece
+"unknown": no podés decidir con certeza.
 
-confidence: tu nivel de certeza ("high" | "medium" | "low")
+═══════════════════════════════════════════════════════════════════
+PASO 2 — Extraé los campos según el tipo
+═══════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────
+SI ES "box":
+────────────────────────────────────────────────────────────────────
+
+**cartonNo (CRÍTICO)**:
+ES el número que está en la fila etiquetada "箱号 / (CarTon No)" — generalmente
+es un código de barras LARGO con un número de 18-22 dígitos abajo
+(ej: "7312261260507000000403").
+**NO confundir con:**
+- "出货单号" / Shipment No → este es asn/shipmentNo, NO cartonNo
+- "SO.No" → este es soNo, NO cartonNo
+- "ESI.xxxxxx" → este es un código interno de operador, NO cartonNo
+Si ves múltiples barcodes, el cartonNo es el QUE TIENE LA ETIQUETA "箱号" o "CarTon No"
+literalmente al lado o arriba.
+
+**asn**: el "出货单号" / Shipment No (ej "JDS260506M5LP" — empieza con JDS o similar)
+
+**caseNo**: si hay un código interno visible (suele coincidir con cartonNo o ser un sub-código)
+
+**soNo**: el "SO.No" (ej "AR SO09858876" → normalizá a "AR.SO09858876" o el formato que veas)
+
+────────────────────────────────────────────────────────────────────
+SI ES "part":
+────────────────────────────────────────────────────────────────────
+
+**partCode (CRÍTICO)**:
+ES el "物料代码" / Material Code (ej "YC.KC.0Q000797.04", "CP.MA.00000691.01").
+Suele tener formato XX.XX.XXXXXXX.XX o similar, con puntos.
+**NO confundir con:**
+- 货品编号 / Item Code → este es asn (es el Shipment No)
+- Barcode general → el código del producto suele estar escrito en texto, no solo como barcode
+
+**partDescription**: la descripción del producto en INGLÉS o español
+(ej "Aircraft Arm Power Cable (Rear)", "DJI Mini 4 Pro Battery").
+Si está borrosa o cortada, escribí lo que SE LEA con confidence=medium o low.
+
+**partQty**: la cantidad / "数量" (un entero pequeño, generalmente 1-50)
+
+**asn**: el "货品编号" / Item Code (ej "JDS260506M5LP")
+
+**soNo**: número de SO si aparece (ej "SO-1234", "SO40100")
+
+**modelo**: nombre del modelo si aparece (DJI Air, DJI Mini, AGRAS T30, etc)
+
+═══════════════════════════════════════════════════════════════════
+PASO 3 — Confidence
+═══════════════════════════════════════════════════════════════════
+
+- "high": etiqueta clara, todos los campos críticos legibles, sin ambigüedad
+- "medium": uno o más campos requieren inferencia, foto algo borrosa pero legible
+- "low": foto muy borrosa, ángulo malo, o campos críticos casi ilegibles
+
+═══════════════════════════════════════════════════════════════════
+FORMATO
+═══════════════════════════════════════════════════════════════════
 
 Respondé ÚNICAMENTE con UN JSON object sin markdown. Campos no aplicables o ilegibles → null.
 
-Ejemplo box: {"labelType":"box","cartonNo":"73122612604290000563","asn":"JDS260428M24N","caseNo":null,"partCode":null,"partDescription":null,"partQty":null,"soNo":null,"modelo":null,"confidence":"high"}
-Ejemplo part: {"labelType":"part","cartonNo":null,"asn":"JDS260428M24N","caseNo":null,"partCode":"CP.MA.00000691.01","partDescription":"DJI Mini 4 Pro Battery","partQty":2,"soNo":"SO-40100","modelo":"DJI Mini 4 Pro","confidence":"high"}`
+Ejemplo box (etiqueta caja con código barras CarTon No):
+{"labelType":"box","cartonNo":"7312261260507000000403","asn":"JDS260506M5LP","caseNo":null,"partCode":null,"partDescription":null,"partQty":null,"soNo":"AR.SO09858876","modelo":null,"confidence":"high"}
+
+Ejemplo part (etiqueta repuesto con código YC/CP):
+{"labelType":"part","cartonNo":null,"asn":"JDS260506M5LP","caseNo":null,"partCode":"YC.KC.0Q000797.04","partDescription":"Aircraft Arm Power Cable (Rear)","partQty":4,"soNo":null,"modelo":null,"confidence":"high"}`
 
 const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
 type AllowedMediaType = typeof ALLOWED_MEDIA_TYPES[number]
@@ -69,7 +137,9 @@ export async function POST(req: Request) {
         },
         { type: 'text', text: 'Analizá esta etiqueta y devolveme el JSON.' },
       ],
-      maxTokens: 256,
+      // Subimos a 512 porque el prompt nuevo es más estricto y el JSON
+      // puede incluir descripciones más largas (Aircraft Arm Power Cable (Rear) etc).
+      maxTokens: 512,
     })
 
     logCacheStats('extract-photo-info', usage)

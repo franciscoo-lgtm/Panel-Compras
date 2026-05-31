@@ -186,21 +186,36 @@ export async function matchPhotosToItems(
       return none(c)
     }
 
-    // ── PART: match por código exacto, luego descripción fuzzy ────────────────
+    // ── PART: match por código exacto, partial, después descripción fuzzy ─────
     if (labelType === 'part') {
       // 1. EAN/SKU exact match
       if (partCodeUp) {
         const h = byCode.get(partCodeUp)
         if (h) return hit(c, h, 'part-code')
+
+        // 1b. partial match: el código del repuesto puede tener un sufijo extra
+        // que no aparece en el PL. Ej etiqueta "YC.KC.0Q000797.04" vs PL "YC.KC.0Q000797".
+        // Comparamos por prefijo después de stripear separadores.
+        const partNorm = partCodeUp.replace(/[^A-Z0-9]/g, '')
+        if (partNorm.length >= 8) {
+          for (const [storedCode, item] of byCode) {
+            const storedNorm = storedCode.replace(/[^A-Z0-9]/g, '')
+            if (storedNorm.length >= 8 && (partNorm.startsWith(storedNorm) || storedNorm.startsWith(partNorm))) {
+              return hit(c, item, 'part-code')
+            }
+          }
+        }
       }
       // 2. fuzzy match by description within ASN scope (if known)
+      // Bajamos threshold a 0.4 — descripciones como "Aircraft Arm Power Cable (Rear)"
+      // matchean con "Aircraft Arm Power Cable" del PL sin tokens del paréntesis.
       if (ai.partDescription) {
         const candidates = asnUp ? (byAsn.get(asnUp) ?? []) : items
         let best: { it: typeof items[number]; score: number } | null = null
         for (const it of candidates) {
           if (!it.description) continue
           const score = fuzzyScore(ai.partDescription, it.description)
-          if (score >= 0.5 && (!best || score > best.score)) best = { it, score }
+          if (score >= 0.4 && (!best || score > best.score)) best = { it, score }
         }
         if (best) return hit(c, best.it, 'part-desc')
       }
@@ -209,7 +224,7 @@ export async function matchPhotosToItems(
         const h = bySo.get(soUp)?.[0]
         if (h) return hit(c, h, 'so')
       }
-      // 4. ASN match
+      // 4. ASN match (último recurso — el ASN al menos limita al embarque correcto)
       if (asnUp) {
         const h = byAsn.get(asnUp)?.[0]
         if (h) return hit(c, h, 'asn')
