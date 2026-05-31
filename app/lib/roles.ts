@@ -1,3 +1,5 @@
+import { auth } from '@/auth'
+
 export type AppRole = 'comercial' | 'comex' | 'admin'
 
 export const ROLE_LABELS: Record<AppRole, string> = {
@@ -6,11 +8,25 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   admin:     'Administrador',
 }
 
-// TODO: replace this stub with actual session lookup once auth (NextAuth) is wired up.
-// For now everyone is admin so the new routes work without auth gating.
-// Future implementation will require `prisma` (to load the user record) and the user's session.
+function isAppRole(value: string | null | undefined): value is AppRole {
+  return value === 'comercial' || value === 'comex' || value === 'admin'
+}
+
+/**
+ * Lee el role del usuario autenticado desde la sesión de NextAuth.
+ * Retorna null si no hay sesión activa. El role default al crear un
+ * usuario vía magic link es 'comercial' (definido en el schema).
+ * Para promover a 'comex' o 'admin' hay que modificar el row en DB.
+ */
 export async function getCurrentRole(): Promise<AppRole | null> {
-  return 'admin'
+  const session = await auth()
+  const role = session?.user?.role
+  return isAppRole(role) ? role : null
+}
+
+export async function getCurrentUser() {
+  const session = await auth()
+  return session?.user ?? null
 }
 
 export async function requireRole(allowed: AppRole[]): Promise<AppRole> {

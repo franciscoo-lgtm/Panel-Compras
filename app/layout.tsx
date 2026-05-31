@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Inter_Tight, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import { LayoutShell } from '@/components/layout-shell'
+import { AuthSessionProvider } from '@/components/session-provider'
 import { Toaster } from '@/components/ui/sonner'
 
 const interBody = Inter({
@@ -39,8 +40,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${interBody.variable} ${interDisplay.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
       <body className="h-full">
-        <LayoutShell>{children}</LayoutShell>
-        <Toaster position="bottom-right" richColors />
+        <AuthSessionProvider>
+          <LayoutShell>{children}</LayoutShell>
+          <Toaster position="bottom-right" richColors />
+        </AuthSessionProvider>
       </body>
     </html>
   )

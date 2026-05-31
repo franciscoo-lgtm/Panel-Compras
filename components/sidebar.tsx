@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Home, Anchor, Upload, ChevronLeft, ChevronRight, ShoppingCart, Settings } from 'lucide-react'
+import { useSession, signOut } from 'next-auth/react'
+import { Home, Anchor, Upload, ChevronLeft, ChevronRight, ShoppingCart, Settings, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const nav = [
@@ -18,6 +19,8 @@ type Props = { collapsed: boolean; onToggle: () => void }
 
 export function Sidebar({ collapsed, onToggle }: Props) {
   const pathname = usePathname()
+  const { data: session } = useSession()
+  const user = session?.user
 
   return (
     <aside
@@ -80,6 +83,42 @@ export function Sidebar({ collapsed, onToggle }: Props) {
         })}
       </nav>
 
+      {/* User pill */}
+      {user && (
+        <div className={cn(
+          'border-t border-white/[0.06]',
+          collapsed ? 'px-1.5 py-2' : 'px-2.5 py-2.5'
+        )}>
+          {collapsed ? (
+            <button
+              onClick={() => signOut({ redirectTo: '/login' })}
+              title={`${user.email} · Cerrar sesión`}
+              className="w-9 h-9 mx-auto flex items-center justify-center rounded-full bg-[#31AF4F]/15 text-[#31AF4F] hover:bg-red-500/15 hover:text-red-300 transition-colors text-[11px] font-semibold"
+            >
+              {initials(user.name, user.email)}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-md group/user hover:bg-white/[0.03] transition-colors">
+              <div className="w-8 h-8 rounded-full bg-[#31AF4F]/15 text-[#31AF4F] flex items-center justify-center text-[11px] font-semibold shrink-0">
+                {initials(user.name, user.email)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-medium text-white/85 truncate">{user.name ?? user.email?.split('@')[0]}</p>
+                <p className="text-[10px] text-white/35 truncate">{user.email}</p>
+              </div>
+              <button
+                onClick={() => signOut({ redirectTo: '/login' })}
+                title="Cerrar sesión"
+                aria-label="Cerrar sesión"
+                className="w-7 h-7 flex items-center justify-center rounded-md text-white/30 hover:text-red-300 hover:bg-red-500/10 transition-colors shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Footer / toggle */}
       <div className={cn(
         'border-t border-white/[0.06] flex items-center',
@@ -96,4 +135,12 @@ export function Sidebar({ collapsed, onToggle }: Props) {
       </div>
     </aside>
   )
+}
+
+function initials(name: string | null | undefined, email: string | null | undefined): string {
+  const source = name?.trim() || email?.split('@')[0] || '?'
+  const parts = source.split(/[\s._-]+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase()
 }
