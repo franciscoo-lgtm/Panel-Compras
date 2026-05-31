@@ -7,6 +7,7 @@ import { fetchComexData } from '@/app/lib/comex'
 import { getMilestonesConfig } from '@/app/lib/milestones-config'
 import { getMilestoneDateForEmbarque } from '@/app/lib/milestones-compute'
 import type { ComexSORow } from '@/app/lib/comex-data-types'
+import type { DashboardSegment } from '@/app/lib/dashboard-types'
 
 export type ExecutiveKPIs = {
   // KPIs principales (4 cards)
@@ -34,6 +35,9 @@ export type ExecutiveKPIs = {
   discrepanciasPorMes:    { month: string; pctConDiff: number }[]
   tipoCargaDist:          { name: string; value: number }[]
   diasEntreEtapas:        { etapa: string; dias: number; n: number }[]
+  // Mismo dato que diasEntreEtapas pero segmentado por (tipoCarga, transporte).
+  // El client tiene un selector para elegir qué segmento mostrar.
+  diasEntreEtapasPorSegmento: Record<DashboardSegment, { etapa: string; dias: number; n: number }[]>
   throughputCbmPorMes:    { month: string; cbm: number }[]
 }
 
@@ -284,13 +288,45 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
     bySORecordForMilestones[so] = row
   }
 
-  // Para cada embarque, recolectar la fecha de cada hito
-  // Estructura: stageDiffs[etapaKey] = array de días entre consecutivos
-  const stageDiffs: Record<string, number[]> = {}
-  for (let i = 0; i < stageMilestones.length - 1; i++) {
-    const from = stageMilestones[i]!
-    const to   = stageMilestones[i + 1]!
-    stageDiffs[`${from.label} → ${to.label}`] = []
+  // Buckets por segmento. Cada bucket guarda los días entre etapas
+  // SOLO de embarques que entran en ese segmento. 'todos' incluye
+  // todos los embarques.
+  const SEGMENTS: DashboardSegment[] = [
+    'todos', 'repuesto',
+    'mercaderia-air', 'mercaderia-barco', 'mixto',
+  ]
+
+  type StageBuckets = Record<string, number[]>
+  const segBuckets: Record<DashboardSegment, StageBuckets> = {} as Record<DashboardSegment, StageBuckets>
+  for (const seg of SEGMENTS) {
+    segBuckets[seg] = {}
+    for (let i = 0; i < stageMilestones.length - 1; i++) {
+      const from = stageMilestones[i]!
+      const to   = stageMilestones[i + 1]!
+      segBuckets[seg][`${from.label} → ${to.label}`] = []
+    }
+  }
+
+  // Clasifica un embarque en su segmento. 'sin-datos' va solo a 'todos'.
+  function classifyEmbarque(s: EmbarqueSummary): DashboardSegment[] {
+    const segments: DashboardSegment[] = ['todos']
+    const tipo = detectTipoTransporte(s.embarqueNo)
+    const isAir = tipo === 'AIR'
+    const isBarco = tipo === 'FCL' || tipo === 'LCL'
+
+    // Repuesto: el transporte se ignora (siempre va por avión en la práctica).
+    if (s.tipoCarga === 'Repuesto') {
+      segments.push('repuesto')
+    } else if (s.tipoCarga === 'Mercaderia') {
+      if (isAir)   segments.push('mercaderia-air')
+      if (isBarco) segments.push('mercaderia-barco')
+    } else if (s.tipoCarga === 'Mixto') {
+      segments.push('mixto')
+    }
+    // Silencio el lint warning si tipo no se usa para Repuesto
+    void isAir
+    void isBarco
+    return segments
   }
 
   for (const s of summaries) {
@@ -305,8 +341,7 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
         }
       }
     }
-    // Primer CIPL createdAt del embarque (para hitos 'auto' aunque acá ya filtramos)
-    const firstCiplCreatedAt = null // no necesario porque filtramos source='auto'
+    const firstCiplCreatedAt = null
 
     // Fecha de cada hito para este embarque
     const datesByMilestoneKey = new Map<string, Date>()
@@ -316,7 +351,9 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
       if (d) datesByMilestoneKey.set(m.key, d)
     }
 
-    // Transiciones consecutivas
+    const segments = classifyEmbarque(s)
+
+    // Transiciones consecutivas → agregar a TODOS los buckets aplicables
     for (let i = 0; i < stageMilestones.length - 1; i++) {
       const from = stageMilestones[i]!
       const to   = stageMilestones[i + 1]!
@@ -324,14 +361,29 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
       const dateTo   = datesByMilestoneKey.get(to.key)
       if (!dateFrom || !dateTo) continue
       const d = diffDays(dateFrom, dateTo)
-      if (d >= 0 && d <= 120) stageDiffs[`${from.label} → ${to.label}`]!.push(d)
+      if (d < 0 || d > 120) continue
+      const key = `${from.label} → ${to.label}`
+      for (const seg of segments) {
+        segBuckets[seg][key]!.push(d)
+      }
     }
   }
 
-  const diasEntreEtapas = Object.entries(stageDiffs).map(([etapa, arr]) => ({
-    etapa,
-    dias: mean(arr),
-    n: arr.length,
+  // Materializar cada segmento a su shape final
+  const diasEntreEtapasPorSegmento = {} as Record<DashboardSegment, { etapa: string; dias: number; n: number }[]>
+  for (const seg of SEGMENTS) {
+    diasEntreEtapasPorSegmento[seg] = Object.entries(segBuckets[seg]).map(([etapa, arr]) => ({
+      etapa,
+      dias: mean(arr),
+      n: arr.length,
+    }))
+  }
+
+  // diasEntreEtapas global (compat retro con el shape actual)
+  const diasEntreEtapas = diasEntreEtapasPorSegmento.todos.map(d => ({
+    etapa: d.etapa,
+    dias: d.dias,
+    n: d.n,
   }))
 
   // ── Throughput CBM/mes (últimos 12) ───────────────────────────────────────
@@ -459,6 +511,7 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
     discrepanciasPorMes,
     tipoCargaDist,
     diasEntreEtapas,
+    diasEntreEtapasPorSegmento,
     throughputCbmPorMes,
   }
 }

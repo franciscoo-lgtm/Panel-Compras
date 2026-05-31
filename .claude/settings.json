@@ -27,7 +27,8 @@
       "Bash(git commit *)",
       "Bash(git -C /workspaces/Panel-Compras add app/panel-general/PanelGeneralClient.tsx)",
       "Bash(git -C /workspaces/Panel-Compras commit -m \"feat\\(panel-v2\\): add visibleCols state and column selector button\")",
-      "Bash(vercel deploy *)"
+      "Bash(vercel deploy *)",
+      "Bash(tee /tmp/deploy-seg.log)"
     ],
     "additionalDirectories": [
       "/tmp"

@@ -9,6 +9,8 @@ import type { CIPLItemModel as CIPLItem, CompraModel as Compra, CIPLPhotoModel a
 
 export type EmbarqueEstado = 'pendiente' | 'en-transito' | 'arribado' | 'desconocido'
 
+export type TipoCargaEmbarque = 'Repuesto' | 'Mercaderia' | 'Mixto' | 'sin-datos'
+
 export type EmbarqueSummary = {
   embarqueNo: string
   estado: EmbarqueEstado
@@ -19,6 +21,12 @@ export type EmbarqueSummary = {
   totalItems: number
   totalQty: number
   totalCbm: number
+  /**
+   * Tipo de carga mayoritario de los CIPLItems del embarque.
+   * 'Mixto' si la dominancia del mayoritario está entre 20% y 80%.
+   * 'sin-datos' si no hay CIPLItems vinculados todavía.
+   */
+  tipoCarga: TipoCargaEmbarque
   fetchedAt: Date
 }
 
@@ -48,7 +56,7 @@ export async function listEmbarques(): Promise<{ summaries: EmbarqueSummary[]; e
 
   const allItems = await prisma.cIPLItem.findMany({
     where: { soPrincipal: { in: Array.from(allSos) } },
-    select: { id: true, qty: true, cbm: true, soPrincipal: true },
+    select: { id: true, qty: true, cbm: true, soPrincipal: true, tipoCarga: true },
   })
 
   const itemsBySO = new Map<string, typeof allItems>()
@@ -81,6 +89,23 @@ export async function listEmbarques(): Promise<{ summaries: EmbarqueSummary[]; e
       if (ESTADO_PRIORITY[st] > ESTADO_PRIORITY[estado]) estado = st
     }
 
+    // Tipo de carga: cuenta cuántos items son Repuesto vs Mercaderia.
+    // Si la dominancia del mayoritario es >= 80% → ese tipo gana.
+    // Sino → 'Mixto'. Sin items → 'sin-datos'.
+    let tipoCarga: TipoCargaEmbarque = 'sin-datos'
+    if (items.length > 0) {
+      let rep = 0, merc = 0
+      for (const it of items) {
+        if (it.tipoCarga === 'Repuesto') rep++
+        else if (it.tipoCarga === 'Mercaderia') merc++
+      }
+      const total = rep + merc
+      if (total === 0) tipoCarga = 'sin-datos'
+      else if (rep / total >= 0.8) tipoCarga = 'Repuesto'
+      else if (merc / total >= 0.8) tipoCarga = 'Mercaderia'
+      else tipoCarga = 'Mixto'
+    }
+
     summaries.push({
       embarqueNo,
       estado,
@@ -91,6 +116,7 @@ export async function listEmbarques(): Promise<{ summaries: EmbarqueSummary[]; e
       totalItems: items.length,
       totalQty:   items.reduce((s, i) => s + (i.qty ?? 0), 0),
       totalCbm:   items.reduce((s, i) => s + (i.cbm ?? 0), 0),
+      tipoCarga,
       fetchedAt:  comex.fetchedAt,
     })
   }
@@ -155,6 +181,21 @@ export async function getEmbarqueDetail(embarqueNoRaw: string): Promise<Embarque
     if (ESTADO_PRIORITY[st] > ESTADO_PRIORITY[estado]) estado = st
   }
 
+  // Tipo de carga del detail (mismo criterio que en listEmbarques)
+  let tipoCarga: TipoCargaEmbarque = 'sin-datos'
+  if (items.length > 0) {
+    let rep = 0, merc = 0
+    for (const it of items) {
+      if (it.tipoCarga === 'Repuesto') rep++
+      else if (it.tipoCarga === 'Mercaderia') merc++
+    }
+    const total = rep + merc
+    if (total === 0) tipoCarga = 'sin-datos'
+    else if (rep / total >= 0.8) tipoCarga = 'Repuesto'
+    else if (merc / total >= 0.8) tipoCarga = 'Mercaderia'
+    else tipoCarga = 'Mixto'
+  }
+
   return {
     embarqueNo,
     estado,
@@ -165,6 +206,7 @@ export async function getEmbarqueDetail(embarqueNoRaw: string): Promise<Embarque
     totalItems: items.length,
     totalQty:   items.reduce((s, i) => s + (i.qty ?? 0), 0),
     totalCbm:   items.reduce((s, i) => s + (i.cbm ?? 0), 0),
+    tipoCarga,
     fetchedAt:  comex.fetchedAt,
     shipmentsBySO,
     items,

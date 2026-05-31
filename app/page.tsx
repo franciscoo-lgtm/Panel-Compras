@@ -10,7 +10,7 @@ import { DateRange } from '@/components/shared/DateRange'
 import { EmbarquesPorMesChart } from '@/components/dashboard/EmbarquesPorMesChart'
 import { ProximosArribosChart } from '@/components/dashboard/ProximosArribosChart'
 import { DiscrepanciasTrendChart } from '@/components/dashboard/DiscrepanciasTrendChart'
-import { DiasEntreEtapasChart } from '@/components/dashboard/DiasEntreEtapasChart'
+import { DiasEntreEtapasSegmentado } from '@/components/dashboard/DiasEntreEtapasSegmentado'
 import { ThroughputCbmChart } from '@/components/dashboard/ThroughputCbmChart'
 
 const fmtUSD       = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -127,8 +127,8 @@ export default async function HomePage() {
           <ChartCard icon={<Plane className="w-3.5 h-3.5" />}  title="Próximos arribos"          subtitle="próximas 4 semanas" className="lg:col-span-5">
             <ProximosArribosChart data={kpis.proximosArribos} />
           </ChartCard>
-          <ChartCard icon={<Layers className="w-3.5 h-3.5" />} title="Días promedio por etapa"   subtitle="cuello de botella"  className="lg:col-span-7">
-            <DiasEntreEtapasChart data={kpis.diasEntreEtapas} />
+          <ChartCard icon={<Layers className="w-3.5 h-3.5" />} title="Días promedio por etapa"   subtitle="por tipo de carga / transporte"  className="lg:col-span-7" noPad>
+            <DiasEntreEtapasSegmentado data={kpis.diasEntreEtapasPorSegmento} />
           </ChartCard>
         </div>
 
@@ -218,8 +218,8 @@ function SLABar({ label, value, mean }: { label: string; value: number; mean: nu
   )
 }
 
-function ChartCard({ icon, title, subtitle, className = '', children }: {
-  icon: React.ReactNode; title: string; subtitle?: string; className?: string; children: React.ReactNode
+function ChartCard({ icon, title, subtitle, className = '', children, noPad = false }: {
+  icon: React.ReactNode; title: string; subtitle?: string; className?: string; children: React.ReactNode; noPad?: boolean
 }) {
   return (
     <article className={`glass-card overflow-hidden ${className}`}>
@@ -228,7 +228,7 @@ function ChartCard({ icon, title, subtitle, className = '', children }: {
         <span className="text-[11px] font-medium text-white/70 tracking-wide">{title}</span>
         {subtitle && <span className="ml-auto text-[10px] text-white/30">{subtitle}</span>}
       </div>
-      <div className="p-4">{children}</div>
+      <div className={noPad ? '' : 'p-4'}>{children}</div>
     </article>
   )
 }
