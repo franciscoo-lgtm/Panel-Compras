@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma'
 import { listEmbarques, type EmbarqueSummary } from '@/app/lib/embarques'
 import { parseDateLoose, detectTipoTransporte, slaThresholdDays } from '@/app/lib/comex-internals'
 import { fetchComexData } from '@/app/lib/comex'
+import { getMilestonesConfig } from '@/app/lib/milestones-config'
+import { getMilestoneDateForEmbarque } from '@/app/lib/milestones-compute'
+import type { ComexSORow } from '@/app/lib/comex-data-types'
 
 export type ExecutiveKPIs = {
   // KPIs principales (4 cards)
@@ -233,42 +236,98 @@ export async function getExecutiveKPIs(): Promise<ExecutiveKPIs> {
   }
   const anticipacionComexDias = mean(anticipaciones)
 
-  // ── Días entre etapas (promedios por step) ────────────────────────────────
-  // fechasLMS ya está cargada en la query única de arriba.
-  // Por cada embarque, recolectamos las 6 fechas de etapas
-  const stageDiffs: Record<string, number[]> = {
-    'Instr → LMS':       [],
-    'LMS → ETD':         [],
-    'ETD → ETA':         [],
-    'ETA → Aduana':      [],
-    'Aduana → Depósito': [],
-  }
-  for (const s of summaries) {
-    const ship = shipmentFor(s)
-    let instr: Date | null = null
-    let lms: Date | null = null
-    for (const so of s.sos) {
-      const i = fechasInstr[so]
-      if (i && (!instr || i < instr)) instr = i
-      const l = fechasLMS[so]
-      if (l && (!lms || l < lms)) lms = l
-    }
-    const etd = parseDateLoose(s.etd)
-    const eta = parseDateLoose(s.eta)
-    const aduana = ship ? parseDateLoose(pickFromExtras(ship.extras, 'aduana')) : null
-    const deposito = ship ? parseDateLoose(pickFromExtras(ship.extras, 'deposito', 'depósito')) : null
+  // ── Días entre etapas (dinámico desde hitos configurables) ────────────────
+  // Antes eran 5 etapas hardcodeadas. Ahora se leen de getMilestonesConfig() →
+  // si el user agrega un hito custom en /configuracion/hitos, aparece como
+  // etapa nueva acá automáticamente. Los hitos manuales completados a mano
+  // (fechaInstruccionCat, fechaLMS, custom, etc) ya se incluyen.
+  const milestonesConfig = await getMilestonesConfig()
+  const stageMilestones = milestonesConfig.filter(m =>
+    // Excluimos 'auto' (fechaOrden + plCargado) porque marcan eventos del
+    // panel, no etapas del proceso operativo. El resto sí.
+    m.source !== 'auto'
+  )
 
-    const checkAdd = (key: string, a: Date | null, b: Date | null) => {
-      if (!a || !b) return
-      const d = diffDays(a, b)
-      if (d >= 0 && d <= 120) stageDiffs[key]!.push(d)
+  // Necesitamos las Compras completas (con todas sus fechas) por embarque
+  // para que getMilestoneDateForEmbarque pueda resolver hitos custom.
+  const allSummariesSOsArr = Array.from(allSummariesSOs)
+  const comprasWithFechas = allSummariesSOsArr.length > 0
+    ? await prisma.compra.findMany({
+        where: { sos: { some: { soNumber: { in: allSummariesSOsArr } } } },
+        select: {
+          id: true,
+          fechaOrden:           true,
+          fechaEnvio:           true,
+          fechaPago:            true,
+          fechaSegundaValPA:    true,
+          fechaInstruccionCat:  true,
+          fechaLMS:             true,
+          sos: { select: { soNumber: true } },
+        },
+      })
+    : []
+
+  // Index: soNumber → Compras vinculadas
+  const comprasBySO = new Map<string, typeof comprasWithFechas>()
+  for (const c of comprasWithFechas) {
+    for (const so of c.sos) {
+      const key = so.soNumber.toUpperCase()
+      const list = comprasBySO.get(key) ?? []
+      list.push(c)
+      comprasBySO.set(key, list)
     }
-    checkAdd('Instr → LMS',       instr,    lms)
-    checkAdd('LMS → ETD',         lms,      etd)
-    checkAdd('ETD → ETA',         etd,      eta)
-    checkAdd('ETA → Aduana',      eta,      aduana)
-    checkAdd('Aduana → Depósito', aduana,   deposito)
   }
+
+  // bySO record para getMilestoneDateForEmbarque (formato esperado por la lib)
+  const bySORecordForMilestones: Record<string, ComexSORow> = {}
+  for (const [so, row] of comexData.bySO) {
+    bySORecordForMilestones[so] = row
+  }
+
+  // Para cada embarque, recolectar la fecha de cada hito
+  // Estructura: stageDiffs[etapaKey] = array de días entre consecutivos
+  const stageDiffs: Record<string, number[]> = {}
+  for (let i = 0; i < stageMilestones.length - 1; i++) {
+    const from = stageMilestones[i]!
+    const to   = stageMilestones[i + 1]!
+    stageDiffs[`${from.label} → ${to.label}`] = []
+  }
+
+  for (const s of summaries) {
+    // Compras del embarque (dedupedas por id)
+    const seen = new Set<string>()
+    const comprasDelEmbarque: typeof comprasWithFechas = []
+    for (const so of s.sos) {
+      for (const c of comprasBySO.get(so.toUpperCase()) ?? []) {
+        if (!seen.has(c.id)) {
+          seen.add(c.id)
+          comprasDelEmbarque.push(c)
+        }
+      }
+    }
+    // Primer CIPL createdAt del embarque (para hitos 'auto' aunque acá ya filtramos)
+    const firstCiplCreatedAt = null // no necesario porque filtramos source='auto'
+
+    // Fecha de cada hito para este embarque
+    const datesByMilestoneKey = new Map<string, Date>()
+    for (const m of stageMilestones) {
+      const iso = getMilestoneDateForEmbarque(m, comprasDelEmbarque, firstCiplCreatedAt, s.sos, bySORecordForMilestones)
+      const d = iso ? parseDateLoose(iso) : null
+      if (d) datesByMilestoneKey.set(m.key, d)
+    }
+
+    // Transiciones consecutivas
+    for (let i = 0; i < stageMilestones.length - 1; i++) {
+      const from = stageMilestones[i]!
+      const to   = stageMilestones[i + 1]!
+      const dateFrom = datesByMilestoneKey.get(from.key)
+      const dateTo   = datesByMilestoneKey.get(to.key)
+      if (!dateFrom || !dateTo) continue
+      const d = diffDays(dateFrom, dateTo)
+      if (d >= 0 && d <= 120) stageDiffs[`${from.label} → ${to.label}`]!.push(d)
+    }
+  }
+
   const diasEntreEtapas = Object.entries(stageDiffs).map(([etapa, arr]) => ({
     etapa,
     dias: mean(arr),
@@ -430,9 +489,13 @@ export async function getAlerts(summaries: EmbarqueSummary[]): Promise<AlertItem
     }
   }
 
-  const itemsSinFoto = await prisma.cIPLItem.count({ where: { photos: { none: {} } } })
+  // Solo alertamos por fotos faltantes en Repuestos — Mercadería no usa
+  // fotos de inspección en el flujo actual.
+  const itemsSinFoto = await prisma.cIPLItem.count({
+    where: { tipoCarga: 'Repuesto', photos: { none: {} } },
+  })
   if (itemsSinFoto > 0) {
-    alerts.push({ kind: 'warn', text: `${itemsSinFoto} ítems sin foto cargada`, href: '/comercial' })
+    alerts.push({ kind: 'warn', text: `${itemsSinFoto} ítems de Repuesto sin foto cargada`, href: '/comercial' })
   }
 
   // Sort: críticas primero, después warn, después info
