@@ -332,16 +332,25 @@ async function _fetchComexDataInner(): Promise<ComexData> {
     return empty
   }
 
-  const primaryId = cfg.primarySourceId
-  if (!primaryId || !enabledSources.find(s => s.id === primaryId)) {
-    empty.errors.push('No hay fuente principal configurada (la que tiene N° Embarque)')
+  // Cualquier fuente con mapping a 'embarqueNo' es "primary-like" — su tabla
+  // contribuye embarques al panel. Antes solo UNA fuente podía ser primary;
+  // ahora N pueden (ej: una sheet "Reservas Hist" con embarques históricos
+  // + otra "Reservas" con embarques actuales/futuros).
+  const isPrimaryLike = (s: ComexSource) => s.mappings.some(m => m.field === 'embarqueNo')
+
+  const primarySources = enabledSources.filter(isPrimaryLike)
+  if (primarySources.length === 0) {
+    empty.errors.push('No hay fuentes con N° Embarque mapeado')
     return empty
   }
 
-  // Fetch en paralelo
+  // Fetch en paralelo — cada fuente con embarqueNo se procesa como primary,
+  // las demás aportan extras por SO.
   const results = await Promise.all(
-    enabledSources.map(s => fetchOneSource(s, s.id === primaryId)),
+    enabledSources.map(s => fetchOneSource(s, isPrimaryLike(s))),
   )
+
+  const primaryIds = new Set(primarySources.map(s => s.id))
 
   // Merge: cada SO acumula extras de todas las fuentes
   const bySO = new Map<string, ComexSORow>()
@@ -356,24 +365,43 @@ async function _fetchComexDataInner(): Promise<ComexData> {
     }
   }
 
-  // Primero: armar desde la primary source (tiene los shipments con embarqueNo)
-  const primaryResult = results.find(r => r.sourceId === primaryId)
-  if (primaryResult) {
-    for (const [so, row] of primaryResult.bySO) {
-      bySO.set(so, { so, shipments: row.shipments.map(s => ({ ...s, extras: { ...s.extras } })) })
-    }
-    for (const [emb, sos] of primaryResult.byEmbarque) {
-      byEmbarque.set(emb, new Set(sos))
-    }
-  }
-
-  // Después: mergear las secundarias en los shipments existentes (sumando sus extras)
+  // Primero: armar desde TODAS las primary-like sources. Si un SO aparece
+  // en varias (ej misma SO en "Reservas Hist" y "Reservas"), concatenamos
+  // sus shipments — cada embarque que esté en cualquier sheet aparece en el panel.
   for (const res of results) {
-    if (res.sourceId === primaryId) continue
+    if (!primaryIds.has(res.sourceId)) continue
     for (const [so, row] of res.bySO) {
       const existing = bySO.get(so)
       if (!existing) {
-        // SO sin embarque conocido (no aparece en primary): la guardamos igual con embarqueNo vacío
+        bySO.set(so, { so, shipments: row.shipments.map(s => ({ ...s, extras: { ...s.extras } })) })
+      } else {
+        // Mismo SO en otra primary: agregamos shipments nuevos (dedup por embarqueNo)
+        const existingEmbs = new Set(existing.shipments.map(s => s.embarqueNo.toUpperCase()))
+        for (const ship of row.shipments) {
+          if (!existingEmbs.has(ship.embarqueNo.toUpperCase())) {
+            existing.shipments.push({ ...ship, extras: { ...ship.extras } })
+            existingEmbs.add(ship.embarqueNo.toUpperCase())
+          }
+        }
+      }
+    }
+    for (const [emb, sos] of res.byEmbarque) {
+      const existing = byEmbarque.get(emb)
+      if (existing) {
+        for (const so of sos) existing.add(so)
+      } else {
+        byEmbarque.set(emb, new Set(sos))
+      }
+    }
+  }
+
+  // Después: mergear las NO-primary (sin embarqueNo) en los shipments existentes
+  for (const res of results) {
+    if (primaryIds.has(res.sourceId)) continue
+    for (const [so, row] of res.bySO) {
+      const existing = bySO.get(so)
+      if (!existing) {
+        // SO sin embarque conocido: la guardamos igual con embarqueNo vacío
         bySO.set(so, { so, shipments: row.shipments.map(s => ({ ...s, extras: { ...s.extras } })) })
         continue
       }

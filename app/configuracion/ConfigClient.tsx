@@ -89,8 +89,13 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
     })
   }
 
-  const hasPrimary = cfg.primarySourceId != null && cfg.sources.some(s => s.id === cfg.primarySourceId && s.enabled)
-  const canSave = cfg.sources.length > 0 && hasPrimary &&
+  // Nueva regla: cualquier fuente con mapping a 'embarqueNo' contribuye
+  // embarques al panel. Antes era una sola "primaria" elegida a mano; ahora
+  // se infiere automáticamente del mapping.
+  const hasAnyEmbarqueSource = cfg.sources.some(
+    s => s.enabled && s.mappings.some(m => m.field === 'embarqueNo'),
+  )
+  const canSave = cfg.sources.length > 0 && hasAnyEmbarqueSource &&
     cfg.sources.every(s => !s.enabled || (s.url && s.joinCol))
 
   return (
@@ -101,7 +106,7 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
           <SourceCard
             key={source.id}
             source={source}
-            isPrimary={source.id === cfg.primarySourceId}
+            isPrimary={source.mappings.some(m => m.field === 'embarqueNo')}
             expanded={expandedId === source.id}
             onToggle={() => setExpandedId(expandedId === source.id ? null : source.id)}
             onChange={patch => updateSource(source.id, patch)}
@@ -160,10 +165,10 @@ export function ConfigClient({ initial }: { initial: ComexConfig | null }) {
           </div>
         )}
 
-        {!hasPrimary && cfg.sources.length > 0 && (
+        {!hasAnyEmbarqueSource && cfg.sources.length > 0 && (
           <span className="text-[11px] text-amber-400 inline-flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5" />
-            Tenés que marcar una fuente como principal (la que tiene N° Embarque)
+            Al menos una fuente tiene que mapear N° Embarque (la columna que define los embarques)
           </span>
         )}
 
@@ -245,19 +250,12 @@ function SourceCard({
         />
 
         {isPrimary && (
-          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#31AF4F]/15 text-[#31AF4F] font-bold inline-flex items-center gap-1">
-            <Star className="w-3 h-3 fill-current" /> Principal
-          </span>
-        )}
-
-        {!isPrimary && (
-          <button
-            onClick={onSetPrimary}
-            className="text-[10px] text-zinc-500 hover:text-[#31AF4F] inline-flex items-center gap-1"
-            title="Marcar como fuente principal (la que tiene N° Embarque)"
+          <span
+            className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#31AF4F]/15 text-[#31AF4F] font-bold inline-flex items-center gap-1"
+            title="Esta fuente tiene mapping a N° Embarque — sus embarques aparecen en el panel"
           >
-            <Star className="w-3 h-3" /> Marcar principal
-          </button>
+            <Star className="w-3 h-3 fill-current" /> Con embarques
+          </span>
         )}
 
         <span className="text-[10px] text-zinc-500">{mappedCount} mapping{mappedCount === 1 ? '' : 's'}</span>
