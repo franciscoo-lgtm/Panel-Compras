@@ -4,29 +4,16 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import {
-  Home, Anchor, Upload, ChevronLeft, ChevronRight, ShoppingCart, Settings, LogOut, Search,
-  LayoutGrid, Package, Plane, FileText, DollarSign, Wrench, BarChart2,
-} from 'lucide-react'
+import { Home, Anchor, Upload, ChevronLeft, ChevronRight, ShoppingCart, Settings, LogOut, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { openCmdK } from './shared/CmdK'
 
-const navCompras = [
-  { href: '/',              label: 'Inicio',        icon: Home,         badge: null },
-  { href: '/embarques',     label: 'Embarques',     icon: Anchor,       badge: null },
-  { href: '/compras',       label: 'Compras',       icon: ShoppingCart, badge: null },
-  { href: '/comercial',     label: 'Carga CIPL',    icon: Upload,       badge: null },
-  { href: '/configuracion', label: 'Configuración', icon: Settings,     badge: null },
-]
-
-const navERP = [
-  { href: '/erp',               label: 'Panel ERP',    icon: LayoutGrid, badge: null },
-  { href: '/erp/inventario',    label: 'Inventario',   icon: Package,    badge: null },
-  { href: '/erp/importaciones', label: 'Importaciones',icon: Plane,      badge: null },
-  { href: '/erp/comercial',     label: 'Comercial',    icon: FileText,   badge: null },
-  { href: '/erp/finanzas',      label: 'Finanzas',     icon: DollarSign, badge: null },
-  { href: '/erp/postventa',     label: 'Postventa',    icon: Wrench,     badge: null },
-  { href: '/erp/planeamiento',  label: 'Planeamiento', icon: BarChart2,  badge: null },
+const nav = [
+  { href: '/',              label: 'Inicio',        icon: Home,         legacy: false, badge: null },
+  { href: '/embarques',     label: 'Embarques',     icon: Anchor,       legacy: false, badge: null },
+  { href: '/compras',       label: 'Compras',       icon: ShoppingCart, legacy: false, badge: null },
+  { href: '/comercial',     label: 'Carga CIPL',    icon: Upload,       legacy: false, badge: null },
+  { href: '/configuracion', label: 'Configuración', icon: Settings,     legacy: false, badge: null },
 ]
 
 type Props = { collapsed: boolean; onToggle: () => void }
@@ -35,34 +22,6 @@ export function Sidebar({ collapsed, onToggle }: Props) {
   const pathname = usePathname()
   const { data: session } = useSession()
   const user = session?.user
-
-  function NavItem({ href, label, icon: Icon, badge }: typeof navCompras[0]) {
-    const active = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
-    return (
-      <Link
-        href={href}
-        title={collapsed ? label : undefined}
-        className={cn(
-          'flex items-center rounded-md text-[13px] font-medium transition-all duration-150 group',
-          collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-2.5 py-2',
-          active
-            ? 'bg-[#31AF4F]/10 text-white'
-            : 'text-white/40 hover:text-white/80 hover:bg-white/[0.04]',
-        )}
-      >
-        <Icon className={cn('w-4 h-4 shrink-0 transition-colors', active ? 'text-[#31AF4F]' : 'text-white/30 group-hover:text-white/60')} />
-        {!collapsed && <span className="truncate">{label}</span>}
-        {!collapsed && badge && (
-          <span className="ml-auto text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#31AF4F]/15 text-[#31AF4F] font-semibold shrink-0">
-            {badge}
-          </span>
-        )}
-        {!collapsed && active && !badge && (
-          <span className="ml-auto w-1 h-5 rounded-full bg-[#31AF4F] shrink-0" />
-        )}
-      </Link>
-    )
-  }
 
   return (
     <aside
@@ -74,7 +33,7 @@ export function Sidebar({ collapsed, onToggle }: Props) {
         href="/"
         className={cn(
           'border-b border-white/[0.06] flex items-center group/brand',
-          collapsed ? 'px-3 py-4 justify-center' : 'px-4 py-4',
+          collapsed ? 'px-3 py-4 justify-center' : 'px-4 py-4'
         )}
       >
         <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 ring-1 ring-white/[0.06] shadow-[0_0_18px_rgba(49,175,79,0.35)] group-hover/brand:shadow-[0_0_22px_rgba(49,175,79,0.55)] transition-shadow">
@@ -83,7 +42,7 @@ export function Sidebar({ collapsed, onToggle }: Props) {
         {!collapsed && (
           <div className="ml-3 min-w-0">
             <p className="text-white text-[13px] font-semibold leading-tight tracking-tight truncate">Bidcom Agro</p>
-            <p className="text-[#31AF4F]/70 text-[10px] mt-0.5 tracking-widest uppercase font-medium">Panel de Gestión</p>
+            <p className="text-[#31AF4F]/70 text-[10px] mt-0.5 tracking-widest uppercase font-medium">Panel de Compras</p>
           </div>
         )}
       </Link>
@@ -111,28 +70,47 @@ export function Sidebar({ collapsed, onToggle }: Props) {
       </div>
 
       {/* Nav */}
-      <nav className={cn('flex-1 py-3 space-y-0.5 overflow-y-auto', collapsed ? 'px-1.5' : 'px-2.5')}>
-        {/* Compras */}
+      <nav className={cn('flex-1 py-3 space-y-0.5', collapsed ? 'px-1.5' : 'px-2.5')}>
         {!collapsed && (
           <p className="px-2 pb-2 pt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-white/20">
-            Compras
+            Módulos
           </p>
         )}
-        {navCompras.map(item => <NavItem key={item.href} {...item} />)}
-
-        {/* ERP Agtech */}
-        {collapsed
-          ? <div className="h-px mx-1 my-2 bg-white/[0.06]" />
-          : <p className="px-2 pb-2 pt-3 text-[9px] font-bold uppercase tracking-[0.2em] text-white/20">ERP Agtech</p>
-        }
-        {navERP.map(item => <NavItem key={item.href} {...item} />)}
+        {nav.map(({ href, label, icon: Icon, badge }) => {
+          const active = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
+          return (
+            <Link
+              key={href}
+              href={href}
+              title={collapsed ? label : undefined}
+              className={cn(
+                'flex items-center rounded-md text-[13px] font-medium transition-all duration-150 group',
+                collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-2.5 py-2',
+                active
+                  ? 'bg-[#31AF4F]/10 text-white'
+                  : 'text-white/40 hover:text-white/80 hover:bg-white/[0.04]'
+              )}
+            >
+              <Icon className={cn('w-4 h-4 shrink-0 transition-colors', active ? 'text-[#31AF4F]' : 'text-white/30 group-hover:text-white/60')} />
+              {!collapsed && <span className="truncate">{label}</span>}
+              {!collapsed && badge && (
+                <span className="ml-auto text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#31AF4F]/15 text-[#31AF4F] font-semibold shrink-0">
+                  {badge}
+                </span>
+              )}
+              {!collapsed && active && !badge && (
+                <span className="ml-auto w-1 h-5 rounded-full bg-[#31AF4F] shrink-0" />
+              )}
+            </Link>
+          )
+        })}
       </nav>
 
       {/* User pill */}
       {user && (
         <div className={cn(
           'border-t border-white/[0.06]',
-          collapsed ? 'px-1.5 py-2' : 'px-2.5 py-2.5',
+          collapsed ? 'px-1.5 py-2' : 'px-2.5 py-2.5'
         )}>
           {collapsed ? (
             <button
@@ -167,7 +145,7 @@ export function Sidebar({ collapsed, onToggle }: Props) {
       {/* Footer / toggle */}
       <div className={cn(
         'border-t border-white/[0.06] flex items-center',
-        collapsed ? 'px-1.5 py-3 justify-center' : 'px-3 py-3 justify-between',
+        collapsed ? 'px-1.5 py-3 justify-center' : 'px-3 py-3 justify-between'
       )}>
         {!collapsed && <p className="text-[10px] text-white/20 tabular-nums">v1.0 · {new Date().getFullYear()}</p>}
         <button
